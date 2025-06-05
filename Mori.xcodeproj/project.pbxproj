@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */; };
+		20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */; };
 		A1000001000000000000001 /* MoriApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* MoriApp.swift */; };
 		A1000003000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* ContentView.swift */; };
 		A1000005000000000000001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* OnboardingView.swift */; };
@@ -32,6 +33,7 @@
 /* Begin PBXFileReference section */
 		20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMCP.swift; sourceTree = "<group>"; };
 		20F224122DF1EAE40046CA52 /* MoriTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MoriTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViews.swift; sourceTree = "<group>"; };
 		A1000002000000000000001 /* MoriApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoriApp.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000006000000000000001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -103,6 +105,7 @@
 		A1000025000000000000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */,
 				A1000006000000000000001 /* OnboardingView.swift */,
 				A1000008000000000000001 /* ChatView.swift */,
 			);
@@ -252,6 +255,7 @@
 				A1000007000000000000001 /* ChatView.swift in Sources */,
 				A1000009000000000000001 /* AudioRecorder.swift in Sources */,
 				A1000011000000000000001 /* OpenAIService.swift in Sources */,
+				20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */,
 				A1000013000000000000001 /* ChatMessage.swift in Sources */,
 				20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */,
 				A1000001000000000000001 /* MoriApp.swift in Sources */,

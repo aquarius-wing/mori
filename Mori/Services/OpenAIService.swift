@@ -504,7 +504,7 @@ class OpenAIService: ObservableObject {
     }
     
     // MARK: - Enhanced Chat with Tools
-    func sendChatMessageWithTools(_ message: String, conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
+    func sendChatMessageWithTools(_ message: String, conversationHistory: [ChatMessage]) -> AsyncThrowingStream<(String, String), Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -512,6 +512,11 @@ class OpenAIService: ObservableObject {
                     var accumulatedResponse = ""
                     var toolExecutionCount = 0
                     let maxToolExecutions = 3 // Prevent infinite loops
+                    
+                    // Emit initial status
+                    if toolExecutionCount == 0 {
+                        continuation.yield(("status", "🧠 Processing request..."))
+                    }
                     
                     while toolExecutionCount < maxToolExecutions {
                         // Print current conversation state
@@ -526,6 +531,9 @@ class OpenAIService: ObservableObject {
                             print("    ─────────────────────────────────────")
                         }
                         
+                        // Emit thinking status
+                        continuation.yield(("status", "💬 Streaming response..."))
+                        
                         // Get response from LLM
                         var llmResponse = ""
                         // Send message only on first iteration, empty on subsequent iterations
@@ -534,7 +542,7 @@ class OpenAIService: ObservableObject {
                             llmResponse += chunk
                             if toolExecutionCount == 0 {
                                 // Only yield chunks on first iteration
-                                continuation.yield(chunk)
+                                continuation.yield(("response", chunk))
                             }
                         }
                         
@@ -549,7 +557,7 @@ class OpenAIService: ObservableObject {
                             print("✅ No tools found, conversation complete")
                             if toolExecutionCount > 0 {
                                 // If this is a subsequent iteration, yield the final response
-                                continuation.yield(llmResponse)
+                                continuation.yield(("response", llmResponse))
                             }
                             break
                         }
@@ -560,14 +568,46 @@ class OpenAIService: ObservableObject {
                         var toolResponses: [String] = []
                         for toolCall in toolCalls {
                             print("🔧 Executing tool: \(toolCall.tool) with arguments: \(toolCall.arguments)")
+                            
+                            // Emit tool call status
+                            continuation.yield(("tool_call", toolCall.tool))
+                            
+                            // Emit tool arguments
+                            do {
+                                let argumentsData = try JSONSerialization.data(withJSONObject: toolCall.arguments, options: [])
+                                if let argumentsString = String(data: argumentsData, encoding: .utf8) {
+                                    continuation.yield(("tool_arguments", argumentsString))
+                                }
+                            } catch {
+                                print("⚠️ Failed to serialize tool arguments: \(error)")
+                            }
+                            
+                            // Emit tool execution status
+                            continuation.yield(("tool_execution", "Executing \(toolCall.tool)..."))
+                            
                             do {
                                 let toolResult = try await executeTool(toolCall)
                                 let toolResponseText = "Tool \(toolCall.tool) executed successfully: \(toolResult)"
                                 toolResponses.append(toolResponseText)
+                                
+                                // Emit tool result
+                                do {
+                                    let resultData = try JSONSerialization.data(withJSONObject: toolResult, options: .prettyPrinted)
+                                    if let resultString = String(data: resultData, encoding: .utf8) {
+                                        continuation.yield(("tool_results", resultString))
+                                    }
+                                } catch {
+                                    continuation.yield(("tool_results", "\(toolResult)"))
+                                }
+                                
                                 print("✅ Tool \(toolCall.tool) response: \(toolResult)")
                             } catch {
                                 let errorText = "Tool \(toolCall.tool) failed: \(error.localizedDescription)"
                                 toolResponses.append(errorText)
+                                
+                                // Emit tool error
+                                continuation.yield(("error", "Tool \(toolCall.tool) failed: \(error.localizedDescription)"))
+                                
                                 print("❌ Tool \(toolCall.tool) error: \(error)")
                             }
                         }

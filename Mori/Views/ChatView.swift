@@ -1,6 +1,8 @@
 import SwiftUI
 import Combine
 
+
+
 struct ChatView: View {
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
     @AppStorage("customApiBaseUrl") private var customApiBaseUrl = ""
@@ -9,6 +11,9 @@ struct ChatView: View {
     
     @State private var messages: [ChatMessage] = []
     @State private var currentStreamingMessage = ""
+    @State private var currentWorkflowSteps: [WorkflowStep] = []
+    @State private var currentStatus = "Ready"
+    @State private var statusType: WorkflowStepType = .finalStatus
     @State private var isStreaming = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -22,21 +27,34 @@ struct ChatView: View {
     var body: some View {
         NavigationView {
             VStack {
-                // Message list
+                // Message list with workflow display
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 12) {
+                        LazyVStack(spacing: 16) {
                             ForEach(messages) { message in
-                                MessageBubble(message: message)
+                                MessageView(message: message)
                                     .id(message.id)
                             }
                             
-                            // Display streaming message
-                            if isStreaming && !currentStreamingMessage.isEmpty {
-                                MessageBubble(
-                                    message: ChatMessage(content: currentStreamingMessage, isUser: false),
-                                    isStreaming: true
-                                )
+                            // Display current streaming message and workflow
+                            if isStreaming || isSending {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    // Status indicator
+                                    StatusIndicator(status: currentStatus, type: statusType)
+                                    
+                                    // Workflow steps
+                                    if !currentWorkflowSteps.isEmpty {
+                                        WorkflowView(steps: currentWorkflowSteps)
+                                    }
+                                    
+                                    // Streaming message
+                                    if !currentStreamingMessage.isEmpty {
+                                        MessageBubble(
+                                            message: ChatMessage(content: currentStreamingMessage, isUser: false),
+                                            isStreaming: true
+                                        )
+                                    }
+                                }
                                 .id("streaming")
                             }
                         }
@@ -62,7 +80,7 @@ struct ChatView: View {
                 VStack(spacing: 12) {
                     // Text input field
                     HStack(spacing: 12) {
-                        TextField("Enter message...", text: $inputText, axis: .vertical)
+                        TextField("Ask something... (e.g., 'What files are in the root directory?')", text: $inputText, axis: .vertical)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .lineLimit(1...6)
                             .disabled(isSending || isStreaming)
@@ -77,20 +95,12 @@ struct ChatView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Status indicator
-                    if isSending {
+                    // Current status display
+                    if isSending || isStreaming {
                         HStack {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                            Text("Sending...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    } else if isStreaming {
-                        HStack {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                            Text("AI is responding...")
+                            Image(systemName: statusType == .error ? "exclamationmark.triangle" : "gear")
+                                .foregroundColor(statusType == .error ? .red : .blue)
+                            Text(currentStatus)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -104,6 +114,10 @@ struct ChatView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Clear") {
                         messages.removeAll()
+                        currentWorkflowSteps.removeAll()
+                        currentStreamingMessage = ""
+                        currentStatus = "Ready"
+                        statusType = .finalStatus
                     }
                     .disabled(isStreaming || isSending)
                 }
@@ -130,55 +144,140 @@ struct ChatView: View {
         let messageText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !messageText.isEmpty, let service = openAIService else { return }
         
-        // Clear input field and set sending state
+        // Clear input field and reset state
         inputText = ""
         isSending = true
+        currentWorkflowSteps.removeAll()
+        currentStreamingMessage = ""
+        updateStatus("Processing request...", type: .llmThinking)
         
         // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
         messages.append(userMessage)
+        
+        // Add user query workflow step
+        currentWorkflowSteps.append(WorkflowStep(type: .userQuery, content: messageText))
         
         Task {
             do {
                 await MainActor.run {
                     isSending = false
                     isStreaming = true
-                    currentStreamingMessage = ""
                 }
                 
-                // Get AI response with tools (streaming)
-                let stream = service.sendChatMessageWithTools(messageText, conversationHistory: messages)
-                
-                var fullResponse = ""
-                for try await chunk in stream {
-                    fullResponse += chunk
-                    await MainActor.run {
-                        currentStreamingMessage = fullResponse
-                    }
-                }
-                
-                await MainActor.run {
-                    // Complete streaming response, add complete AI message
-                    let aiMessage = ChatMessage(content: fullResponse, isUser: false)
-                    messages.append(aiMessage)
-                    
-                    // Reset streaming state
-                    isStreaming = false
-                    currentStreamingMessage = ""
-                }
+                // Process real tool calling workflow
+                await processRealToolWorkflow(for: messageText, using: service)
                 
             } catch {
                 await MainActor.run {
-                    errorMessage = "Send failed: \(error.localizedDescription)"
-                    showingError = true
+                    let errorStep = WorkflowStep(type: .error, content: "Send failed: \(error.localizedDescription)")
+                    currentWorkflowSteps.append(errorStep)
+                    updateStatus("Error: \(error.localizedDescription)", type: .error)
                     isSending = false
                     isStreaming = false
-                    currentStreamingMessage = ""
                 }
             }
         }
     }
+    
+    private func processRealToolWorkflow(for messageText: String, using service: OpenAIService) async {
+        var toolCallCount = 0
+        var fullResponse = ""
+        
+        do {
+            let stream = service.sendChatMessageWithTools(messageText, conversationHistory: messages)
+            
+            for try await result in stream {
+                let (status, content) = result
+                await MainActor.run {
+                    switch status {
+                    case "status":
+                        updateStatus(content, type: .llmThinking)
+                    case "tool_call":
+                        toolCallCount += 1
+                        let toolCallStep = WorkflowStep(
+                            type: .toolCall,
+                            content: "Initiating call to: \(content)",
+                            details: ["tool_name": content, "arguments": "Pending..."]
+                        )
+                        currentWorkflowSteps.append(toolCallStep)
+                        updateStatus("🔧 Calling tool: \(content)", type: .toolCall)
+                    case "tool_arguments":
+                        // Update the most recent tool call with arguments
+                        if let lastIndex = currentWorkflowSteps.lastIndex(where: { $0.type == .toolCall }) {
+                            let updatedStep = WorkflowStep(
+                                type: .toolCall,
+                                content: currentWorkflowSteps[lastIndex].content,
+                                details: ["tool_name": currentWorkflowSteps[lastIndex].details["tool_name"] ?? "", "arguments": content]
+                            )
+                            currentWorkflowSteps[lastIndex] = updatedStep
+                        }
+                    case "tool_execution":
+                        let executionStep = WorkflowStep(type: .toolExecution, content: content)
+                        currentWorkflowSteps.append(executionStep)
+                        updateStatus("⚡ \(content)", type: .toolExecution)
+                    case "tool_results":
+                        let resultStep = WorkflowStep(
+                            type: .toolResult,
+                            content: "Received result.",
+                            details: ["result": content]
+                        )
+                        currentWorkflowSteps.append(resultStep)
+                        updateStatus("🧠 Processing results...", type: .llmThinking)
+                    case "response":
+                        fullResponse += content
+                        currentStreamingMessage = fullResponse
+                    case "error":
+                        let errorStep = WorkflowStep(type: .error, content: content)
+                        currentWorkflowSteps.append(errorStep)
+                        updateStatus("❌ Error: \(content)", type: .error)
+                    default:
+                        print("Unknown status: \(status)")
+                    }
+                }
+            }
+            
+            await MainActor.run {
+                // Complete streaming response
+                let finalWorkflowSteps = currentWorkflowSteps
+                let aiMessage = ChatMessage(
+                    content: fullResponse, 
+                    isUser: false, 
+                    workflowSteps: finalWorkflowSteps
+                )
+                messages.append(aiMessage)
+                
+                // Add final status
+                let finalStatusMessage = toolCallCount > 0 ? 
+                    "Completed. Processed \(toolCallCount) tool call(s)." : "Completed."
+                let finalStep = WorkflowStep(type: .finalStatus, content: finalStatusMessage)
+                currentWorkflowSteps.append(finalStep)
+                
+                updateStatus("✅ \(finalStatusMessage)", type: .finalStatus)
+                
+                // Reset streaming state
+                isStreaming = false
+                currentStreamingMessage = ""
+                currentWorkflowSteps.removeAll()
+            }
+        } catch {
+            await MainActor.run {
+                let errorStep = WorkflowStep(type: .error, content: "Error: \(error.localizedDescription)")
+                currentWorkflowSteps.append(errorStep)
+                updateStatus("❌ Error: \(error.localizedDescription)", type: .error)
+                isStreaming = false
+                currentStreamingMessage = ""
+            }
+        }
+    }
+    
+    private func updateStatus(_ status: String, type: WorkflowStepType) {
+        currentStatus = status
+        statusType = type
+    }
 }
+
+
 
 struct MessageBubble: View {
     let message: ChatMessage
