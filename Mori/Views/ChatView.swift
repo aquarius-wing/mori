@@ -15,14 +15,14 @@ struct ChatView: View {
     @State private var showingShareSheet = false
     @State private var shareItems: [Any] = []
     
-    // 文本输入相关状态
+    // Text input related state
     @State private var inputText = ""
     @State private var isSending = false
     
     var body: some View {
         NavigationView {
             VStack {
-                // 消息列表
+                // Message list
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 12) {
@@ -31,7 +31,7 @@ struct ChatView: View {
                                     .id(message.id)
                             }
                             
-                            // 显示正在流式输入的消息
+                            // Display streaming message
                             if isStreaming && !currentStreamingMessage.isEmpty {
                                 MessageBubble(
                                     message: ChatMessage(content: currentStreamingMessage, isUser: false),
@@ -58,16 +58,16 @@ struct ChatView: View {
                 
                 Divider()
                 
-                // 文本输入区域
+                // Text input area
                 VStack(spacing: 12) {
-                    // 文本输入框
+                    // Text input field
                     HStack(spacing: 12) {
-                        TextField("输入消息...", text: $inputText, axis: .vertical)
+                        TextField("Enter message...", text: $inputText, axis: .vertical)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .lineLimit(1...6)
                             .disabled(isSending || isStreaming)
                         
-                        // 发送按钮
+                        // Send button
                         Button(action: sendMessage) {
                             Image(systemName: isSending ? "hourglass" : "paperplane.fill")
                                 .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming ? .gray : .blue)
@@ -77,12 +77,12 @@ struct ChatView: View {
                     }
                     .padding(.horizontal)
                     
-                    // 状态提示
+                    // Status indicator
                     if isSending {
                         HStack {
                             ProgressView()
                                 .scaleEffect(0.8)
-                            Text("发送中...")
+                            Text("Sending...")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -90,7 +90,7 @@ struct ChatView: View {
                         HStack {
                             ProgressView()
                                 .scaleEffect(0.8)
-                            Text("AI正在回复...")
+                            Text("AI is responding...")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -111,10 +111,10 @@ struct ChatView: View {
         }
         .onAppear {
             openAIService = OpenAIService(apiKey: openaiApiKey, customBaseURL: customApiBaseUrl.isEmpty ? nil : customApiBaseUrl)
-            // 添加调试信息
-            print("🔧 API配置:")
-            print("  API Key: \(openaiApiKey.isEmpty ? "❌ 未设置" : "✅ 已设置 (长度: \(openaiApiKey.count))")")
-            print("  Base URL: \(customApiBaseUrl.isEmpty ? "✅ 使用默认" : "🔧 自定义: \(customApiBaseUrl)")")
+            // Add debug information
+            print("🔧 API Configuration:")
+            print("  API Key: \(openaiApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openaiApiKey.count))")")
+            print("  Base URL: \(customApiBaseUrl.isEmpty ? "✅ Using default" : "🔧 Custom: \(customApiBaseUrl)")")
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
@@ -130,11 +130,11 @@ struct ChatView: View {
         let messageText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !messageText.isEmpty, let service = openAIService else { return }
         
-        // 清空输入框并设置发送状态
+        // Clear input field and set sending state
         inputText = ""
         isSending = true
         
-        // 添加用户消息
+        // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
         messages.append(userMessage)
         
@@ -146,7 +146,7 @@ struct ChatView: View {
                     currentStreamingMessage = ""
                 }
                 
-                // 获取AI回复（流式）
+                // Get AI response (streaming)
                 let stream = service.sendChatMessage(messageText, conversationHistory: messages)
                 
                 var fullResponse = ""
@@ -158,18 +158,18 @@ struct ChatView: View {
                 }
                 
                 await MainActor.run {
-                    // 完成流式响应，添加完整的AI消息
+                    // Complete streaming response, add complete AI message
                     let aiMessage = ChatMessage(content: fullResponse, isUser: false)
                     messages.append(aiMessage)
                     
-                    // 重置流式状态
+                    // Reset streaming state
                     isStreaming = false
                     currentStreamingMessage = ""
                 }
                 
             } catch {
                 await MainActor.run {
-                    errorMessage = "发送失败: \(error.localizedDescription)"
+                    errorMessage = "Send failed: \(error.localizedDescription)"
                     showingError = true
                     isSending = false
                     isStreaming = false
@@ -246,7 +246,7 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
     
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
-        // 无需更新
+        // No updates needed
     }
 }
 

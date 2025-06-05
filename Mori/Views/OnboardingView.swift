@@ -14,7 +14,7 @@ struct OnboardingView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 30) {
-                // 欢迎标题
+                // Welcome title
                 VStack(spacing: 10) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 80))
@@ -31,7 +31,7 @@ struct OnboardingView: View {
                 
                 Spacer()
                 
-                // API配置输入
+                // API configuration input
                 VStack(alignment: .leading, spacing: 15) {
                     Text("Setup OpenAI API Key")
                         .font(.headline)
@@ -48,7 +48,7 @@ struct OnboardingView: View {
                             saveAndContinue()
                         }
                     
-                    // 高级设置
+                    // Advanced settings
                     Button(action: {
                         showAdvancedSettings.toggle()
                     }) {
@@ -87,7 +87,7 @@ struct OnboardingView: View {
                 .padding(.horizontal)
                 .animation(.easeInOut(duration: 0.2), value: showAdvancedSettings)
                 
-                // 帮助链接
+                // Help links
                 VStack(spacing: 10) {
                     Text("How to get an API key?")
                         .font(.caption)
@@ -100,7 +100,7 @@ struct OnboardingView: View {
                 
                 Spacer()
                 
-                // 继续按钮
+                // Continue button
                 Button(action: saveAndContinue) {
                     Text("Get Started")
                         .font(.headline)
@@ -131,7 +131,7 @@ struct OnboardingView: View {
             return
         }
         
-        // 验证自定义Base URL格式（如果提供了的话）
+        // Validate custom Base URL format (if provided)
         let trimmedBaseUrl = tempBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedBaseUrl.isEmpty {
             if !trimmedBaseUrl.hasPrefix("http://") && !trimmedBaseUrl.hasPrefix("https://") {

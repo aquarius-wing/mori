@@ -18,7 +18,7 @@ class AudioRecorder: NSObject, ObservableObject {
     private func checkSimulator() {
         #if targetEnvironment(simulator)
         isSimulator = true
-        print("⚠️ 运行在iOS模拟器上 - 音频录制功能可能受限")
+        print("⚠️ Running on iOS Simulator - audio recording features may be limited")
         #else
         isSimulator = false
         #endif
@@ -26,7 +26,7 @@ class AudioRecorder: NSObject, ObservableObject {
     
     private func setupAudioSession() {
         do {
-            // 在模拟器中使用更兼容的音频设置
+            // Use more compatible audio settings in simulator
             if isSimulator {
                 try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
             } else {
@@ -34,10 +34,10 @@ class AudioRecorder: NSObject, ObservableObject {
             }
             try audioSession.setActive(true)
         } catch {
-            print("音频会话设置失败: \(error)")
-            // 在模拟器中忽略某些音频设置错误
+            print("Audio session setup failed: \(error)")
+            // Ignore certain audio setup errors in simulator
             if !isSimulator {
-                print("❌ 音频会话设置在真机上失败，这可能会影响录音功能")
+                print("❌ Audio session setup failed on real device, this may affect recording functionality")
             }
         }
     }
@@ -53,7 +53,7 @@ class AudioRecorder: NSObject, ObservableObject {
     func startRecording() {
         guard !isRecording else { return }
         
-        // 在模拟器中添加延迟以避免手势冲突
+        // Add delay in simulator to avoid gesture conflicts
         if isSimulator {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 self.performStartRecording()
@@ -77,7 +77,7 @@ class AudioRecorder: NSObject, ObservableObject {
         ]
         
         do {
-            // 重新设置音频会话（解决模拟器问题）
+            // Reset audio session (fixes simulator issues)
             try audioSession.setActive(false)
             try audioSession.setActive(true)
             
@@ -88,24 +88,24 @@ class AudioRecorder: NSObject, ObservableObject {
                 DispatchQueue.main.async {
                     self.isRecording = true
                     self.recordingURL = audioURL
-                    print("✅ 录音开始成功")
+                    print("✅ Recording started successfully")
                 }
             } else {
-                print("❌ 录音开始失败 - record()返回false")
+                print("❌ Recording start failed - record() returned false")
                 if isSimulator {
-                    // 在模拟器中模拟录音开始
+                    // Simulate recording start in simulator
                     DispatchQueue.main.async {
                         self.isRecording = true
                         self.recordingURL = audioURL
-                        print("⚠️ 模拟器中模拟录音开始")
+                        print("⚠️ Simulating recording start in simulator")
                     }
                 }
             }
         } catch {
-            print("录音开始失败: \(error)")
+            print("Recording start failed: \(error)")
             if isSimulator {
-                print("⚠️ 模拟器录音错误，尝试继续...")
-                // 在模拟器中即使出错也尝试继续
+                print("⚠️ Simulator recording error, trying to continue...")
+                // Try to continue even with errors in simulator
                 DispatchQueue.main.async {
                     self.isRecording = true
                     self.recordingURL = audioURL
@@ -121,23 +121,23 @@ class AudioRecorder: NSObject, ObservableObject {
             recorder.stop()
         }
         
-        // 在模拟器中创建一个虚拟的音频文件（用于测试）
+        // Create a virtual audio file in simulator (for testing)
         if isSimulator && recordingURL != nil {
             createDummyAudioFile()
         }
         
         DispatchQueue.main.async {
             self.isRecording = false
-            print("✅ 录音停止")
+            print("✅ Recording stopped")
         }
     }
     
     private func createDummyAudioFile() {
         guard let url = recordingURL else { return }
         
-        // 在模拟器中创建一个小的虚拟WAV文件用于测试
+        // Create a small virtual WAV file for testing in simulator
         let data = Data([
-            // WAV文件头（44字节）+ 一小段静音数据
+            // WAV file header (44 bytes) + a small segment of silence data
             0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00,
             0x57, 0x41, 0x56, 0x45, 0x66, 0x6D, 0x74, 0x20,
             0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
@@ -147,7 +147,7 @@ class AudioRecorder: NSObject, ObservableObject {
         ])
         
         try? data.write(to: url)
-        print("⚠️ 模拟器中创建了虚拟音频文件")
+        print("⚠️ Created virtual audio file in simulator")
     }
     
     func deleteRecording() {
@@ -156,7 +156,7 @@ class AudioRecorder: NSObject, ObservableObject {
         do {
             try FileManager.default.removeItem(at: url)
         } catch {
-            print("删除录音文件失败: \(error)")
+            print("Failed to delete recording file: \(error)")
         }
         
         recordingURL = nil
@@ -171,7 +171,7 @@ extension AudioRecorder: AVAudioRecorderDelegate {
     }
     
     func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
-        print("录音编码错误: \(error?.localizedDescription ?? "未知错误")")
+        print("Recording encoding error: \(error?.localizedDescription ?? "Unknown error")")
         DispatchQueue.main.async {
             self.isRecording = false
         }
