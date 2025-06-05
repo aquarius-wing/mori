@@ -2,10 +2,16 @@ import Foundation
 
 class OpenAIService: ObservableObject {
     private let apiKey: String
-    private let baseURL = "https://api.openai.com/v1"
+    private let baseURL: String
     
-    init(apiKey: String) {
+    init(apiKey: String, customBaseURL: String? = nil) {
         self.apiKey = apiKey
+        if let customURL = customBaseURL, !customURL.isEmpty {
+            // 移除末尾的斜杠并确保正确的格式
+            self.baseURL = customURL.hasSuffix("/") ? String(customURL.dropLast()) : customURL
+        } else {
+            self.baseURL = "https://api.openai.com/v1"
+        }
     }
     
     // MARK: - Whisper Speech-to-Text

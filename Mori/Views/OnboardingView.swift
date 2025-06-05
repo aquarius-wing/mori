@@ -2,11 +2,14 @@ import SwiftUI
 
 struct OnboardingView: View {
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
+    @AppStorage("customApiBaseUrl") private var customApiBaseUrl = ""
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     
     @State private var tempApiKey = ""
+    @State private var tempBaseUrl = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var showAdvancedSettings = false
     
     var body: some View {
         NavigationView {
@@ -28,7 +31,7 @@ struct OnboardingView: View {
                 
                 Spacer()
                 
-                // API密钥输入
+                // API配置输入
                 VStack(alignment: .leading, spacing: 15) {
                     Text("Setup OpenAI API Key")
                         .font(.headline)
@@ -44,8 +47,45 @@ struct OnboardingView: View {
                         .onSubmit {
                             saveAndContinue()
                         }
+                    
+                    // 高级设置
+                    Button(action: {
+                        showAdvancedSettings.toggle()
+                    }) {
+                        HStack {
+                            Text("Advanced Settings")
+                                .font(.subheadline)
+                                .foregroundColor(.blue)
+                            Spacer()
+                            Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    
+                    if showAdvancedSettings {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Custom API Base URL (Optional)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            Text("Leave empty to use OpenAI's official API. Enter a custom URL for OpenAI-compatible services.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.leading)
+                            
+                            TextField("https://api.openai.com/v1", text: $tempBaseUrl)
+                                .textFieldStyle(.roundedBorder)
+                                .keyboardType(.URL)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        }
+                        .padding(.top, 10)
+                        .transition(.opacity.combined(with: .slide))
+                    }
                 }
                 .padding(.horizontal)
+                .animation(.easeInOut(duration: 0.2), value: showAdvancedSettings)
                 
                 // 帮助链接
                 VStack(spacing: 10) {
@@ -91,7 +131,24 @@ struct OnboardingView: View {
             return
         }
         
+        // 验证自定义Base URL格式（如果提供了的话）
+        let trimmedBaseUrl = tempBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedBaseUrl.isEmpty {
+            if !trimmedBaseUrl.hasPrefix("http://") && !trimmedBaseUrl.hasPrefix("https://") {
+                alertMessage = "Custom API Base URL must start with http:// or https://"
+                showingAlert = true
+                return
+            }
+            
+            if URL(string: trimmedBaseUrl) == nil {
+                alertMessage = "Please enter a valid URL format"
+                showingAlert = true
+                return
+            }
+        }
+        
         openaiApiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        customApiBaseUrl = trimmedBaseUrl
         hasCompletedOnboarding = true
     }
 }

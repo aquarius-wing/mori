@@ -18,12 +18,14 @@
 - **Speech-to-Text**: Powered by OpenAI Whisper for accurate transcription
 - **Smart Chat**: Streaming conversations with GPT-4o
 - **Rich Responses**: Clean text display for AI responses
+- **Custom API Support**: Configure custom OpenAI-compatible API endpoints
 
 ### 🚀 User Experience
-- **Onboarding Flow**: Guided setup for OpenAI API keys
+- **Onboarding Flow**: Guided setup for OpenAI API keys with advanced settings
 - **Real-time Streaming**: See AI responses as they're generated
 - **Chat History**: Persistent conversation memory
 - **Permission Management**: Automatic microphone permission handling
+- **Advanced Configuration**: Optional custom API Base URL for alternative services
 
 ## 🏗️ Technical Architecture
 
@@ -69,8 +71,9 @@ Mori/
 
 ### 4. First-time Setup
 1. Enter your OpenAI API key in the onboarding screen
-2. Tap "Get Started"
-3. Allow microphone access when prompted
+2. (Optional) Tap "Advanced Settings" to configure custom API Base URL
+3. Tap "Get Started"
+4. Allow microphone access when prompted
 
 ## 💬 How to Use
 
@@ -97,6 +100,12 @@ Mori/
 - Max Tokens: 2000
 - Temperature: 0.7
 - Streaming: Enabled
+- Custom API Base URL: Configurable (defaults to OpenAI official API)
+
+### Supported API Providers
+- **OpenAI**: Default configuration (https://api.openai.com/v1)
+- **Custom Providers**: Any OpenAI-compatible API service
+- **Self-hosted**: Your own OpenAI-compatible API deployment
 
 ## 🔒 Privacy & Security
 

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ChatView: View {
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
+    @AppStorage("customApiBaseUrl") private var customApiBaseUrl = ""
     
     @StateObject private var audioRecorder = AudioRecorder()
     @State private var openAIService: OpenAIService?
@@ -104,7 +105,7 @@ struct ChatView: View {
             }
         }
         .onAppear {
-            openAIService = OpenAIService(apiKey: openaiApiKey)
+            openAIService = OpenAIService(apiKey: openaiApiKey, customBaseURL: customApiBaseUrl.isEmpty ? nil : customApiBaseUrl)
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
