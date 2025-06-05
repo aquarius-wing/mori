@@ -1,10 +1,10 @@
 import SwiftUI
+import Combine
 
 struct ChatView: View {
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
     @AppStorage("customApiBaseUrl") private var customApiBaseUrl = ""
     
-    @StateObject private var audioRecorder = AudioRecorder()
     @State private var openAIService: OpenAIService?
     
     @State private var messages: [ChatMessage] = []
@@ -12,6 +12,12 @@ struct ChatView: View {
     @State private var isStreaming = false
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var showingShareSheet = false
+    @State private var shareItems: [Any] = []
+    
+    // 文本输入相关状态
+    @State private var inputText = ""
+    @State private var isSending = false
     
     var body: some View {
         NavigationView {
@@ -52,46 +58,45 @@ struct ChatView: View {
                 
                 Divider()
                 
-                // 录音按钮区域
-                VStack(spacing: 16) {
-                    if audioRecorder.isRecording {
-                        VStack(spacing: 8) {
-                            Text("Recording...")
-                                .font(.headline)
-                                .foregroundColor(.red)
-                            
-                            Text("Release to send")
+                // 文本输入区域
+                VStack(spacing: 12) {
+                    // 文本输入框
+                    HStack(spacing: 12) {
+                        TextField("输入消息...", text: $inputText, axis: .vertical)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .lineLimit(1...6)
+                            .disabled(isSending || isStreaming)
+                        
+                        // 发送按钮
+                        Button(action: sendMessage) {
+                            Image(systemName: isSending ? "hourglass" : "paperplane.fill")
+                                .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming ? .gray : .blue)
+                                .font(.title2)
+                        }
+                        .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming)
+                    }
+                    .padding(.horizontal)
+                    
+                    // 状态提示
+                    if isSending {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("发送中...")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                    } else {
-                        Text("Hold to record")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    } else if isStreaming {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("AI正在回复...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
-                    
-                    // 录音按钮
-                    Button(action: {}) {
-                        Image(systemName: audioRecorder.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                            .font(.system(size: 80))
-                            .foregroundColor(audioRecorder.isRecording ? .red : .blue)
-                    }
-                    .scaleEffect(audioRecorder.isRecording ? 1.2 : 1.0)
-                    .animation(.easeInOut(duration: 0.1), value: audioRecorder.isRecording)
-                    .onLongPressGesture(
-                        minimumDuration: 0,
-                        maximumDistance: .infinity,
-                        pressing: { pressing in
-                            if pressing {
-                                startRecording()
-                            } else {
-                                stopRecording()
-                            }
-                        },
-                        perform: {}
-                    )
                 }
-                .padding()
+                .padding(.bottom)
             }
             .navigationTitle("Mori")
             .navigationBarTitleDisplayMode(.inline)
@@ -100,61 +105,49 @@ struct ChatView: View {
                     Button("Clear") {
                         messages.removeAll()
                     }
-                    .disabled(isStreaming)
+                    .disabled(isStreaming || isSending)
                 }
             }
         }
         .onAppear {
             openAIService = OpenAIService(apiKey: openaiApiKey, customBaseURL: customApiBaseUrl.isEmpty ? nil : customApiBaseUrl)
+            // 添加调试信息
+            print("🔧 API配置:")
+            print("  API Key: \(openaiApiKey.isEmpty ? "❌ 未设置" : "✅ 已设置 (长度: \(openaiApiKey.count))")")
+            print("  Base URL: \(customApiBaseUrl.isEmpty ? "✅ 使用默认" : "🔧 自定义: \(customApiBaseUrl)")")
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
         } message: {
             Text(errorMessage)
         }
-    }
-    
-    private func startRecording() {
-        Task {
-            let hasPermission = await audioRecorder.requestPermission()
-            
-            if hasPermission {
-                audioRecorder.startRecording()
-            } else {
-                await MainActor.run {
-                    errorMessage = "Microphone access is required for voice recording"
-                    showingError = true
-                }
-            }
+        .sheet(isPresented: $showingShareSheet) {
+            ShareSheet(activityItems: shareItems)
         }
     }
     
-    private func stopRecording() {
-        audioRecorder.stopRecording()
+    private func sendMessage() {
+        let messageText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !messageText.isEmpty, let service = openAIService else { return }
         
-        // 处理录音文件
-        guard let recordingURL = audioRecorder.recordingURL,
-              let service = openAIService else {
-            return
-        }
+        // 清空输入框并设置发送状态
+        inputText = ""
+        isSending = true
+        
+        // 添加用户消息
+        let userMessage = ChatMessage(content: messageText, isUser: true)
+        messages.append(userMessage)
         
         Task {
             do {
-                // 语音转文字
-                let transcription = try await service.transcribeAudio(from: recordingURL)
-                
                 await MainActor.run {
-                    // 添加用户消息
-                    let userMessage = ChatMessage(content: transcription, isUser: true)
-                    messages.append(userMessage)
-                    
-                    // 开始流式获取AI回复
+                    isSending = false
                     isStreaming = true
                     currentStreamingMessage = ""
                 }
                 
                 // 获取AI回复（流式）
-                let stream = service.sendChatMessage(transcription, conversationHistory: messages)
+                let stream = service.sendChatMessage(messageText, conversationHistory: messages)
                 
                 var fullResponse = ""
                 for try await chunk in stream {
@@ -174,18 +167,14 @@ struct ChatView: View {
                     currentStreamingMessage = ""
                 }
                 
-                // 清理录音文件
-                audioRecorder.deleteRecording()
-                
             } catch {
                 await MainActor.run {
-                    errorMessage = "Voice processing failed: \(error.localizedDescription)"
+                    errorMessage = "发送失败: \(error.localizedDescription)"
                     showingError = true
+                    isSending = false
                     isStreaming = false
                     currentStreamingMessage = ""
                 }
-                
-                audioRecorder.deleteRecording()
             }
         }
     }
@@ -244,6 +233,20 @@ struct MessageBubble: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - ShareSheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        // 无需更新
     }
 }
 
