@@ -39,12 +39,6 @@ class OpenAIService: ObservableObject {
 
         Please use only the tools that are explicitly defined above.
         """
-        
-        print("🤖 Generated system message:")
-        print("===========================================")
-        print(systemMessage)
-        print("===========================================")
-        
         return systemMessage
     }
     
@@ -249,7 +243,6 @@ class OpenAIService: ObservableObject {
                 do {
                     print("💬 Starting chat message sending...")
                     print("  Target URL: \(baseURL)/v1/chat/completions")
-                    print("  Message content: \(message)")
                     
                     guard let chatURL = URL(string: "\(baseURL)/v1/chat/completions") else {
                         print("❌ Invalid API URL: \(baseURL)/v1/chat/completions")
@@ -284,20 +277,6 @@ class OpenAIService: ObservableObject {
                         ])
                     }
                     
-                    // Add current message
-                    messages.append([
-                        "role": "user",
-                        "content": message
-                    ])
-                    
-                    // Print all messages being sent
-                    print("📨 Messages being sent to OpenAI:")
-                    for (index, msg) in messages.enumerated() {
-                        let role = msg["role"] as? String ?? "unknown"
-                        let content = msg["content"] as? String ?? "unknown"
-                        print("  [\(index)] \(role.uppercased()): \(content)")
-                        print("    ─────────────────────────────────────")
-                    }
                     
                     let requestBody: [String: Any] = [
                         "model": "google/gemini-2.5-flash-preview-05-20",
@@ -306,6 +285,18 @@ class OpenAIService: ObservableObject {
                         "max_tokens": 2000,
                         "temperature": 0.7
                     ]
+                    
+                    // Print requestBody as JSON
+                    print("📦 Request body being sent to OpenAI:")
+                    do {
+                        let requestBodyData = try JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted)
+                        if let requestBodyJSON = String(data: requestBodyData, encoding: .utf8) {
+                            print("📄 Request Body JSON:")
+                            print(requestBodyJSON)
+                        }
+                    } catch {
+                        print("❌ Failed to serialize request body to JSON: \(error)")
+                    }
                     
                     do {
                         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -522,10 +513,6 @@ class OpenAIService: ObservableObject {
                     var toolExecutionCount = 0
                     let maxToolExecutions = 3 // Prevent infinite loops
                     
-                    // Add user message
-                    let userMessage = ChatMessage(content: message, isUser: true, timestamp: Date())
-                    currentMessages.append(userMessage)
-                    
                     while toolExecutionCount < maxToolExecutions {
                         // Print current conversation state
                         print("🔄 Tool execution cycle: \(toolExecutionCount + 1), Current messages count: \(currentMessages.count)")
@@ -541,6 +528,7 @@ class OpenAIService: ObservableObject {
                         
                         // Get response from LLM
                         var llmResponse = ""
+                        // Send message only on first iteration, empty on subsequent iterations
                         let messageToSend = toolExecutionCount == 0 ? message : ""
                         for try await chunk in sendChatMessage(messageToSend, conversationHistory: currentMessages) {
                             llmResponse += chunk
