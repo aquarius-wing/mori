@@ -438,29 +438,63 @@ class OpenAIService: ObservableObject {
     }
     
     // MARK: - Tool Processing
-    private func extractToolCalls(from response: String) -> [ToolCall] {
+    internal func extractToolCalls(from response: String) -> [ToolCall] {
         print("🔧 Extracting tool calls from response: \(response)")
         
         var toolCalls: [ToolCall] = []
         
-        // Look for JSON objects in the response
-        let jsonRegex = try! NSRegularExpression(pattern: "\\{[^{}]*\"tool\"[^{}]*\\}", options: [])
-        let matches = jsonRegex.matches(in: response, options: [], range: NSRange(location: 0, length: response.count))
+        // Find potential JSON objects by looking for balanced braces
+        let characters = Array(response)
+        var i = 0
         
-        for match in matches {
-            let jsonString = String(response[Range(match.range, in: response)!])
-            if let jsonData = jsonString.data(using: .utf8) {
-                do {
-                    let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
-                    if let tool = json?["tool"] as? String,
-                       let arguments = json?["arguments"] as? [String: Any] {
-                        let toolCall = ToolCall(tool: tool, arguments: arguments)
-                        toolCalls.append(toolCall)
-                        print("🔧 Found tool call: \(tool) with arguments: \(arguments)")
+        while i < characters.count {
+            if characters[i] == "{" {
+                // Found opening brace, try to find the matching closing brace
+                var braceCount = 1
+                var j = i + 1
+                
+                while j < characters.count && braceCount > 0 {
+                    if characters[j] == "{" {
+                        braceCount += 1
+                    } else if characters[j] == "}" {
+                        braceCount -= 1
                     }
-                } catch {
-                    print("⚠️ Failed to parse JSON: \(jsonString)")
+                    j += 1
                 }
+                
+                if braceCount == 0 {
+                    // Found balanced braces, extract the JSON string
+                    let startIndex = response.index(response.startIndex, offsetBy: i)
+                    let endIndex = response.index(response.startIndex, offsetBy: j)
+                    let jsonString = String(response[startIndex..<endIndex])
+                    
+                    print("🔍 Found potential JSON: \(jsonString)")
+                    
+                    // Check if this JSON contains "tool" field
+                    if jsonString.contains("\"tool\"") {
+                        if let jsonData = jsonString.data(using: .utf8) {
+                            do {
+                                let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+                                if let tool = json?["tool"] as? String,
+                                   let arguments = json?["arguments"] as? [String: Any] {
+                                    let toolCall = ToolCall(tool: tool, arguments: arguments)
+                                    toolCalls.append(toolCall)
+                                    print("🔧 Found tool call: \(tool) with arguments: \(arguments)")
+                                } else {
+                                    print("⚠️ JSON doesn't have required tool/arguments fields: \(json ?? [:])")
+                                }
+                            } catch {
+                                print("⚠️ Failed to parse JSON: \(jsonString), error: \(error)")
+                            }
+                        }
+                    }
+                    
+                    i = j
+                } else {
+                    i += 1
+                }
+            } else {
+                i += 1
             }
         }
         

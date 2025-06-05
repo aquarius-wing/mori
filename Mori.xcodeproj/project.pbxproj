@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -19,8 +19,19 @@
 		A1000017000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000018000000000000001 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		20F224162DF1EAE40046CA52 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000033000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1000029000000000000001;
+			remoteInfo = Mori;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMCP.swift; sourceTree = "<group>"; };
+		20F224122DF1EAE40046CA52 /* MoriTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MoriTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002000000000000001 /* MoriApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoriApp.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000006000000000000001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -34,7 +45,18 @@
 		A1000020000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		20F224132DF1EAE40046CA52 /* MoriTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = MoriTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		20F2240F2DF1EAE40046CA52 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000021000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -49,6 +71,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000023000000000000001 /* Mori */,
+				20F224132DF1EAE40046CA52 /* MoriTests */,
 				A1000024000000000000001 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -72,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000019000000000000001 /* Mori.app */,
+				20F224122DF1EAE40046CA52 /* MoriTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -114,6 +138,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		20F224112DF1EAE40046CA52 /* MoriTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 20F224182DF1EAE40046CA52 /* Build configuration list for PBXNativeTarget "MoriTests" */;
+			buildPhases = (
+				20F2240E2DF1EAE40046CA52 /* Sources */,
+				20F2240F2DF1EAE40046CA52 /* Frameworks */,
+				20F224102DF1EAE40046CA52 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				20F224172DF1EAE40046CA52 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				20F224132DF1EAE40046CA52 /* MoriTests */,
+			);
+			name = MoriTests;
+			packageProductDependencies = (
+			);
+			productName = MoriTests;
+			productReference = 20F224122DF1EAE40046CA52 /* MoriTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		A1000029000000000000001 /* Mori */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A1000030000000000000001 /* Build configuration list for PBXNativeTarget "Mori" */;
@@ -138,9 +185,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
+				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					20F224112DF1EAE40046CA52 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = A1000029000000000000001;
+					};
 					A1000029000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -160,11 +211,19 @@
 			projectRoot = "";
 			targets = (
 				A1000029000000000000001 /* Mori */,
+				20F224112DF1EAE40046CA52 /* MoriTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		20F224102DF1EAE40046CA52 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000032000000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -177,6 +236,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		20F2240E2DF1EAE40046CA52 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000031000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -194,7 +260,53 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		20F224172DF1EAE40046CA52 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1000029000000000000001 /* Mori */;
+			targetProxy = 20F224162DF1EAE40046CA52 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		20F224192DF1EAE40046CA52 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NP667JFK84;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.meogic.MoriTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mori.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Mori";
+			};
+			name = Debug;
+		};
+		20F2241A2DF1EAE40046CA52 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NP667JFK84;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.meogic.MoriTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mori.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Mori";
+			};
+			name = Release;
+		};
 		A1000035000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -383,6 +495,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		20F224182DF1EAE40046CA52 /* Build configuration list for PBXNativeTarget "MoriTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20F224192DF1EAE40046CA52 /* Debug */,
+				20F2241A2DF1EAE40046CA52 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A1000030000000000000001 /* Build configuration list for PBXNativeTarget "Mori" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
