@@ -3,6 +3,50 @@ import Foundation
 class OpenAIService: ObservableObject {
     private let apiKey: String
     private let baseURL: String
+    private let calendarMCP = CalendarMCP()
+    
+    private func generateSystemMessage() -> String {
+        let toolsDescription = CalendarMCP.getToolDescription()
+        
+        // Format current date
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy/MM/dd"
+        let currentDate = dateFormatter.string(from: Date())
+        
+        let systemMessage = """
+        You are a helpful assistant with access to these tools:
+
+        \(toolsDescription)
+
+        Current date: \(currentDate)
+
+        Choose the appropriate tool based on the user's question. If no tool is needed, reply directly.
+
+        IMPORTANT: When you need to use a tool, you must respond with the exact JSON object format below:
+        {
+            "tool": "tool-name",
+            "arguments": {
+                "argument-name": "value"
+            }
+        }
+
+        After receiving tool responses:
+        1. Transform the raw data into a natural, conversational response
+        2. Keep responses concise but informative
+        3. Focus on the most relevant information
+        4. Use appropriate context from the user's question
+        5. Avoid simply repeating the raw data
+
+        Please use only the tools that are explicitly defined above.
+        """
+        
+        print("🤖 Generated system message:")
+        print("===========================================")
+        print(systemMessage)
+        print("===========================================")
+        
+        return systemMessage
+    }
     
     init(apiKey: String, customBaseURL: String? = nil) {
         self.apiKey = apiKey
@@ -224,17 +268,18 @@ class OpenAIService: ObservableObject {
                     // Build message history
                     var messages: [[String: Any]] = []
                     
-                    // Add system message
+                    // Add system message with tool capabilities
                     messages.append([
                         "role": "system",
-                        "content": "You are Mori, a helpful AI assistant. Please respond in a friendly and helpful manner. Always respond in Simplified Chinese."
+                        "content": generateSystemMessage()
                     ])
                     
                     // Add history messages (keep only recent 10 messages to control token count)
                     let recentHistory = Array(conversationHistory.suffix(10))
                     for msg in recentHistory {
+                        let role = msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant")
                         messages.append([
-                            "role": msg.isUser ? "user" : "assistant",
+                            "role": role,
                             "content": msg.content
                         ])
                     }
@@ -245,8 +290,17 @@ class OpenAIService: ObservableObject {
                         "content": message
                     ])
                     
+                    // Print all messages being sent
+                    print("📨 Messages being sent to OpenAI:")
+                    for (index, msg) in messages.enumerated() {
+                        let role = msg["role"] as? String ?? "unknown"
+                        let content = msg["content"] as? String ?? "unknown"
+                        print("  [\(index)] \(role.uppercased()): \(content)")
+                        print("    ─────────────────────────────────────")
+                    }
+                    
                     let requestBody: [String: Any] = [
-                        "model": "gpt-4o",
+                        "model": "google/gemini-2.5-flash-preview-05-20",
                         "messages": messages,
                         "stream": true,
                         "max_tokens": 2000,
@@ -382,6 +436,151 @@ class OpenAIService: ObservableObject {
             }
         }
     }
+    
+    // MARK: - Tool Processing
+    private func extractToolCalls(from response: String) -> [ToolCall] {
+        print("🔧 Extracting tool calls from response: \(response)")
+        
+        var toolCalls: [ToolCall] = []
+        
+        // Look for JSON objects in the response
+        let jsonRegex = try! NSRegularExpression(pattern: "\\{[^{}]*\"tool\"[^{}]*\\}", options: [])
+        let matches = jsonRegex.matches(in: response, options: [], range: NSRange(location: 0, length: response.count))
+        
+        for match in matches {
+            let jsonString = String(response[Range(match.range, in: response)!])
+            if let jsonData = jsonString.data(using: .utf8) {
+                do {
+                    let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+                    if let tool = json?["tool"] as? String,
+                       let arguments = json?["arguments"] as? [String: Any] {
+                        let toolCall = ToolCall(tool: tool, arguments: arguments)
+                        toolCalls.append(toolCall)
+                        print("🔧 Found tool call: \(tool) with arguments: \(arguments)")
+                    }
+                } catch {
+                    print("⚠️ Failed to parse JSON: \(jsonString)")
+                }
+            }
+        }
+        
+        return toolCalls
+    }
+    
+    private func executeTool(_ toolCall: ToolCall) async throws -> [String: Any] {
+        print("🔧 Executing tool: \(toolCall.tool)")
+        
+        switch toolCall.tool {
+        case "read_calendar", "read-calendar":
+            return try await calendarMCP.readCalendar(arguments: toolCall.arguments)
+        default:
+            throw OpenAIError.customError("Unknown tool: \(toolCall.tool)")
+        }
+    }
+    
+    // MARK: - Enhanced Chat with Tools
+    func sendChatMessageWithTools(_ message: String, conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    var currentMessages = conversationHistory
+                    var accumulatedResponse = ""
+                    var toolExecutionCount = 0
+                    let maxToolExecutions = 3 // Prevent infinite loops
+                    
+                    // Add user message
+                    let userMessage = ChatMessage(content: message, isUser: true, timestamp: Date())
+                    currentMessages.append(userMessage)
+                    
+                    while toolExecutionCount < maxToolExecutions {
+                        // Print current conversation state
+                        print("🔄 Tool execution cycle: \(toolExecutionCount + 1), Current messages count: \(currentMessages.count)")
+                        if toolExecutionCount == 0 {
+                            print("📨 User message: \(message)")
+                        }
+                        print("📋 Current conversation history:")
+                        for (index, msg) in currentMessages.enumerated() {
+                            let role = msg.isSystem ? "SYSTEM" : (msg.isUser ? "USER" : "ASSISTANT")
+                            print("  [\(index)] \(role): \(msg.content)")
+                            print("    ─────────────────────────────────────")
+                        }
+                        
+                        // Get response from LLM
+                        var llmResponse = ""
+                        let messageToSend = toolExecutionCount == 0 ? message : ""
+                        for try await chunk in sendChatMessage(messageToSend, conversationHistory: currentMessages) {
+                            llmResponse += chunk
+                            if toolExecutionCount == 0 {
+                                // Only yield chunks on first iteration
+                                continuation.yield(chunk)
+                            }
+                        }
+                        
+                        accumulatedResponse += llmResponse
+                        print("🤖 LLM Response: \(llmResponse)")
+                        
+                        // Extract tool calls
+                        let toolCalls = extractToolCalls(from: llmResponse)
+                        
+                        if toolCalls.isEmpty {
+                            // No tools to execute, we're done
+                            print("✅ No tools found, conversation complete")
+                            if toolExecutionCount > 0 {
+                                // If this is a subsequent iteration, yield the final response
+                                continuation.yield(llmResponse)
+                            }
+                            break
+                        }
+                        
+                        print("🔧 Found \(toolCalls.count) tool calls to execute")
+                        
+                        // Execute tools and collect responses
+                        var toolResponses: [String] = []
+                        for toolCall in toolCalls {
+                            print("🔧 Executing tool: \(toolCall.tool) with arguments: \(toolCall.arguments)")
+                            do {
+                                let toolResult = try await executeTool(toolCall)
+                                let toolResponseText = "Tool \(toolCall.tool) executed successfully: \(toolResult)"
+                                toolResponses.append(toolResponseText)
+                                print("✅ Tool \(toolCall.tool) response: \(toolResult)")
+                            } catch {
+                                let errorText = "Tool \(toolCall.tool) failed: \(error.localizedDescription)"
+                                toolResponses.append(errorText)
+                                print("❌ Tool \(toolCall.tool) error: \(error)")
+                            }
+                        }
+                        
+                        // Add LLM response as assistant message
+                        let assistantMessage = ChatMessage(content: llmResponse, isUser: false, timestamp: Date())
+                        currentMessages.append(assistantMessage)
+                        
+                        // Add tool responses as system messages
+                        for toolResponse in toolResponses {
+                            let systemMessage = ChatMessage(content: toolResponse, isUser: false, timestamp: Date(), isSystem: true)
+                            currentMessages.append(systemMessage)
+                        }
+                        
+                        toolExecutionCount += 1
+                        
+                        // If this isn't the first iteration, clear accumulated response for next cycle
+                        if toolExecutionCount > 1 {
+                            accumulatedResponse = ""
+                        }
+                    }
+                    
+                    if toolExecutionCount >= maxToolExecutions {
+                        print("⚠️ Maximum tool execution cycles reached")
+                    }
+                    
+                    continuation.finish()
+                    
+                } catch {
+                    print("❌ Chat with tools failed: \(error.localizedDescription)")
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Response Models
@@ -399,6 +598,17 @@ struct StreamChoice: Codable {
 
 struct StreamDelta: Codable {
     let content: String?
+}
+
+// MARK: - Tool Models
+struct ToolCall {
+    let tool: String
+    let arguments: [String: Any]
+    
+    init(tool: String, arguments: [String: Any]) {
+        self.tool = tool
+        self.arguments = arguments
+    }
 }
 
 // MARK: - Errors

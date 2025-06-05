@@ -146,8 +146,8 @@ struct ChatView: View {
                     currentStreamingMessage = ""
                 }
                 
-                // Get AI response (streaming)
-                let stream = service.sendChatMessage(messageText, conversationHistory: messages)
+                // Get AI response with tools (streaming)
+                let stream = service.sendChatMessageWithTools(messageText, conversationHistory: messages)
                 
                 var fullResponse = ""
                 for try await chunk in stream {

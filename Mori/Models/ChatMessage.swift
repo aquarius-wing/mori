@@ -5,10 +5,12 @@ struct ChatMessage: Identifiable, Codable {
     let content: String
     let isUser: Bool
     let timestamp: Date
+    let isSystem: Bool
     
-    init(content: String, isUser: Bool) {
+    init(content: String, isUser: Bool, timestamp: Date? = nil, isSystem: Bool = false) {
         self.content = content
         self.isUser = isUser
-        self.timestamp = Date()
+        self.timestamp = timestamp ?? Date()
+        self.isSystem = isSystem
     }
 } 

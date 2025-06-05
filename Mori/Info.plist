@@ -50,5 +50,7 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access to record voice messages for AI chat.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>This app needs calendar access to help you manage your schedule and answer questions about your events.</string>
 </dict>
 </plist>
