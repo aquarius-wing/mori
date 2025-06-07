@@ -36,7 +36,7 @@ AI needs to request tools in the following JSON format:
 
 ```json
 {
-    "tool": "read_calendar",
+    "tool": "read-calendar",
     "arguments": {
         "fromDate": "2024/01/01",
         "toDate": "2024/01/07"
@@ -46,7 +46,7 @@ AI needs to request tools in the following JSON format:
 
 ## Supported Tools
 
-### read_calendar
+### read-calendar
 - **Description**: Read calendar events
 - **Parameters**:
   - `fromDate`: Start date (YYYY/MM/DD format)
@@ -69,7 +69,7 @@ Added calendar permission request in Info.plist:
 
 ```json
 {
-    "tool": "read_calendar", 
+    "tool": "read-calendar", 
     "arguments": {
         "fromDate": "2024/01/15",
         "toDate": "2024/01/15"

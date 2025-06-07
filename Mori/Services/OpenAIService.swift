@@ -52,192 +52,8 @@ class OpenAIService: ObservableObject {
         }
     }
     
-    // MARK: - Whisper Speech-to-Text
-    func transcribeAudio(from url: URL) async throws -> String {
-        print("🎤 Starting speech-to-text transcription...")
-        print("  File path: \(url.path)")
-        print("  Target URL: \(baseURL)/v1/audio/transcriptions")
-        
-        let transcriptionURL = URL(string: "\(baseURL)/v1/audio/transcriptions")!
-        var request = URLRequest(url: transcriptionURL)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 30.0 // Increase timeout duration
-        
-        let boundary = UUID().uuidString
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        
-        // Check if audio file exists and is readable
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            print("❌ Audio file does not exist: \(url.path)")
-            throw OpenAIError.noAudioData
-        }
-        
-        let audioData = try Data(contentsOf: url)
-        print("  Audio file size: \(audioData.count) bytes")
-        
-        // Check if audio data is empty
-        guard !audioData.isEmpty else {
-            print("❌ Audio file is empty")
-            throw OpenAIError.noAudioData
-        }
-        var body = Data()
-        
-        // Add model parameter
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
-        body.append("whisper-1\r\n".data(using: .utf8)!)
-        
-        // Add audio file
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: audio/wav\r\n\r\n".data(using: .utf8)!)
-        body.append(audioData)
-        body.append("\r\n".data(using: .utf8)!)
-        
-        // End boundary
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
-        
-        request.httpBody = body
-        
-        // Add detailed request logging
-        print("🔧 Request details:")
-        print("  Method: \(request.httpMethod ?? "Unknown")")
-        print("  URL: \(request.url?.absoluteString ?? "Unknown")")
-        print("  Headers:")
-        if let headers = request.allHTTPHeaderFields {
-            for (key, value) in headers {
-                if key.lowercased().contains("authorization") {
-                    print("    \(key): Bearer ****** (Hidden)")
-                } else {
-                    print("    \(key): \(value)")
-                }
-            }
-        }
-        print("  Body size: \(body.count) bytes")
-        print("  Boundary: \(boundary)")
-        
-        // Save request body to file for debugging
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let requestBodyURL = documentsPath.appendingPathComponent("debug_request_body.txt")
-        do {
-            // Create readable format of request body
-            let requestBodyString = """
-            === HTTP Request Details ===
-            Method: \(request.httpMethod ?? "Unknown")
-            URL: \(request.url?.absoluteString ?? "Unknown")
-            
-            Headers:
-            \(request.allHTTPHeaderFields?.map { "\($0.key): \($0.value)" }.joined(separator: "\n") ?? "None")
-            
-            Body (Multipart Form Data):
-            Boundary: \(boundary)
-            Content-Length: \(body.count) bytes
-            
-            === Original Recording File Path ===
-            \(url.path)
-            
-            === Audio File Information ===
-            File size: \(audioData.count) bytes
-            File format: WAV
-            Sample rate: 16000 Hz
-            Channels: 1 (Mono)
-            Bit depth: 16 bit
-            
-            === Timestamp ===
-            \(Date())
-            """
-            
-            try requestBodyString.write(to: requestBodyURL, atomically: true, encoding: .utf8)
-            print("📝 Request details saved to: \(requestBodyURL.path)")
-            
-            // Copy recording file to more accessible location
-            let debugAudioURL = documentsPath.appendingPathComponent("debug_recording.wav")
-            try? FileManager.default.removeItem(at: debugAudioURL) // Remove old file
-            try FileManager.default.copyItem(at: url, to: debugAudioURL)
-            print("🎵 Recording file copied to: \(debugAudioURL.path)")
-            
-        } catch {
-            print("❌ Failed to save debug files: \(error)")
-        }
-        
-        do {
-            print("🌐 Sending request to Whisper API...")
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ Invalid HTTP response")
-                throw OpenAIError.invalidResponse
-            }
-            
-            print("📡 API response status: \(httpResponse.statusCode)")
-            
-            if httpResponse.statusCode != 200 {
-                // Try to parse error information
-                if let errorString = String(data: data, encoding: .utf8) {
-                    print("❌ API error (\(httpResponse.statusCode)): \(errorString)")
-                }
-                throw OpenAIError.invalidResponse
-            }
-            
-            // Add response content debugging
-            print("📄 Response data size: \(data.count) bytes")
-            if let responseString = String(data: data, encoding: .utf8) {
-                print("📄 Response content: \(responseString)")
-            } else {
-                print("❌ Unable to convert response data to string")
-            }
-            
-            do {
-                let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
-                print("✅ Speech-to-text successful: \(transcriptionResponse.text)")
-                return transcriptionResponse.text
-            } catch {
-                print("❌ JSON parsing failed: \(error)")
-                
-                // Try to parse possible error response format
-                if let responseString = String(data: data, encoding: .utf8) {
-                    print("🔍 Attempting to parse error response: \(responseString)")
-                    
-                    // Check if it's an HTML error page
-                    if responseString.lowercased().contains("<html") {
-                        print("🚨 HTML response detected, this usually means:")
-                        print("  1. API endpoint path is incorrect")
-                        print("  2. Proper authentication is required")
-                        print("  3. API service configuration issue")
-                        
-                        if responseString.contains("One API") {
-                            print("💡 One API management interface detected, suggestions:")
-                            print("  - Check if API endpoint should be: /v1/audio/transcriptions")
-                            print("  - Verify API key is correct")
-                            print("  - Confirm Whisper model is configured in One API service")
-                        }
-                        
-                        throw OpenAIError.htmlErrorResponse
-                    }
-                    
-                    // Try to parse other error formats
-                    if let errorData = responseString.data(using: .utf8),
-                       let errorJSON = try? JSONSerialization.jsonObject(with: errorData) as? [String: Any],
-                       let errorMessage = errorJSON["error"] as? String {
-                        throw OpenAIError.customError(errorMessage)
-                    }
-                }
-                
-                throw error
-            }
-        } catch {
-            print("❌ Network request failed: \(error.localizedDescription)")
-            if let urlError = error as? URLError {
-                print("  Error code: \(urlError.code.rawValue)")
-                print("  Error description: \(urlError.localizedDescription)")
-            }
-            throw error
-        }
-    }
-    
     // MARK: - GPT-4o Chat Completion with Streaming
-    func sendChatMessage(_ message: String, conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
+    func sendChatMessage(conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -279,23 +95,23 @@ class OpenAIService: ObservableObject {
                     
                     
                     let requestBody: [String: Any] = [
-                        "model": "deepseek/deepseek-chat-v3-0324",
+                        "model": "google/gemini-2.5-pro-preview",
                         "messages": messages,
                         "stream": true,
-                        "temperature": 0.7
+                        "temperature": 0
                     ]
                     
                     // Print requestBody as JSON
-                    print("📦 Request body being sent to OpenAI:")
-                    do {
-                        let requestBodyData = try JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted)
-                        if let requestBodyJSON = String(data: requestBodyData, encoding: .utf8) {
-                            print("📄 Request Body JSON:")
-                            print(requestBodyJSON)
-                        }
-                    } catch {
-                        print("❌ Failed to serialize request body to JSON: \(error)")
-                    }
+                    // print("📦 Request body being sent to OpenAI:")
+                    // do {
+                    //     let requestBodyData = try JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted)
+                    //     if let requestBodyJSON = String(data: requestBodyData, encoding: .utf8) {
+                    //         print("📄 Request Body JSON:")
+                    //         print(requestBodyJSON)
+                    //     }
+                    // } catch {
+                    //     print("❌ Failed to serialize request body to JSON: \(error)")
+                    // }
                     
                     do {
                         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -304,20 +120,15 @@ class OpenAIService: ObservableObject {
                         continuation.finish(throwing: error)
                         return
                     }
-                    
-                    print("🔧 Request details:")
-                    print("  Method: \(request.httpMethod ?? "Unknown")")
-                    print("  URL: \(request.url?.absoluteString ?? "Unknown")")
-                    print("  Headers:")
-                    if let headers = request.allHTTPHeaderFields {
-                        for (key, value) in headers {
-                            if key.lowercased().contains("authorization") {
-                                print("    \(key): Bearer ****** (Hidden)")
-                            } else {
-                                print("    \(key): \(value)")
-                            }
-                        }
-                    }
+                    // if let headers = request.allHTTPHeaderFields {
+                    //     for (key, value) in headers {
+                    //         if key.lowercased().contains("authorization") {
+                    //             print("    \(key): Bearer ****** (Hidden)")
+                    //         } else {
+                    //             print("    \(key): \(value)")
+                    //         }
+                    //     }
+                    // }
                     
                     // Configure URLSession
                     let config = URLSessionConfiguration.default
@@ -330,19 +141,12 @@ class OpenAIService: ObservableObject {
                     let session = URLSession(configuration: config)
                     
                     // Use streaming request
-                    print("🌐 Sending streaming request...")
                     let (asyncBytes, response) = try await session.bytes(for: request)
                     
                     guard let httpResponse = response as? HTTPURLResponse else {
                         print("❌ Invalid HTTP response")
                         continuation.finish(throwing: OpenAIError.invalidResponse)
                         return
-                    }
-                    
-                    print("📡 API response status: \(httpResponse.statusCode)")
-                    print("📡 Response headers:")
-                    for (key, value) in httpResponse.allHeaderFields {
-                        print("    \(key): \(value)")
                     }
                     
                     guard httpResponse.statusCode == 200 else {
@@ -567,15 +371,17 @@ class OpenAIService: ObservableObject {
         print("🔧 Executing tool: \(toolCall.tool)")
         
         switch toolCall.tool {
-        case "read_calendar", "read-calendar":
+        case "read-calendar":
             return try await calendarMCP.readCalendar(arguments: toolCall.arguments)
+        case "update-calendar":
+            return try await calendarMCP.updateCalendar(arguments: toolCall.arguments)
         default:
             throw OpenAIError.customError("Unknown tool: \(toolCall.tool)")
         }
     }
     
     // MARK: - Enhanced Chat with Tools
-    func sendChatMessageWithTools(_ message: String, conversationHistory: [ChatMessage]) -> AsyncThrowingStream<(String, String), Error> {
+    func sendChatMessageWithTools(conversationHistory: [ChatMessage]) -> AsyncThrowingStream<(String, String), Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -592,13 +398,11 @@ class OpenAIService: ObservableObject {
                     while toolExecutionCount < maxToolExecutions {
                         // Print current conversation state
                         print("🔄 Tool execution cycle: \(toolExecutionCount + 1), Current messages count: \(currentMessages.count)")
-                        if toolExecutionCount == 0 {
-                            print("📨 User message: \(message)")
-                        }
                         print("📋 Current conversation history:")
                         for (index, msg) in currentMessages.enumerated() {
                             let role = msg.isSystem ? "SYSTEM" : (msg.isUser ? "USER" : "ASSISTANT")
-                            print("  [\(index)] \(role): \(msg.content)")
+                            // print content first 50 chars
+                            print("  [\(index)] \(role): \(String(msg.content.prefix(50)))...")
                             print("    ─────────────────────────────────────")
                         }
                         
@@ -607,9 +411,8 @@ class OpenAIService: ObservableObject {
                         
                         // Get response from LLM
                         var llmResponse = ""
-                        // Send message only on first iteration, empty on subsequent iterations
-                        let messageToSend = toolExecutionCount == 0 ? message : ""
-                        for try await chunk in sendChatMessage(messageToSend, conversationHistory: currentMessages) {
+                        // Always send empty message since user message is already in conversationHistory
+                        for try await chunk in sendChatMessage(conversationHistory: currentMessages) {
                             llmResponse += chunk
                             if toolExecutionCount == 0 {
                                 // Only yield chunks on first iteration
@@ -631,6 +434,7 @@ class OpenAIService: ObservableObject {
                                 let responseToYield = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
                                 continuation.yield(("response", responseToYield))
                             }
+                            continuation.yield(("add_assistant_message", llmResponse))
                             break
                         }
                         
@@ -684,11 +488,19 @@ class OpenAIService: ObservableObject {
                             }
                         }
                         
-                        // Add LLM response as assistant message (use cleaned response if available)
-                        let assistantMessage = ChatMessage(content: cleanedResponse, isUser: false, timestamp: Date())
+                        // Send assistant message to ChatView
+                        let assistantContent = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
+                        continuation.yield(("add_assistant_message", assistantContent))
+                        
+                        // Send tool responses as system messages to ChatView
+                        for toolResponse in toolResponses {
+                            continuation.yield(("add_system_message", toolResponse))
+                        }
+                        
+                        // Update local currentMessages for next iteration
+                        let assistantMessage = ChatMessage(content: assistantContent, isUser: false, timestamp: Date())
                         currentMessages.append(assistantMessage)
                         
-                        // Add tool responses as system messages
                         for toolResponse in toolResponses {
                             let systemMessage = ChatMessage(content: toolResponse, isUser: false, timestamp: Date(), isSystem: true)
                             currentMessages.append(systemMessage)

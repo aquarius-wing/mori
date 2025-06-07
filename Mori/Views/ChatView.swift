@@ -165,6 +165,8 @@ struct ChatView: View {
                     isStreaming = true
                 }
                 
+                print("📨 Starting workflow with \(messages.count) messages in history")
+                
                 // Process real tool calling workflow
                 await processRealToolWorkflow(for: messageText, using: service)
                 
@@ -185,7 +187,7 @@ struct ChatView: View {
         var fullResponse = ""
         
         do {
-            let stream = service.sendChatMessageWithTools(messageText, conversationHistory: messages)
+            let stream = service.sendChatMessageWithTools(conversationHistory: messages)
             
             for try await result in stream {
                 let (status, content) = result
@@ -231,6 +233,16 @@ struct ChatView: View {
                         let errorStep = WorkflowStep(type: .error, content: content)
                         currentWorkflowSteps.append(errorStep)
                         updateStatus("❌ Error: \(content)", type: .error)
+                    case "add_assistant_message":
+                        // Add assistant message to messages
+                        let assistantMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
+                        messages.append(assistantMessage)
+                        print("✅ Added assistant message: \(String(content.prefix(50)))...")
+                    case "add_system_message":
+                        // Add system message to messages
+                        let systemMessage = ChatMessage(content: content, isUser: false, timestamp: Date(), isSystem: true)
+                        messages.append(systemMessage)
+                        print("🔧 Added system message: \(String(content.prefix(50)))...")
                     default:
                         print("Unknown status: \(status)")
                     }
@@ -238,14 +250,17 @@ struct ChatView: View {
             }
             
             await MainActor.run {
-                // Complete streaming response
-                let finalWorkflowSteps = currentWorkflowSteps
-                let aiMessage = ChatMessage(
-                    content: fullResponse, 
-                    isUser: false, 
-                    workflowSteps: finalWorkflowSteps
-                )
-                messages.append(aiMessage)
+                // Update the last assistant message with workflow steps if it exists
+                if !messages.isEmpty && !messages.last!.isUser && !messages.last!.isSystem {
+                    let finalWorkflowSteps = currentWorkflowSteps
+                    let lastIndex = messages.count - 1
+                    messages[lastIndex] = ChatMessage(
+                        content: messages[lastIndex].content,
+                        isUser: false,
+                        timestamp: messages[lastIndex].timestamp,
+                        workflowSteps: finalWorkflowSteps
+                    )
+                }
                 
                 // Add final status
                 let finalStatusMessage = toolCallCount > 0 ? 
@@ -259,6 +274,8 @@ struct ChatView: View {
                 isStreaming = false
                 currentStreamingMessage = ""
                 currentWorkflowSteps.removeAll()
+                
+                print("🏁 Workflow completed. Final message count: \(messages.count)")
             }
         } catch {
             await MainActor.run {
