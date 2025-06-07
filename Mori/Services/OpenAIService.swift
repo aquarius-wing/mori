@@ -37,7 +37,7 @@ class OpenAIService: ObservableObject {
         4. Use appropriate context from the user's question
         5. Avoid simply repeating the raw data
 
-        Please use only the tools that are explicitly defined above.
+        Please use only the tools that are explicitly defined above. do not has comment in json format.
         """
         return systemMessage
     }
@@ -279,10 +279,9 @@ class OpenAIService: ObservableObject {
                     
                     
                     let requestBody: [String: Any] = [
-                        "model": "google/gemini-2.5-flash-preview-05-20",
+                        "model": "deepseek/deepseek-chat-v3-0324",
                         "messages": messages,
                         "stream": true,
-                        "max_tokens": 2000,
                         "temperature": 0.7
                     ]
                     
@@ -429,10 +428,58 @@ class OpenAIService: ObservableObject {
     }
     
     // MARK: - Tool Processing
-    internal func extractToolCalls(from response: String) -> [ToolCall] {
+    internal func extractToolCalls(from response: String) -> ([ToolCall], String) {
         print("🔧 Extracting tool calls from response: \(response)")
         
         var toolCalls: [ToolCall] = []
+        var cleanedText = response
+        var extractedRanges: [Range<String.Index>] = []
+        
+        // First try to parse the entire text as a single JSON array or object
+        let trimmedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let jsonData = trimmedResponse.data(using: .utf8) {
+            do {
+                let data = try JSONSerialization.jsonObject(with: jsonData)
+                var isValidToolCall = false
+                
+                if let arrayData = data as? [[String: Any]] {
+                    // Check if it's a list of tool calls
+                    var validTools = true
+                    for item in arrayData {
+                        if !(item["tool"] is String && item["arguments"] is [String: Any]) {
+                            validTools = false
+                            break
+                        }
+                    }
+                    if validTools {
+                        for item in arrayData {
+                            if let tool = item["tool"] as? String,
+                               let arguments = item["arguments"] as? [String: Any] {
+                                let toolCall = ToolCall(tool: tool, arguments: arguments)
+                                toolCalls.append(toolCall)
+                            }
+                        }
+                        isValidToolCall = true
+                    }
+                } else if let objectData = data as? [String: Any] {
+                    // Check if it's a single tool call
+                    if let tool = objectData["tool"] as? String,
+                       let arguments = objectData["arguments"] as? [String: Any] {
+                        let toolCall = ToolCall(tool: tool, arguments: arguments)
+                        toolCalls.append(toolCall)
+                        isValidToolCall = true
+                    }
+                }
+                
+                if isValidToolCall {
+                    print("🔧 Successfully parsed entire response as tool call(s)")
+                    return (toolCalls, "") // Return empty string as cleaned text
+                }
+            } catch {
+                // Continue to regex matching if direct parsing fails
+                print("🔍 Direct JSON parsing failed, trying regex approach: \(error)")
+            }
+        }
         
         // Find potential JSON objects by looking for balanced braces
         let characters = Array(response)
@@ -471,6 +518,9 @@ class OpenAIService: ObservableObject {
                                     let toolCall = ToolCall(tool: tool, arguments: arguments)
                                     toolCalls.append(toolCall)
                                     print("🔧 Found tool call: \(tool) with arguments: \(arguments)")
+                                    
+                                    // Record the range for removal
+                                    extractedRanges.append(startIndex..<endIndex)
                                 } else {
                                     print("⚠️ JSON doesn't have required tool/arguments fields: \(json ?? [:])")
                                 }
@@ -489,7 +539,28 @@ class OpenAIService: ObservableObject {
             }
         }
         
-        return toolCalls
+        // Build the cleaned text by removing the extracted JSON parts
+        if !extractedRanges.isEmpty {
+            var cleanedParts: [String] = []
+            var lastEndIndex = response.startIndex
+            
+            // Sort ranges to process them in order
+            let sortedRanges = extractedRanges.sorted { $0.lowerBound < $1.lowerBound }
+            
+            for range in sortedRanges {
+                // Add text before this JSON range
+                cleanedParts.append(String(response[lastEndIndex..<range.lowerBound]))
+                lastEndIndex = range.upperBound
+            }
+            
+            // Add remaining text after the last JSON range
+            cleanedParts.append(String(response[lastEndIndex..<response.endIndex]))
+            
+            cleanedText = cleanedParts.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+            print("🧹 Cleaned text after removing JSON: \(cleanedText)")
+        }
+        
+        return (toolCalls, cleanedText)
     }
     
     private func executeTool(_ toolCall: ToolCall) async throws -> [String: Any] {
@@ -549,15 +620,16 @@ class OpenAIService: ObservableObject {
                         accumulatedResponse += llmResponse
                         print("🤖 LLM Response: \(llmResponse)")
                         
-                        // Extract tool calls
-                        let toolCalls = extractToolCalls(from: llmResponse)
+                        // Extract tool calls and get cleaned text
+                        let (toolCalls, cleanedResponse) = extractToolCalls(from: llmResponse)
                         
                         if toolCalls.isEmpty {
                             // No tools to execute, we're done
                             print("✅ No tools found, conversation complete")
                             if toolExecutionCount > 0 {
-                                // If this is a subsequent iteration, yield the final response
-                                continuation.yield(("response", llmResponse))
+                                // If this is a subsequent iteration, yield the final response (use cleaned response)
+                                let responseToYield = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
+                                continuation.yield(("response", responseToYield))
                             }
                             break
                         }
@@ -612,8 +684,8 @@ class OpenAIService: ObservableObject {
                             }
                         }
                         
-                        // Add LLM response as assistant message
-                        let assistantMessage = ChatMessage(content: llmResponse, isUser: false, timestamp: Date())
+                        // Add LLM response as assistant message (use cleaned response if available)
+                        let assistantMessage = ChatMessage(content: cleanedResponse, isUser: false, timestamp: Date())
                         currentMessages.append(assistantMessage)
                         
                         // Add tool responses as system messages
