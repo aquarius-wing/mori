@@ -24,12 +24,18 @@ class OpenAIService: ObservableObject {
         Choose the appropriate tool based on the user's question. If no tool is needed, reply directly.
 
         IMPORTANT: When you need to use a tool, you must respond with the exact JSON object format below:
-        {
-            "tool": "tool-name",
+        [{
+            "tool": "tool-name-1",
             "arguments": {
-                "argument-name": "value"
+                "argument-name-1": "value-1"
             }
         }
+        {
+            "tool": "tool-name-2",
+            "arguments": {
+                "argument-name-2": "value-2"
+            }
+        }]
 
         After receiving tool responses:
         1. Transform the raw data into a natural, conversational response
@@ -39,6 +45,8 @@ class OpenAIService: ObservableObject {
         5. Avoid simply repeating the raw data
 
         Please use only the tools that are explicitly defined above. do not has comment in json format.
+
+        Donot ask user, just response by target tool.
         """
         return systemMessage
     }
@@ -51,6 +59,37 @@ class OpenAIService: ObservableObject {
         } else {
             self.baseURL = "https://api.openai.com"
         }
+    }
+    
+    // MARK: - Generate Request Body
+    func generateRequestBodyJSON(from conversationHistory: [ChatMessage]) -> [String: Any] {
+        // Build message history
+        var messages: [[String: Any]] = []
+        
+        // Add system message with tool capabilities
+        messages.append([
+            "role": "system",
+            "content": generateSystemMessage()
+        ])
+        
+        // Add history messages (keep only recent 10 messages to control token count)
+        let recentHistory = Array(conversationHistory.suffix(10))
+        for msg in recentHistory {
+            let role = msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant")
+            messages.append([
+                "role": role,
+                "content": msg.content
+            ])
+        }
+        
+        let requestBody: [String: Any] = [
+            "model": "deepseek/deepseek-chat-v3-0324",
+            "messages": messages,
+            "stream": true,
+            "temperature": 0
+        ]
+        
+        return requestBody
     }
     
     // MARK: - GPT-4o Chat Completion with Streaming
@@ -75,32 +114,8 @@ class OpenAIService: ObservableObject {
                     request.setValue("keep-alive", forHTTPHeaderField: "Connection")
                     request.timeoutInterval = 60.0 // Set timeout duration
                     
-                    // Build message history
-                    var messages: [[String: Any]] = []
-                    
-                    // Add system message with tool capabilities
-                    messages.append([
-                        "role": "system",
-                        "content": generateSystemMessage()
-                    ])
-                    
-                    // Add history messages (keep only recent 10 messages to control token count)
-                    let recentHistory = Array(conversationHistory.suffix(10))
-                    for msg in recentHistory {
-                        let role = msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant")
-                        messages.append([
-                            "role": role,
-                            "content": msg.content
-                        ])
-                    }
-                    
-                    
-                    let requestBody: [String: Any] = [
-                        "model": "google/gemini-2.5-flash-preview-05-20:thinking",
-                        "messages": messages,
-                        "stream": true,
-                        "temperature": 0
-                    ]
+                    // Generate request body using the dedicated method
+                    let requestBody = generateRequestBodyJSON(from: conversationHistory)
                     
                     // Print requestBody as JSON
                     // print("📦 Request body being sent to OpenAI:")
@@ -116,6 +131,9 @@ class OpenAIService: ObservableObject {
                     
                     do {
                         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+                        print("request body---")
+                        print(String(data: request.httpBody!, encoding: .utf8)!)
+                        print("---")
                     } catch {
                         print("❌ JSON serialization failed: \(error)")
                         continuation.finish(throwing: error)
@@ -495,7 +513,7 @@ class OpenAIService: ObservableObject {
                         
                         // Send tool responses as system messages to ChatView
                         for toolResponse in toolResponses {
-                            continuation.yield(("add_system_message", toolResponse))
+                            continuation.yield(("add_user_message", toolResponse))
                         }
                         
                         // Update local currentMessages for next iteration

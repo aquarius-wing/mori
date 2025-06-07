@@ -111,6 +111,54 @@ struct ChatView: View {
             .navigationTitle("Mori")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Debug") {
+                        // Single tap action (optional)
+                    }
+                    .contextMenu {
+                        Button(action: {
+                            // Print messages in view with all properties using JSONEncoder
+                            do {
+                                let encoder = JSONEncoder()
+                                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                                encoder.dateEncodingStrategy = .iso8601
+                                
+                                let jsonData = try encoder.encode(messages)
+                                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                                    print("📋 Messages in View JSON:")
+                                    print(jsonString)
+                                }
+                            } catch {
+                                print("❌ Failed to serialize messages to JSON: \(error)")
+                            }
+                        }) {
+                            Label("Print Messages in View", systemImage: "doc.text")
+                        }
+                        
+                        Button(action: {
+                            // Print request body
+                            guard let service = openAIService else {
+                                print("❌ OpenAI service not available")
+                                return
+                            }
+                            
+                            let requestBody = service.generateRequestBodyJSON(from: messages)
+                            
+                            do {
+                                let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
+                                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                                    print("📤 Request Body JSON:")
+                                    print(jsonString)
+                                }
+                            } catch {
+                                print("❌ Failed to serialize request body to JSON: \(error)")
+                            }
+                        }) {
+                            Label("Print Request Body", systemImage: "network")
+                        }
+                    }
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Clear") {
                         messages.removeAll()
@@ -243,6 +291,11 @@ struct ChatView: View {
                         let systemMessage = ChatMessage(content: content, isUser: false, timestamp: Date(), isSystem: true)
                         messages.append(systemMessage)
                         print("🔧 Added system message: \(String(content.prefix(50)))...")
+                    case "add_user_message":
+                        // Add user message to messages
+                        let userMessage = ChatMessage(content: content, isUser: true, timestamp: Date())
+                        messages.append(userMessage)
+                        print("🔧 Added user message: \(String(content.prefix(50)))...")
                     default:
                         print("Unknown status: \(status)")
                     }
