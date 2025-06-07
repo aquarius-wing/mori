@@ -10,7 +10,8 @@ class OpenAIService: ObservableObject {
         
         // Format current date
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy/MM/dd"
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
         let currentDate = dateFormatter.string(from: Date())
         
         let systemMessage = """
@@ -95,7 +96,7 @@ class OpenAIService: ObservableObject {
                     
                     
                     let requestBody: [String: Any] = [
-                        "model": "google/gemini-2.5-pro-preview",
+                        "model": "google/gemini-2.5-flash-preview-05-20:thinking",
                         "messages": messages,
                         "stream": true,
                         "temperature": 0

@@ -8,33 +8,19 @@ class CalendarMCP: ObservableObject {
     static func getToolDescription() -> String {
         return """
         Tool: read-calendar
-        Description: If user ask about calendar or events, use this tool to read calendar events.
+        Description: If user ask about calendar or events or meeting or something maybe in Calendar, use this tool to read calendar events.
         Arguments:
-        - startDate: like 2024/01/30 (required)
-        - endDate: like 2024/01/31 (required)
-        
-        IMPORTANT: endDate is a left-closed, right-open interval [startDate, endDate). 
-        This means if you want to query events for today only, endDate should be tomorrow.
-        For example, to query events on 2024/01/30, use startDate: 2024/01/30 and endDate: 2024/01/31.
-        To query events for a whole week from 2024/01/30 to 2024/02/05, use startDate: 2024/01/30 and endDate: 2024/02/06.
-        
-        Example:
-        User: What is the event on 2024/01/30?
-        Assistant: {
-            "tool": "read-calendar",
-            "arguments": {
-                "startDate": "2024/01/30",
-                "endDate": "2024/01/31"
-            }
-        }
+        - startDate: like 2024-01-30T00:00:00Z (required)
+        - endDate: like 2024-01-31T23:59:59Z (required)
         
         
         Tool: update-calendar
         Description: Create or update calendar events.
         Arguments:
-        - title: Event title (required)
-        - startDate: Start date like 2024/01/31 (required)
-        - endDate: End date like 2024/01/31 (required)
+        - id: Event id (required)
+        - title: Event title (optional)
+        - startDate: Start date like 2024-01-31T00:00:00Z (optional)
+        - endDate: End date like 2024-01-31T23:59:59Z (optional)
         - startTime: Start time like 14:30 (optional, format HH:mm)
         - endTime: End time like 16:00 (optional, format HH:mm)
         - location: Event location (optional)
@@ -72,11 +58,12 @@ class CalendarMCP: ObservableObject {
         }
         
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy/MM/dd"
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
         
         guard let startDate = dateFormatter.date(from: startDateString),
               let endDate = dateFormatter.date(from: endDateString) else {
-            throw CalendarMCPError.invalidDateFormat("Date format should be YYYY/MM/DD")
+            throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
         }
         
         // Check calendar access
@@ -92,6 +79,7 @@ class CalendarMCP: ObservableObject {
         // Convert events to dictionary format
         let eventList = events.map { event in
             return [
+                "id": event.eventIdentifier ?? "",
                 "title": event.title ?? "No Title",
                 "start_time": ISO8601DateFormatter().string(from: event.startDate),
                 "end_time": ISO8601DateFormatter().string(from: event.endDate),
@@ -115,95 +103,214 @@ class CalendarMCP: ObservableObject {
     }
     
     func updateCalendar(arguments: [String: Any]) async throws -> [String: Any] {
-        print("📅 Creating calendar event with arguments: \(arguments)")
+        print("📅 Updating/Creating calendar event with arguments: \(arguments)")
         
-        // Parse required arguments
-        guard let title = arguments["title"] as? String,
-              let startDateString = arguments["startDate"] as? String,
-              let endDateString = arguments["endDate"] as? String else {
-            throw CalendarMCPError.invalidArguments("title, startDate and endDate are required")
-        }
-        
-        // Parse optional arguments
-        let startTimeString = arguments["startTime"] as? String
-        let endTimeString = arguments["endTime"] as? String
-        let location = arguments["location"] as? String ?? ""
-        let notes = arguments["notes"] as? String ?? ""
-        let isAllDay = arguments["isAllDay"] as? Bool ?? false
-        
-        // Parse dates
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy/MM/dd"
-        
-        guard let startDate = dateFormatter.date(from: startDateString),
-              let endDate = dateFormatter.date(from: endDateString) else {
-            throw CalendarMCPError.invalidDateFormat("Date format should be YYYY/MM/DD")
-        }
-        
-        // Parse times if provided
-        var finalStartDate = startDate
-        var finalEndDate = endDate
-        
-        if let startTimeString = startTimeString, let endTimeString = endTimeString {
-            let timeFormatter = DateFormatter()
-            timeFormatter.dateFormat = "HH:mm"
-            
-            guard let startTime = timeFormatter.date(from: startTimeString),
-                  let endTime = timeFormatter.date(from: endTimeString) else {
-                throw CalendarMCPError.invalidDateFormat("Time format should be HH:mm")
-            }
-            
-            let calendar = Calendar.current
-            let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
-            let endTimeComponents = calendar.dateComponents([.hour, .minute], from: endTime)
-            
-            finalStartDate = calendar.date(bySettingHour: startTimeComponents.hour ?? 0,
-                                         minute: startTimeComponents.minute ?? 0,
-                                         second: 0,
-                                         of: startDate) ?? startDate
-            
-            finalEndDate = calendar.date(bySettingHour: endTimeComponents.hour ?? 0,
-                                       minute: endTimeComponents.minute ?? 0,
-                                       second: 0,
-                                       of: endDate) ?? endDate
-        }
-        
-        // Check calendar access
+        // Check calendar access first
         let hasAccess = await requestCalendarAccess()
         guard hasAccess else {
             throw CalendarMCPError.accessDenied("Calendar access not granted")
         }
         
-        // Create new event
-        let event = EKEvent(eventStore: eventStore)
-        event.title = title
-        event.startDate = finalStartDate
-        event.endDate = finalEndDate
-        event.location = location
-        event.notes = notes
-        event.isAllDay = isAllDay
-        event.calendar = eventStore.defaultCalendarForNewEvents
-        
-        // Save event
-        do {
-            try eventStore.save(event, span: .thisEvent)
-            print("📅 Event created successfully: \(title)")
+        // Check if this is an update (id provided) or create new event
+        if let eventId = arguments["id"] as? String, !eventId.isEmpty {
+            // Update existing event
+            guard let existingEvent = eventStore.event(withIdentifier: eventId) else {
+                throw CalendarMCPError.eventNotFound("Event with id \(eventId) not found")
+            }
             
-            return [
-                "success": true,
-                "message": "Event created successfully",
-                "event": [
-                    "title": title,
-                    "start_time": ISO8601DateFormatter().string(from: finalStartDate),
-                    "end_time": ISO8601DateFormatter().string(from: finalEndDate),
-                    "location": location,
-                    "notes": notes,
-                    "is_all_day": isAllDay
+            // Update fields if provided
+            if let title = arguments["title"] as? String {
+                existingEvent.title = title
+            }
+            
+            if let location = arguments["location"] as? String {
+                existingEvent.location = location
+            }
+            
+            if let notes = arguments["notes"] as? String {
+                existingEvent.notes = notes
+            }
+            
+            if let isAllDay = arguments["isAllDay"] as? Bool {
+                existingEvent.isAllDay = isAllDay
+            }
+            
+            // Handle date/time updates
+            guard let eventStartDate = existingEvent.startDate,
+                  let eventEndDate = existingEvent.endDate else {
+                throw CalendarMCPError.invalidArguments("Event has invalid dates")
+            }
+            
+            var finalStartDate = eventStartDate
+            var finalEndDate = eventEndDate
+            
+            if let startDateString = arguments["startDate"] as? String {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+                dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+                
+                guard let startDate = dateFormatter.date(from: startDateString) else {
+                    throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
+                }
+                finalStartDate = startDate
+            }
+            
+            if let endDateString = arguments["endDate"] as? String {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+                dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+                
+                guard let endDate = dateFormatter.date(from: endDateString) else {
+                    throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
+                }
+                finalEndDate = endDate
+            }
+            
+            // Handle time updates
+            if let startTimeString = arguments["startTime"] as? String,
+               let endTimeString = arguments["endTime"] as? String {
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "HH:mm"
+                
+                guard let startTime = timeFormatter.date(from: startTimeString),
+                      let endTime = timeFormatter.date(from: endTimeString) else {
+                    throw CalendarMCPError.invalidDateFormat("Time format should be HH:mm")
+                }
+                
+                let calendar = Calendar.current
+                let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
+                let endTimeComponents = calendar.dateComponents([.hour, .minute], from: endTime)
+                
+                if let newStartDate = calendar.date(bySettingHour: startTimeComponents.hour ?? 0,
+                                                  minute: startTimeComponents.minute ?? 0,
+                                                  second: 0,
+                                                  of: finalStartDate) {
+                    finalStartDate = newStartDate
+                }
+                
+                if let newEndDate = calendar.date(bySettingHour: endTimeComponents.hour ?? 0,
+                                                minute: endTimeComponents.minute ?? 0,
+                                                second: 0,
+                                                of: finalEndDate) {
+                    finalEndDate = newEndDate
+                }
+            }
+            
+            existingEvent.startDate = finalStartDate
+            existingEvent.endDate = finalEndDate
+            
+            // Save updated event
+            do {
+                try eventStore.save(existingEvent, span: .thisEvent)
+                print("📅 Event updated successfully: \(existingEvent.title ?? "")")
+                
+                return [
+                    "success": true,
+                    "message": "Event updated successfully",
+                    "event": [
+                        "id": eventId,
+                        "title": existingEvent.title ?? "",
+                        "start_time": ISO8601DateFormatter().string(from: finalStartDate),
+                        "end_time": ISO8601DateFormatter().string(from: finalEndDate),
+                        "location": existingEvent.location ?? "",
+                        "notes": existingEvent.notes ?? "",
+                        "is_all_day": existingEvent.isAllDay
+                    ]
                 ]
-            ]
-        } catch {
-            print("❌ Failed to create event: \(error.localizedDescription)")
-            throw CalendarMCPError.creationFailed("Failed to create event: \(error.localizedDescription)")
+            } catch {
+                print("❌ Failed to update event: \(error.localizedDescription)")
+                throw CalendarMCPError.updateFailed("Failed to update event: \(error.localizedDescription)")
+            }
+            
+        } else {
+            // Create new event (original functionality)
+            guard let title = arguments["title"] as? String,
+                  let startDateString = arguments["startDate"] as? String,
+                  let endDateString = arguments["endDate"] as? String else {
+                throw CalendarMCPError.invalidArguments("For new events: title, startDate and endDate are required")
+            }
+            
+            // Parse optional arguments
+            let startTimeString = arguments["startTime"] as? String
+            let endTimeString = arguments["endTime"] as? String
+            let location = arguments["location"] as? String ?? ""
+            let notes = arguments["notes"] as? String ?? ""
+            let isAllDay = arguments["isAllDay"] as? Bool ?? false
+            
+            // Parse dates
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+            dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+            
+            guard let startDate = dateFormatter.date(from: startDateString),
+                  let endDate = dateFormatter.date(from: endDateString) else {
+                throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
+            }
+            
+            // Parse times if provided
+            var finalStartDate = startDate
+            var finalEndDate = endDate
+            
+            if let startTimeString = startTimeString, let endTimeString = endTimeString {
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "HH:mm"
+                
+                guard let startTime = timeFormatter.date(from: startTimeString),
+                      let endTime = timeFormatter.date(from: endTimeString) else {
+                    throw CalendarMCPError.invalidDateFormat("Time format should be HH:mm")
+                }
+                
+                let calendar = Calendar.current
+                let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
+                let endTimeComponents = calendar.dateComponents([.hour, .minute], from: endTime)
+                
+                if let newStartDate = calendar.date(bySettingHour: startTimeComponents.hour ?? 0,
+                                                  minute: startTimeComponents.minute ?? 0,
+                                                  second: 0,
+                                                  of: startDate) {
+                    finalStartDate = newStartDate
+                }
+                
+                if let newEndDate = calendar.date(bySettingHour: endTimeComponents.hour ?? 0,
+                                                minute: endTimeComponents.minute ?? 0,
+                                                second: 0,
+                                                of: endDate) {
+                    finalEndDate = newEndDate
+                }
+            }
+            
+            // Create new event
+            let event = EKEvent(eventStore: eventStore)
+            event.title = title
+            event.startDate = finalStartDate
+            event.endDate = finalEndDate
+            event.location = location
+            event.notes = notes
+            event.isAllDay = isAllDay
+            event.calendar = eventStore.defaultCalendarForNewEvents
+            
+            // Save event
+            do {
+                try eventStore.save(event, span: .thisEvent)
+                print("📅 Event created successfully: \(title)")
+                
+                return [
+                    "success": true,
+                    "message": "Event created successfully",
+                    "event": [
+                        "id": event.eventIdentifier ?? "",
+                        "title": title,
+                        "start_time": ISO8601DateFormatter().string(from: finalStartDate),
+                        "end_time": ISO8601DateFormatter().string(from: finalEndDate),
+                        "location": location,
+                        "notes": notes,
+                        "is_all_day": isAllDay
+                    ]
+                ]
+            } catch {
+                print("❌ Failed to create event: \(error.localizedDescription)")
+                throw CalendarMCPError.creationFailed("Failed to create event: \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -214,6 +321,8 @@ enum CalendarMCPError: Error, LocalizedError {
     case invalidDateFormat(String)
     case accessDenied(String)
     case creationFailed(String)
+    case eventNotFound(String)
+    case updateFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -225,6 +334,10 @@ enum CalendarMCPError: Error, LocalizedError {
             return "Access denied: \(message)"
         case .creationFailed(let message):
             return "Creation failed: \(message)"
+        case .eventNotFound(let message):
+            return "Event not found: \(message)"
+        case .updateFailed(let message):
+            return "Update failed: \(message)"
         }
     }
 } 
