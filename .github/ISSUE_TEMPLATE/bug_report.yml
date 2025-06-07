@@ -1,85 +1,177 @@
-name: Bug Report
-description: Report a bug encountered while using Mori
+name: "🐛 Bug Report"
+description: "Report a bug encountered while using Mori"
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you very much for opening a bug report with Mori.
+        ## Thank you for reporting a bug! 🐛
+        
+        Please provide as much information as possible to help us understand and fix the issue quickly. 
+        A well-detailed bug report saves time for both developers and users looking for solutions.
+        
+        **Please DO NOT use this template to ask questions.** Use [Discussions](https://github.com/aquarius-wing/mori/discussions) for questions.
 
-        Please make sure to provide a descriptive, deterministic, and reproducible report. It saves time for both the developers and users who are looking for solutions. Providing as much information as possible, including screenshots and logs, is highly appreciated. This will help us to better understand the issue and respond more effectively.
-
-        Please DO NOT use this template to ask questions. There are other appropriate channels to ask questions. This template is strictly for reporting bugs.
   - type: checkboxes
-    id: confirm-search
+    id: prerequisites
     attributes:
-      label: Search first
-      description: Please search [existing issues](https://github.com/aquarius-wing/mori/issues) before reporting.
+      label: "Prerequisites"
+      description: "Please confirm the following before submitting your bug report:"
       options:
-        - label: I searched and no similar issues were found
+        - label: "I have searched [existing issues](https://github.com/aquarius-wing/mori/issues) and found no similar reports"
           required: true
+        - label: "I have read the documentation and troubleshooting guides"
+          required: true
+        - label: "I can reproduce this bug consistently"
+          required: true
+
   - type: textarea
-    id: problem
+    id: bug-summary
     attributes:
-      label: What Happened?
-      description: |
-        Please provide as much info as possible. Not doing so may result in your bug not being addressed in a timely manner.
+      label: "Bug Summary"
+      description: "Provide a clear and concise description of the bug."
+      placeholder: "A brief summary of what went wrong..."
     validations:
       required: true
-  - type: textarea
-    id: reproduce
+
+  - type: dropdown
+    id: severity
     attributes:
-      label: Reproduce the Bug
-      description: |
-        Please tell us the steps to reproduce the bug.
-      placeholder: |
-        1. Go to '...'
-        2. Click on '....'
-        3. Scroll down to '....'
-        4. See error
+      label: "Severity Level"
+      description: "How severe is this bug?"
+      options:
+        - "Critical - App crashes or data loss"
+        - "High - Major feature doesn't work"
+        - "Medium - Minor feature issue or workaround exists"
+        - "Low - Cosmetic issue or minor inconvenience"
     validations:
       required: true
+
   - type: textarea
-    id: expected
+    id: reproduce-steps
     attributes:
-      label: Expected Behavior
-      description: |
-        Please tell us what's the behavior you expect.
-    validations:
-      required: false
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots
-      description: |
-        If applicable, add screenshots or screen recordings to help explain your problem.
-    validations:
-      required: false
-  - type: textarea
-    id: platform
-    attributes:
-      label: Desktop or Mobile Platform Information
-      description: |
-        Would you mind to tell us the system information about your desktop or mobile platform?
+      label: "Steps to Reproduce"
+      description: "Provide detailed steps to reproduce the bug."
       placeholder: |
-        OS version, Browser or App, Mori App version
-        example: iPhone 12, iOS8.1, v0.5.9
+        1. Open the app
+        2. Navigate to '...'
+        3. Tap on '...'
+        4. Observe the bug
+      value: |
+        1. 
+        2. 
+        3. 
+        4. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "Expected Behavior"
+      description: "What should have happened instead?"
+      placeholder: "I expected the app to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: "Actual Behavior"
+      description: "What actually happened?"
+      placeholder: "Instead, the app..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: "How often does this bug occur?"
+      description: "Select the frequency of this bug"
+      options:
+        - "Always (100%)"
+        - "Often (75-99%)"
+        - "Sometimes (25-74%)"
+        - "Rarely (1-24%)"
+        - "Once"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Environment Information"
+      description: "Please provide detailed information about your environment."
+      placeholder: |
+        **Device:** iPhone 14 Pro / iPad Air / Mac Studio
+        **OS Version:** iOS 17.1 / iPadOS 17.1 / macOS 14.1
+        **App Version:** v1.0.0 (Build 123)
+        **Installation Method:** App Store / TestFlight / Xcode
+      value: |
+        **Device:** 
+        **OS Version:** 
+        **App Version:** 
+        **Installation Method:** 
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots-videos
+    attributes:
+      label: "Screenshots / Videos"
+      description: "If applicable, add screenshots or screen recordings to help explain the problem."
+      placeholder: "Drag and drop images/videos here or paste links..."
     validations:
       required: false
+
   - type: textarea
-    id: additional
+    id: logs-console
     attributes:
-      label: Additional Context
-      description: |
-        If applicable, add additional context to help explain your problem.
+      label: "Console Logs / Error Messages"
+      description: "If you have access to console logs or error messages, please include them here."
+      placeholder: "Paste any error messages or log output here..."
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: "Workaround (if any)"
+      description: "Have you found any temporary solution or workaround?"
+      placeholder: "I can work around this by..."
     validations:
       required: false
 
   - type: checkboxes
-    id: ask-pr
+    id: impact
     attributes:
-      label: Are you willing to submit a PR? If you know how to fix the bug.
-      description: |
-        If you are not familiar with programming, you can skip this step.
-        Your contributions are greatly appreciated and play a vital role in helping to improve the project!
+      label: "Impact Assessment"
+      description: "How does this bug affect your usage?"
       options:
-        - label: I'm willing to submit a PR (Thank you!)
+        - label: "Prevents me from using the app"
+        - label: "Significantly impacts my workflow"
+        - label: "Minor inconvenience"
+        - label: "Doesn't affect core functionality"
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Additional Context"
+      description: "Add any other context about the problem here."
+      placeholder: "Any additional information that might help us understand the issue..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: "Contribution"
+      description: "Are you willing to help with this bug?"
+      options:
+        - label: "I'm willing to submit a PR to fix this bug"
+        - label: "I can help with testing the fix"
+        - label: "I can provide more information if needed"

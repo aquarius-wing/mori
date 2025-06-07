@@ -36,8 +36,6 @@ body:
       label: "Problem Statement"
       description: "What problem does this feature solve? What need does it address?"
       placeholder: "This feature would solve the problem of... / This feature would help users to..."
-    validations:
-      required: true
 
   - type: textarea
     id: proposed-solution
@@ -45,8 +43,7 @@ body:
       label: "Proposed Solution"
       description: "Describe how you envision this feature working. Include any specific implementation details if you have them."
       placeholder: "The feature could work by... / I suggest implementing..."
-    validations:
-      required: true
+
 
   - type: textarea
     id: alternatives
@@ -54,8 +51,7 @@ body:
       label: "Alternatives Considered"
       description: "Have you considered any alternative solutions or workarounds?"
       placeholder: "I have considered... / Other approaches might include..."
-    validations:
-      required: false
+
 
   - type: dropdown
     id: priority
@@ -87,8 +83,7 @@ body:
       label: "Use Cases"
       description: "Provide specific examples of how this feature would be used."
       placeholder: "Example 1: As a user, I want to... so that I can... / Example 2: When I..."
-    validations:
-      required: false
+
 
   - type: textarea
     id: mockups-references
@@ -96,8 +91,7 @@ body:
       label: "Mockups/References"
       description: "If you have any mockups, screenshots, or references from other applications, please include them here."
       placeholder: "Attach files or provide links to examples..."
-    validations:
-      required: false
+
 
   - type: checkboxes
     id: implementation-offer
@@ -115,5 +109,3 @@ body:
       label: "Additional Context"
       description: "Add any other context, screenshots, or information about the feature request here."
       placeholder: "Additional information that might be helpful..."
-    validations:
-      required: false 
