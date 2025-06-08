@@ -21,8 +21,6 @@ class CalendarMCP: ObservableObject {
         - title: Event title (optional)
         - startDate: Start date like 2024-01-31T00:00:00Z (optional)
         - endDate: End date like 2024-01-31T23:59:59Z (optional)
-        - startTime: Start time like 14:30 (optional, format HH:mm)
-        - endTime: End time like 16:00 (optional, format HH:mm)
         - location: Event location (optional)
         - notes: Event notes (optional)
         - isAllDay: true/false for all day event (optional, default false)
@@ -83,8 +81,8 @@ class CalendarMCP: ObservableObject {
             return [
                 "id": event.eventIdentifier ?? "",
                 "title": event.title ?? "No Title",
-                "start_time": outputFormatter.string(from: event.startDate),
-                "end_time": outputFormatter.string(from: event.endDate),
+                "start_date": outputFormatter.string(from: event.startDate),
+                "end_date": outputFormatter.string(from: event.endDate),
                 "location": event.location ?? "",
                 "notes": event.notes ?? "",
                 "is_all_day": event.isAllDay
@@ -166,35 +164,7 @@ class CalendarMCP: ObservableObject {
                 finalEndDate = endDate
             }
             
-            // Handle time updates
-            if let startTimeString = arguments["startTime"] as? String,
-               let endTimeString = arguments["endTime"] as? String {
-                let timeFormatter = DateFormatter()
-                timeFormatter.dateFormat = "HH:mm"
-                
-                guard let startTime = timeFormatter.date(from: startTimeString),
-                      let endTime = timeFormatter.date(from: endTimeString) else {
-                    throw CalendarMCPError.invalidDateFormat("Time format should be HH:mm")
-                }
-                
-                let calendar = Calendar.current
-                let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
-                let endTimeComponents = calendar.dateComponents([.hour, .minute], from: endTime)
-                
-                if let newStartDate = calendar.date(bySettingHour: startTimeComponents.hour ?? 0,
-                                                  minute: startTimeComponents.minute ?? 0,
-                                                  second: 0,
-                                                  of: finalStartDate) {
-                    finalStartDate = newStartDate
-                }
-                
-                if let newEndDate = calendar.date(bySettingHour: endTimeComponents.hour ?? 0,
-                                                minute: endTimeComponents.minute ?? 0,
-                                                second: 0,
-                                                of: finalEndDate) {
-                    finalEndDate = newEndDate
-                }
-            }
+
             
             existingEvent.startDate = finalStartDate
             existingEvent.endDate = finalEndDate
@@ -213,8 +183,8 @@ class CalendarMCP: ObservableObject {
                     "event": [
                         "id": eventId,
                         "title": existingEvent.title ?? "",
-                        "start_time": outputFormatter.string(from: finalStartDate),
-                        "end_time": outputFormatter.string(from: finalEndDate),
+                        "start_date": outputFormatter.string(from: finalStartDate),
+                        "end_date": outputFormatter.string(from: finalEndDate),
                         "location": existingEvent.location ?? "",
                         "notes": existingEvent.notes ?? "",
                         "is_all_day": existingEvent.isAllDay
@@ -234,8 +204,6 @@ class CalendarMCP: ObservableObject {
             }
             
             // Parse optional arguments
-            let startTimeString = arguments["startTime"] as? String
-            let endTimeString = arguments["endTime"] as? String
             let location = arguments["location"] as? String ?? ""
             let notes = arguments["notes"] as? String ?? ""
             let isAllDay = arguments["isAllDay"] as? Bool ?? false
@@ -249,37 +217,9 @@ class CalendarMCP: ObservableObject {
                 throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
             }
             
-            // Parse times if provided
-            var finalStartDate = startDate
-            var finalEndDate = endDate
-            
-            if let startTimeString = startTimeString, let endTimeString = endTimeString {
-                let timeFormatter = DateFormatter()
-                timeFormatter.dateFormat = "HH:mm"
-                
-                guard let startTime = timeFormatter.date(from: startTimeString),
-                      let endTime = timeFormatter.date(from: endTimeString) else {
-                    throw CalendarMCPError.invalidDateFormat("Time format should be HH:mm")
-                }
-                
-                let calendar = Calendar.current
-                let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
-                let endTimeComponents = calendar.dateComponents([.hour, .minute], from: endTime)
-                
-                if let newStartDate = calendar.date(bySettingHour: startTimeComponents.hour ?? 0,
-                                                  minute: startTimeComponents.minute ?? 0,
-                                                  second: 0,
-                                                  of: startDate) {
-                    finalStartDate = newStartDate
-                }
-                
-                if let newEndDate = calendar.date(bySettingHour: endTimeComponents.hour ?? 0,
-                                                minute: endTimeComponents.minute ?? 0,
-                                                second: 0,
-                                                of: endDate) {
-                    finalEndDate = newEndDate
-                }
-            }
+            // Use the parsed dates directly
+            let finalStartDate = startDate
+            let finalEndDate = endDate
             
             // Create new event
             let event = EKEvent(eventStore: eventStore)
@@ -305,8 +245,8 @@ class CalendarMCP: ObservableObject {
                     "event": [
                         "id": event.eventIdentifier ?? "",
                         "title": title,
-                        "start_time": outputFormatter.string(from: finalStartDate),
-                        "end_time": outputFormatter.string(from: finalEndDate),
+                        "start_date": outputFormatter.string(from: finalStartDate),
+                        "end_date": outputFormatter.string(from: finalEndDate),
                         "location": location,
                         "notes": notes,
                         "is_all_day": isAllDay

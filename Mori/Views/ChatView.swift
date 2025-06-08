@@ -17,7 +17,6 @@ struct ChatView: View {
     @State private var openAIService: OpenAIService?
     
     @State private var messageList: [any MessageListItem] = []
-    @State private var currentStreamingMessage = ""
     @State private var currentStatus = "Ready"
     @State private var statusType: WorkflowStepType = .finalStatus
     @State private var isStreaming = false
@@ -52,14 +51,6 @@ struct ChatView: View {
                                 VStack(alignment: .leading, spacing: 12) {
                                     // Status indicator
                                     StatusIndicator(status: currentStatus, type: statusType)
-                                    
-                                    // Streaming message
-                                    if !currentStreamingMessage.isEmpty {
-                                        MessageBubble(
-                                            message: ChatMessage(content: currentStreamingMessage, isUser: false),
-                                            isStreaming: true
-                                        )
-                                    }
                                 }
                                 .id("streaming")
                             }
@@ -73,11 +64,7 @@ struct ChatView: View {
                             }
                         }
                     }
-                    .onChange(of: currentStreamingMessage) { _ in
-                        withAnimation {
-                            proxy.scrollTo("streaming", anchor: .bottom)
-                        }
-                    }
+
                 }
                 
                 Divider()
@@ -170,7 +157,6 @@ struct ChatView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Clear") {
                         messageList.removeAll()
-                        currentStreamingMessage = ""
                         currentStatus = "Ready"
                         statusType = .finalStatus
                     }
@@ -202,7 +188,6 @@ struct ChatView: View {
         // Clear input field and reset state
         inputText = ""
         isSending = true
-        currentStreamingMessage = ""
         updateStatus("Processing request...", type: .llmThinking)
         
         // Add user message
@@ -306,12 +291,10 @@ struct ChatView: View {
                                 isSystem: lastMessage.isSystem
                             )
                             messageList[lastIndex] = updatedMessage
-                            currentStreamingMessage = updatedMessage.content
                         } else {
                             // Create new assistant message
                             let newMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
                             messageList.append(newMessage)
-                            currentStreamingMessage = content
                         }
                     case "error":
                         let errorStep = WorkflowStep(type: .error, title: content)
@@ -346,7 +329,6 @@ struct ChatView: View {
                 
                 // Reset streaming state
                 isStreaming = false
-                currentStreamingMessage = ""
                 
                 print("🏁 Workflow completed. Final messageList count: \(messageList.count)")
             }
@@ -356,7 +338,6 @@ struct ChatView: View {
                 messageList.append(errorStep)
                 updateStatus("❌ Error: \(error.localizedDescription)", type: .error)
                 isStreaming = false
-                currentStreamingMessage = ""
             }
         }
     }
