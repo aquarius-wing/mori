@@ -14,7 +14,7 @@
 		A1000005000000000000001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* OnboardingView.swift */; };
 		A1000007000000000000001 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001 /* ChatView.swift */; };
 		A1000009000000000000001 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000010000000000000001 /* AudioRecorder.swift */; };
-		A1000011000000000000001 /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000012000000000000001 /* OpenAIService.swift */; };
+		A1000011000000000000001 /* LLMAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000012000000000000001 /* LLMAIService.swift */; };
 		A1000013000000000000001 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000014000000000000001 /* ChatMessage.swift */; };
 		A1000015000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000016000000000000001 /* Assets.xcassets */; };
 		A1000017000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000018000000000000001 /* Preview Assets.xcassets */; };
@@ -39,7 +39,7 @@
 		A1000006000000000000001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A1000008000000000000001 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		A1000010000000000000001 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
-		A1000012000000000000001 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
+		A1000012000000000000001 /* LLMAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAIService.swift; sourceTree = "<group>"; };
 		A1000014000000000000001 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		A1000016000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000018000000000000001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -116,7 +116,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000010000000000000001 /* AudioRecorder.swift */,
-				A1000012000000000000001 /* OpenAIService.swift */,
+				A1000012000000000000001 /* LLMAIService.swift */,
 				20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */,
 			);
 			path = Services;
@@ -254,7 +254,7 @@
 				A1000005000000000000001 /* OnboardingView.swift in Sources */,
 				A1000007000000000000001 /* ChatView.swift in Sources */,
 				A1000009000000000000001 /* AudioRecorder.swift in Sources */,
-				A1000011000000000000001 /* OpenAIService.swift in Sources */,
+				A1000011000000000000001 /* LLMAIService.swift in Sources */,
 				20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */,
 				A1000013000000000000001 /* ChatMessage.swift in Sources */,
 				20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */,

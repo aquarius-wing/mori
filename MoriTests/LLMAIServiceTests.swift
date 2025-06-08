@@ -2,18 +2,24 @@ import XCTest
 import Foundation
 @testable import Mori
 
-class OpenAIServiceTests: XCTestCase {
-    var openAIService: OpenAIService!
+class LLMAIServiceTests: XCTestCase {
+    var llmService: LLMAIService!
     var mockCalendarMCP: MockCalendarMCP!
     
     override func setUpWithError() throws {
-        // Initialize with test API key and base URL
-        openAIService = OpenAIService(apiKey: "test-api-key", customBaseURL: "https://api.test.com")
+        // Initialize with test configuration
+        let config = LLMProviderConfig(
+            type: .openRouter,
+            apiKey: "test-api-key",
+            baseURL: "https://api.test.com",
+            model: "test-model"
+        )
+        llmService = LLMAIService(config: config)
         mockCalendarMCP = MockCalendarMCP()
     }
     
     override func tearDownWithError() throws {
-        openAIService = nil
+        llmService = nil
         mockCalendarMCP = nil
     }
     
@@ -164,21 +170,39 @@ class OpenAIServiceTests: XCTestCase {
         XCTAssertEqual(cleanedText, responseWithoutTools, "Should return original text unchanged")
     }
     
-    // Test OpenAI Service initialization
-    func testOpenAIServiceInitialization() {
-        // Given: API key and custom base URL
-        let apiKey = "test-api-key"
-        let customBaseURL = "https://custom.api.com/"
+    // Test LLM Service initialization
+    func testLLMServiceInitialization() {
+        // Given: OpenAI configuration
+        let openaiConfig = LLMProviderConfig(
+            type: .openai,
+            apiKey: "test-openai-key",
+            baseURL: "https://api.openai.com",
+            model: "gpt-4o-2024-11-20"
+        )
         
-        // When: Initialize service
-        let service = OpenAIService(apiKey: apiKey, customBaseURL: customBaseURL)
+        // When: Initialize service with OpenAI
+        let openaiService = LLMAIService(config: openaiConfig)
         
         // Then: Service should be initialized
-        XCTAssertNotNil(service, "Service should be initialized")
+        XCTAssertNotNil(openaiService, "OpenAI service should be initialized")
         
-        // Test with default URL
-        let defaultService = OpenAIService(apiKey: apiKey)
-        XCTAssertNotNil(defaultService, "Service with default URL should be initialized")
+        // Given: OpenRouter configuration
+        let openrouterConfig = LLMProviderConfig(
+            type: .openRouter,
+            apiKey: "test-openrouter-key",
+            baseURL: "https://openrouter.ai/api",
+            model: "deepseek/deepseek-chat-v3-0324"
+        )
+        
+        // When: Initialize service with OpenRouter
+        let openrouterService = LLMAIService(config: openrouterConfig)
+        
+        // Then: Service should be initialized
+        XCTAssertNotNil(openrouterService, "OpenRouter service should be initialized")
+        
+        // Test backward compatibility initializer
+        let compatService = LLMAIService(apiKey: "test-key", customBaseURL: "https://custom.api.com")
+        XCTAssertNotNil(compatService, "Backward compatibility service should be initialized")
     }
     
     // Simulated tool call extraction for testing

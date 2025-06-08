@@ -49,7 +49,7 @@ Mori/
 │   └── ChatView.swift         # Chat interface
 ├── Services/
 │   ├── AudioRecorder.swift    # Audio recording service
-│   └── OpenAIService.swift    # OpenAI API service
+│   └── LLMAIService.swift     # Multi-provider LLM API service
 ├── Models/
 │   └── ChatMessage.swift      # Message data model
 └── Assets.xcassets/           # App resources

@@ -1,52 +1,78 @@
 import SwiftUI
 
 struct OnboardingView: View {
+    @AppStorage("currentProvider") private var currentProvider = LLMProviderType.openRouter.rawValue
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
-    @AppStorage("customApiBaseUrl") private var customApiBaseUrl = ""
+    @AppStorage("openaiBaseUrl") private var openaiBaseUrl = ""
+    @AppStorage("openaiModel") private var openaiModel = ""
+    @AppStorage("openrouterApiKey") private var openrouterApiKey = ""
+    @AppStorage("openrouterBaseUrl") private var openrouterBaseUrl = ""
+    @AppStorage("openrouterModel") private var openrouterModel = ""
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     
+    @State private var selectedProvider: LLMProviderType = .openRouter
     @State private var tempApiKey = ""
     @State private var tempBaseUrl = ""
+    @State private var tempModel = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var showAdvancedSettings = false
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 30) {
+            VStack(spacing: 60) {
                 // Welcome title
                 VStack(spacing: 10) {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 80))
-                        .foregroundColor(.blue)
+                    Image("AppIcon-Display")
+                        .resizable()
+                        .frame(width: 100, height: 100)
+                        .cornerRadius(16)
                     
                     Text("Mori")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                     
-                    Text("AI Assistant with Voice Chat")
+                    Text("AI Assistant")
                         .font(.headline)
                         .foregroundColor(.secondary)
                 }
                 
-                Spacer()
-                
-                // API configuration input
-                VStack(alignment: .leading, spacing: 15) {
-                    Text("Setup OpenAI API Key")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    
-                    Text("This app requires an OpenAI API key to access GPT-4o and Whisper models. Your key will be securely stored on this device only.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.leading)
-                    
-                    SecureField("Enter your OpenAI API key", text: $tempApiKey)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit {
-                            saveAndContinue()
+                // Provider selection and configuration
+                VStack(alignment: .leading, spacing: 20) {
+                    // Provider selection
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Select AI Provider")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        Picker("AI Provider", selection: $selectedProvider) {
+                            ForEach(LLMProviderType.allCases, id: \.self) { provider in
+                                Text(provider.displayName).tag(provider)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .onChange(of: selectedProvider) { oldValue, newValue in
+                            updateFieldsForProvider(newValue)
+                        }
+                    }
+                    
+                    // API Key input
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("API Key")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        Text(getProviderDescription())
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.leading)
+                        
+                        SecureField("Enter your \(selectedProvider.displayName) API key", text: $tempApiKey)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                saveAndContinue()
+                            }
+                    }
                     
                     // Advanced settings
                     Button(action: {
@@ -64,21 +90,41 @@ struct OnboardingView: View {
                     }
                     
                     if showAdvancedSettings {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Custom API Base URL (Optional)")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                        VStack(alignment: .leading, spacing: 15) {
+                            // Base URL configuration
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Custom API Base URL (Optional)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                
+                                Text(getBaseUrlDescription())
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.leading)
+                                
+                                TextField(getDefaultBaseUrl(), text: $tempBaseUrl)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.URL)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                            }
                             
-                            Text("Leave empty to use OpenAI's official API. Enter a custom URL for OpenAI-compatible services.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.leading)
-                            
-                            TextField("https://api.openai.com/v1", text: $tempBaseUrl)
-                                .textFieldStyle(.roundedBorder)
-                                .keyboardType(.URL)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
+                            // Model configuration
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Model (Optional)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                
+                                Text(getModelDescription())
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.leading)
+                                
+                                TextField(getDefaultModel(), text: $tempModel)
+                                    .textFieldStyle(.roundedBorder)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                            }
                         }
                         .padding(.top, 10)
                         .transition(.opacity.combined(with: .slide))
@@ -93,7 +139,7 @@ struct OnboardingView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Link("Visit OpenAI API Page", destination: URL(string: "https://platform.openai.com/api-keys")!)
+                    Link("Visit \(selectedProvider.displayName) API page", destination: getProviderUrl())
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
@@ -114,13 +160,85 @@ struct OnboardingView: View {
                 .padding(.horizontal)
             }
             .padding()
-            .navigationTitle("Welcome")
-            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // Initialize with current provider if returning
+                if let provider = LLMProviderType(rawValue: currentProvider) {
+                    selectedProvider = provider
+                    updateFieldsForProvider(provider)
+                }
+            }
         }
         .alert("Notice", isPresented: $showingAlert) {
             Button("OK") { }
         } message: {
             Text(alertMessage)
+        }
+    }
+    
+    private func updateFieldsForProvider(_ provider: LLMProviderType) {
+        switch provider {
+        case .openai:
+            tempApiKey = openaiApiKey
+            tempBaseUrl = openaiBaseUrl
+            tempModel = openaiModel
+        case .openRouter:
+            tempApiKey = openrouterApiKey
+            tempBaseUrl = openrouterBaseUrl
+            tempModel = openrouterModel
+        }
+    }
+    
+    private func getProviderDescription() -> String {
+        switch selectedProvider {
+        case .openai:
+            return "This app requires an OpenAI API key to access GPT models. Your key will only be stored on this device."
+        case .openRouter:
+            return "This app requires an OpenRouter API key to access various AI models. Your key will only be stored on this device."
+        }
+    }
+    
+    private func getBaseUrlDescription() -> String {
+        switch selectedProvider {
+        case .openai:
+            return "Leave empty to use official OpenAI API. Enter custom URL for OpenAI-compatible services."
+        case .openRouter:
+            return "Leave empty to use official OpenRouter API. Enter custom URL for OpenRouter-compatible services."
+        }
+    }
+    
+    private func getDefaultBaseUrl() -> String {
+        switch selectedProvider {
+        case .openai:
+            return "https://api.openai.com"
+        case .openRouter:
+            return "https://openrouter.ai/api"
+        }
+    }
+    
+    private func getModelDescription() -> String {
+        switch selectedProvider {
+        case .openai:
+            return "Leave empty to use default model gpt-4o-2024-11-20. You can specify other OpenAI models."
+        case .openRouter:
+            return "Leave empty to use default model deepseek/deepseek-chat-v3-0324. You can specify other available models."
+        }
+    }
+    
+    private func getDefaultModel() -> String {
+        switch selectedProvider {
+        case .openai:
+            return "gpt-4o-2024-11-20"
+        case .openRouter:
+            return "deepseek/deepseek-chat-v3-0324"
+        }
+    }
+    
+    private func getProviderUrl() -> URL {
+        switch selectedProvider {
+        case .openai:
+            return URL(string: "https://platform.openai.com/api-keys")!
+        case .openRouter:
+            return URL(string: "https://openrouter.ai/keys")!
         }
     }
     
@@ -135,7 +253,7 @@ struct OnboardingView: View {
         let trimmedBaseUrl = tempBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedBaseUrl.isEmpty {
             if !trimmedBaseUrl.hasPrefix("http://") && !trimmedBaseUrl.hasPrefix("https://") {
-                alertMessage = "Custom API Base URL must start with http:// or https://"
+                alertMessage = "Custom API base URL must start with http:// or https://"
                 showingAlert = true
                 return
             }
@@ -147,8 +265,22 @@ struct OnboardingView: View {
             }
         }
         
-        openaiApiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        customApiBaseUrl = trimmedBaseUrl
+        let trimmedModel = tempModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Save configuration based on selected provider
+        currentProvider = selectedProvider.rawValue
+        
+        switch selectedProvider {
+        case .openai:
+            openaiApiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            openaiBaseUrl = trimmedBaseUrl
+            openaiModel = trimmedModel
+        case .openRouter:
+            openrouterApiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            openrouterBaseUrl = trimmedBaseUrl
+            openrouterModel = trimmedModel
+        }
+        
         hasCompletedOnboarding = true
     }
 }

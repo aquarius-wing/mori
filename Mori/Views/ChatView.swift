@@ -11,10 +11,15 @@ extension ChatMessage: MessageListItem {}
 extension WorkflowStep: MessageListItem {}
 
 struct ChatView: View {
+    @AppStorage("currentProvider") private var currentProvider = LLMProviderType.openRouter.rawValue
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
-    @AppStorage("customApiBaseUrl") private var customApiBaseUrl = ""
+    @AppStorage("openaiBaseUrl") private var openaiBaseUrl = ""
+    @AppStorage("openaiModel") private var openaiModel = ""
+    @AppStorage("openrouterApiKey") private var openrouterApiKey = ""
+    @AppStorage("openrouterBaseUrl") private var openrouterBaseUrl = ""
+    @AppStorage("openrouterModel") private var openrouterModel = ""
     
-    @State private var openAIService: OpenAIService?
+    @State private var llmService: LLMAIService?
     
     @State private var messageList: [any MessageListItem] = []
     @State private var currentStatus = "Ready"
@@ -131,8 +136,8 @@ struct ChatView: View {
                         
                         Button(action: {
                             // Print request body
-                            guard let service = openAIService else {
-                                print("❌ OpenAI service not available")
+                            guard let service = llmService else {
+                                print("❌ LLM service not available")
                                 return
                             }
                             
@@ -165,11 +170,7 @@ struct ChatView: View {
             }
         }
         .onAppear {
-            openAIService = OpenAIService(apiKey: openaiApiKey, customBaseURL: customApiBaseUrl.isEmpty ? nil : customApiBaseUrl)
-            // Add debug information
-            print("🔧 API Configuration:")
-            print("  API Key: \(openaiApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openaiApiKey.count))")")
-            print("  Base URL: \(customApiBaseUrl.isEmpty ? "✅ Using default" : "🔧 Custom: \(customApiBaseUrl)")")
+            setupLLMService()
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
@@ -183,7 +184,7 @@ struct ChatView: View {
     
     private func sendMessage() {
         let messageText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !messageText.isEmpty, let service = openAIService else { return }
+        guard !messageText.isEmpty, let service = llmService else { return }
         
         // Clear input field and reset state
         inputText = ""
@@ -218,7 +219,7 @@ struct ChatView: View {
         }
     }
     
-    private func processRealToolWorkflow(for messageText: String, using service: OpenAIService) async {
+    private func processRealToolWorkflow(for messageText: String, using service: LLMAIService) async {
         var toolCallCount = 0
         
         do {
@@ -345,6 +346,44 @@ struct ChatView: View {
     private func updateStatus(_ status: String, type: WorkflowStepType) {
         currentStatus = status
         statusType = type
+    }
+    
+    private func setupLLMService() {
+        guard let providerType = LLMProviderType(rawValue: currentProvider) else {
+            print("❌ Invalid provider type: \(currentProvider)")
+            return
+        }
+        
+        let config: LLMProviderConfig
+        
+        switch providerType {
+        case .openai:
+            config = LLMProviderConfig(
+                type: .openai,
+                apiKey: openaiApiKey,
+                baseURL: openaiBaseUrl.isEmpty ? nil : openaiBaseUrl,
+                model: openaiModel.isEmpty ? nil : openaiModel
+            )
+            print("🔧 OpenAI Configuration:")
+            print("  API Key: \(openaiApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openaiApiKey.count))")")
+            print("  Base URL: \(openaiBaseUrl.isEmpty ? "✅ Using default (https://api.openai.com)" : "🔧 Custom: \(openaiBaseUrl)")")
+            print("  Model: \(openaiModel.isEmpty ? "✅ Using default (gpt-4o-2024-11-20)" : "🔧 Custom: \(openaiModel)")")
+            
+        case .openRouter:
+            config = LLMProviderConfig(
+                type: .openRouter,
+                apiKey: openrouterApiKey,
+                baseURL: openrouterBaseUrl.isEmpty ? nil : openrouterBaseUrl,
+                model: openrouterModel.isEmpty ? nil : openrouterModel
+            )
+            print("🔧 OpenRouter Configuration:")
+            print("  API Key: \(openrouterApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openrouterApiKey.count))")")
+            print("  Base URL: \(openrouterBaseUrl.isEmpty ? "✅ Using default (https://openrouter.ai/api)" : "🔧 Custom: \(openrouterBaseUrl)")")
+            print("  Model: \(openrouterModel.isEmpty ? "✅ Using default (deepseek/deepseek-chat-v3-0324)" : "🔧 Custom: \(openrouterModel)")")
+        }
+        
+        llmService = LLMAIService(config: config)
+        print("✅ LLM Service initialized with provider: \(providerType.displayName)")
     }
 }
 

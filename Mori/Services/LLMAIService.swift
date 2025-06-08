@@ -1,8 +1,51 @@
 import Foundation
 
-class OpenAIService: ObservableObject {
-    private let apiKey: String
-    private let baseURL: String
+// MARK: - Provider Types
+enum LLMProviderType: String, CaseIterable {
+    case openRouter = "openRouter"
+    case openai = "openai"
+    
+    var displayName: String {
+        switch self {
+        case .openai:
+            return "OpenAI"
+        case .openRouter:
+            return "OpenRouter"
+        }
+    }
+}
+
+// MARK: - Provider Configuration
+struct LLMProviderConfig {
+    let type: LLMProviderType
+    let apiKey: String
+    let baseURL: String
+    let model: String
+    
+    init(type: LLMProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil) {
+        self.type = type
+        self.apiKey = apiKey
+        
+        // Set default baseURL based on provider type
+        switch type {
+        case .openai:
+            self.baseURL = baseURL ?? "https://api.openai.com"
+        case .openRouter:
+            self.baseURL = baseURL ?? "https://openrouter.ai/api"
+        }
+        
+        // Set default model based on provider type
+        switch type {
+        case .openai:
+            self.model = model ?? "gpt-4o-2024-11-20"
+        case .openRouter:
+            self.model = model ?? "deepseek/deepseek-chat-v3-0324"
+        }
+    }
+}
+
+class LLMAIService: ObservableObject {
+    private let config: LLMProviderConfig
     private let calendarMCP = CalendarMCP()
     
     private func generateSystemMessage() -> String {
@@ -61,14 +104,20 @@ class OpenAIService: ObservableObject {
         return systemMessage
     }
     
+    init(config: LLMProviderConfig) {
+        self.config = config
+    }
+    
+    // Convenience initializer for backward compatibility
     init(apiKey: String, customBaseURL: String? = nil) {
-        self.apiKey = apiKey
-        if let customURL = customBaseURL, !customURL.isEmpty {
-            // Remove trailing slash, keep baseURL as pure base URL
-            self.baseURL = customURL.hasSuffix("/") ? String(customURL.dropLast()) : customURL
-        } else {
-            self.baseURL = "https://api.openai.com"
-        }
+        // Default to OpenRouter for backward compatibility
+        let baseURL = customBaseURL?.isEmpty == false ? customBaseURL! : "https://openrouter.ai/api"
+        self.config = LLMProviderConfig(
+            type: .openRouter,
+            apiKey: apiKey,
+            baseURL: baseURL,
+            model: "deepseek/deepseek-chat-v3-0324"
+        )
     }
     
     // MARK: - Generate Request Body
@@ -90,12 +139,10 @@ class OpenAIService: ObservableObject {
                 "role": role,
                 "content": msg.content
             ])
-            
-
         }
         
         let requestBody: [String: Any] = [
-            "model": "deepseek/deepseek-chat-v3-0324",
+            "model": config.model,
             "messages": messages,
             "stream": true,
             "temperature": 0.7
@@ -104,23 +151,25 @@ class OpenAIService: ObservableObject {
         return requestBody
     }
     
-    // MARK: - GPT-4o Chat Completion with Streaming
+    // MARK: - Chat Completion with Streaming
     func sendChatMessage(conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
                     print("💬 Starting chat message sending...")
-                    print("  Target URL: \(baseURL)/v1/chat/completions")
+                    print("  Provider: \(config.type.displayName)")
+                    print("  Model: \(config.model)")
+                    print("  Target URL: \(config.baseURL)/v1/chat/completions")
                     
-                    guard let chatURL = URL(string: "\(baseURL)/v1/chat/completions") else {
-                        print("❌ Invalid API URL: \(baseURL)/v1/chat/completions")
-                        continuation.finish(throwing: OpenAIError.invalidResponse)
+                    guard let chatURL = URL(string: "\(config.baseURL)/v1/chat/completions") else {
+                        print("❌ Invalid API URL: \(config.baseURL)/v1/chat/completions")
+                        continuation.finish(throwing: LLMError.invalidResponse)
                         return
                     }
                     
                     var request = URLRequest(url: chatURL)
                     request.httpMethod = "POST"
-                    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.setValue("keep-alive", forHTTPHeaderField: "Connection")
@@ -129,37 +178,13 @@ class OpenAIService: ObservableObject {
                     // Generate request body using the dedicated method
                     let requestBody = generateRequestBodyJSON(from: conversationHistory)
                     
-                    // Print requestBody as JSON
-                    // print("📦 Request body being sent to OpenAI:")
-                    // do {
-                    //     let requestBodyData = try JSONSerialization.data(withJSONObject: requestBody, options: .prettyPrinted)
-                    //     if let requestBodyJSON = String(data: requestBodyData, encoding: .utf8) {
-                    //         print("📄 Request Body JSON:")
-                    //         print(requestBodyJSON)
-                    //     }
-                    // } catch {
-                    //     print("❌ Failed to serialize request body to JSON: \(error)")
-                    // }
-                    
                     do {
                         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-                        // print("request body---")
-                        // print(String(data: request.httpBody!, encoding: .utf8)!)
-                        // print("---")
                     } catch {
                         print("❌ JSON serialization failed: \(error)")
                         continuation.finish(throwing: error)
                         return
                     }
-                    // if let headers = request.allHTTPHeaderFields {
-                    //     for (key, value) in headers {
-                    //         if key.lowercased().contains("authorization") {
-                    //             print("    \(key): Bearer ****** (Hidden)")
-                    //         } else {
-                    //             print("    \(key): \(value)")
-                    //         }
-                    //     }
-                    // }
                     
                     // Configure URLSession
                     let config = URLSessionConfiguration.default
@@ -176,7 +201,7 @@ class OpenAIService: ObservableObject {
                     
                     guard let httpResponse = response as? HTTPURLResponse else {
                         print("❌ Invalid HTTP response")
-                        continuation.finish(throwing: OpenAIError.invalidResponse)
+                        continuation.finish(throwing: LLMError.invalidResponse)
                         return
                     }
                     
@@ -193,7 +218,7 @@ class OpenAIService: ObservableObject {
                             print("❌ Error details: \(errorString)")
                         }
                         
-                        continuation.finish(throwing: OpenAIError.invalidResponse)
+                        continuation.finish(throwing: LLMError.invalidResponse)
                         return
                     }
                     
@@ -230,7 +255,7 @@ class OpenAIService: ObservableObject {
                     
                     if !hasReceivedData {
                         print("⚠️ No valid data received")
-                        continuation.finish(throwing: OpenAIError.invalidResponse)
+                        continuation.finish(throwing: LLMError.invalidResponse)
                     } else {
                         print("✅ Streaming response ended normally")
                         continuation.finish()
@@ -407,7 +432,7 @@ class OpenAIService: ObservableObject {
         case "update-calendar":
             return try await calendarMCP.updateCalendar(arguments: toolCall.arguments)
         default:
-            throw OpenAIError.customError("Unknown tool: \(toolCall.tool)")
+            throw LLMError.customError("Unknown tool: \(toolCall.tool)")
         }
     }
     
@@ -572,7 +597,7 @@ struct ToolCall {
 }
 
 // MARK: - Errors
-enum OpenAIError: Error, LocalizedError {
+enum LLMError: Error, LocalizedError {
     case invalidResponse
     case noAudioData
     case transcriptionFailed
