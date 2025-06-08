@@ -3,16 +3,16 @@ import SwiftUI
 // MARK: - Status Indicator View
 struct StatusIndicator: View {
     let status: String
-    let type: WorkflowStepType
+    let stepStatus: WorkflowStepStatus
     
     var body: some View {
         HStack {
-            Text(type.icon)
+            Text(stepStatus.icon)
             Text(status)
                 .font(.caption)
-                .foregroundColor(type == .error ? .red : .secondary)
+                .foregroundColor(stepStatus == .error ? .red : .secondary)
             
-            if type != .finalStatus && type != .error {
+            if stepStatus != .finalStatus && stepStatus != .error {
                 ProgressView()
                     .scaleEffect(0.6)
             }
@@ -21,7 +21,7 @@ struct StatusIndicator: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(type == .error ? Color.red.opacity(0.1) : Color.gray.opacity(0.1))
+                .fill(stepStatus == .error ? Color.red.opacity(0.1) : Color.gray.opacity(0.1))
         )
     }
 }
@@ -35,9 +35,9 @@ struct WorkflowView: View {
             ForEach(steps.indices, id: \.self) { index in
                 let step = steps[index]
                 
-                if step.type == .scheduled || step.type == .executing || step.type == .result || step.type == .finalStatus {
+                if step.status == .scheduled || step.status == .executing || step.status == .result || step.status == .finalStatus {
                     WorkflowStepView(step: step)
-                } else if step.type == .error {
+                } else if step.status == .error {
                     WorkflowErrorView(step: step)
                 }
             }
@@ -56,8 +56,8 @@ struct WorkflowStepView: View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: { isExpanded.toggle() }) {
                 HStack {
-                    Text(step.type.icon)
-                    Text("\(step.title)")
+                    Text(step.status.icon)
+                    Text("\(step.toolName)")
                         .font(.subheadline)
                         .fontWeight(.medium)
                     Spacer()
@@ -82,8 +82,8 @@ struct WorkflowStepView: View {
                                     .font(.caption)
                                     .padding(8)
                                     .background(
-                                        step.type == .result ? Color.blue.opacity(0.1) : 
-                                        step.type == .error ? Color.red.opacity(0.1) : Color.gray.opacity(0.1)
+                                        step.status == .result ? Color.blue.opacity(0.1) : 
+                                        step.status == .error ? Color.red.opacity(0.1) : Color.gray.opacity(0.1)
                                     )
                                     .cornerRadius(4)
                             }
@@ -95,9 +95,9 @@ struct WorkflowStepView: View {
         }
         .padding()
         .background(
-            step.type == .result ? Color.blue.opacity(0.05) :
-            step.type == .executing ? Color.orange.opacity(0.05) :
-            step.type == .scheduled ? Color.gray.opacity(0.05) : Color.gray.opacity(0.05)
+            step.status == .result ? Color.blue.opacity(0.05) :
+            step.status == .executing ? Color.orange.opacity(0.05) :
+            step.status == .scheduled ? Color.gray.opacity(0.05) : Color.gray.opacity(0.05)
         )
         .cornerRadius(8)
     }
@@ -111,8 +111,8 @@ struct WorkflowErrorView: View {
     
     var body: some View {
         HStack {
-            Text(step.type.icon)
-            Text(step.title)
+            Text(step.status.icon)
+            Text(step.toolName)
                 .font(.caption)
                 .foregroundColor(.red)
         }

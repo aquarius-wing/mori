@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Workflow Step Models
-enum WorkflowStepType: String, CaseIterable, Codable {
+enum WorkflowStepStatus: String, CaseIterable, Codable {
     case scheduled = "scheduled"
     case executing = "executing" 
     case result = "result"
@@ -25,8 +25,8 @@ enum WorkflowStepType: String, CaseIterable, Codable {
 
 struct WorkflowStep: Identifiable, Codable {
     let id = UUID()
-    let type: WorkflowStepType
-    let title: String // name of tool
+    let status: WorkflowStepStatus
+    let toolName: String // name of tool
     let details: [String: String] // Keep as [String: String] for Codable compatibility
     let timestamp: Date
     
@@ -37,17 +37,25 @@ struct WorkflowStep: Identifiable, Codable {
         }
     }
     
-    init(type: WorkflowStepType, title: String = "", content: String = "", details: [String: String] = [:]) {
-        self.type = type
-        self.title = title.isEmpty ? content : title
+    init(status: WorkflowStepStatus, toolName: String = "", title: String = "", details: [String: String] = [:]) {
+        self.status = status
+        self.toolName = toolName
         self.details = details
         self.timestamp = Date()
     }
     
     // Legacy initializer for backward compatibility
-    init(type: WorkflowStepType, content: String, details: [String: String] = [:]) {
-        self.type = type
-        self.title = content
+    init(type: WorkflowStepStatus, content: String, details: [String: String] = [:]) {
+        self.status = type
+        self.toolName = content
+        self.details = details
+        self.timestamp = Date()
+    }
+    
+    // Legacy initializer for backward compatibility with title
+    init(type: WorkflowStepStatus, title: String = "", content: String = "", details: [String: String] = [:]) {
+        self.status = type
+        self.toolName = title.isEmpty ? content : title
         self.details = details
         self.timestamp = Date()
     }

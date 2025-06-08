@@ -23,7 +23,7 @@ struct ChatView: View {
     
     @State private var messageList: [any MessageListItem] = []
     @State private var currentStatus = "Ready"
-    @State private var statusType: WorkflowStepType = .finalStatus
+    @State private var statusType: WorkflowStepStatus = .finalStatus
     @State private var isStreaming = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -55,7 +55,7 @@ struct ChatView: View {
                             if isStreaming || isSending {
                                 VStack(alignment: .leading, spacing: 12) {
                                     // Status indicator
-                                    StatusIndicator(status: currentStatus, type: statusType)
+                                    StatusIndicator(status: currentStatus, stepStatus: statusType)
                                 }
                                 .id("streaming")
                             }
@@ -210,13 +210,13 @@ struct ChatView: View {
                 await processRealToolWorkflow(for: messageText, using: service)
                 
             } catch {
-                await MainActor.run {
-                    let errorStep = WorkflowStep(type: .error, title: "Send failed: \(error.localizedDescription)")
-                    messageList.append(errorStep)
-                    updateStatus("Error: \(error.localizedDescription)", type: .error)
-                    isSending = false
-                    isStreaming = false
-                }
+                            await MainActor.run {
+                let errorStep = WorkflowStep(status: .error, toolName: "Send failed: \(error.localizedDescription)")
+                messageList.append(errorStep)
+                updateStatus("Error: \(error.localizedDescription)", type: .error)
+                isSending = false
+                isStreaming = false
+            }
             }
         }
     }
@@ -237,19 +237,19 @@ struct ChatView: View {
                     case "tool_call":
                         toolCallCount += 1
                         let toolCallStep = WorkflowStep(
-                            type: .scheduled,
-                            title: content,
+                            status: .scheduled,
+                            toolName: content,
                             details: ["tool_name": content, "arguments": "Pending..."]
                         )
                         messageList.append(toolCallStep)
                         updateStatus("⏰ Scheduling tool: \(content)", type: .scheduled)
                     case "tool_arguments":
                         // Update the most recent scheduled step with arguments
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.type == .scheduled }) {
+                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .scheduled }) {
                             if let step = messageList[lastIndex] as? WorkflowStep {
                                 let updatedStep = WorkflowStep(
-                                    type: .scheduled,
-                                    title: step.title,
+                                    status: .scheduled,
+                                    toolName: step.toolName,
                                     details: ["tool_name": step.details["tool_name"] ?? "", "arguments": content]
                                 )
                                 messageList[lastIndex] = updatedStep
@@ -257,11 +257,11 @@ struct ChatView: View {
                         }
                     case "tool_execution":
                         // Update the most recent scheduled step to executing
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.type == .scheduled }) {
+                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .scheduled }) {
                             if let step = messageList[lastIndex] as? WorkflowStep {
                                 let updatedStep = WorkflowStep(
-                                    type: .executing,
-                                    title: step.title,
+                                    status: .executing,
+                                    toolName: step.toolName,
                                     details: step.details
                                 )
                                 messageList[lastIndex] = updatedStep
@@ -270,11 +270,11 @@ struct ChatView: View {
                         updateStatus("⚡ Executing: \(content)", type: .executing)
                     case "tool_results":
                         // Update the most recent executing step to result
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.type == .executing }) {
+                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .executing }) {
                             if let step = messageList[lastIndex] as? WorkflowStep {
                                 let updatedStep = WorkflowStep(
-                                    type: .result,
-                                    title: step.title,
+                                    status: .result,
+                                    toolName: step.toolName,
                                     details: ["result": content]
                                 )
                                 messageList[lastIndex] = updatedStep
@@ -300,7 +300,7 @@ struct ChatView: View {
                             messageList.append(newMessage)
                         }
                     case "error":
-                        let errorStep = WorkflowStep(type: .error, title: content)
+                        let errorStep = WorkflowStep(status: .error, toolName: content)
                         messageList.append(errorStep)
                         updateStatus("❌ Error: \(content)", type: .error)
                     case "replace_response":
@@ -325,7 +325,7 @@ struct ChatView: View {
                 // Add final status
                 let finalStatusMessage = toolCallCount > 0 ? 
                     "Completed. Processed \(toolCallCount) tool call(s)." : "Completed."
-                let finalStep = WorkflowStep(type: .finalStatus, title: finalStatusMessage)
+                let finalStep = WorkflowStep(status: .finalStatus, toolName: finalStatusMessage)
                 messageList.append(finalStep)
                 
                 updateStatus("✅ \(finalStatusMessage)", type: .finalStatus)
@@ -337,7 +337,7 @@ struct ChatView: View {
             }
         } catch {
             await MainActor.run {
-                let errorStep = WorkflowStep(type: .error, title: "Error: \(error.localizedDescription)")
+                let errorStep = WorkflowStep(status: .error, toolName: "Error: \(error.localizedDescription)")
                 messageList.append(errorStep)
                 updateStatus("❌ Error: \(error.localizedDescription)", type: .error)
                 isStreaming = false
@@ -345,7 +345,7 @@ struct ChatView: View {
         }
     }
     
-    private func updateStatus(_ status: String, type: WorkflowStepType) {
+    private func updateStatus(_ status: String, type: WorkflowStepStatus) {
         currentStatus = status
         statusType = type
     }

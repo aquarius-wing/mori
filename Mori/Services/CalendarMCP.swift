@@ -1,6 +1,52 @@
 import Foundation
 import EventKit
 
+// MARK: - Calendar Response Types
+struct CalendarReadResponse: Codable {
+    let success: Bool
+    let events: [CalendarEvent]
+    let count: Int
+    let dateRange: DateRange
+    
+    enum CodingKeys: String, CodingKey {
+        case success
+        case events
+        case count
+        case dateRange = "date_range"
+    }
+}
+
+struct CalendarEvent: Codable {
+    let id: String
+    let title: String
+    let startDate: String
+    let endDate: String
+    let location: String
+    let notes: String
+    let isAllDay: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case location
+        case notes
+        case isAllDay = "is_all_day"
+    }
+}
+
+struct DateRange: Codable {
+    let startDate: String
+    let endDate: String
+}
+
+struct CalendarUpdateResponse: Codable {
+    let success: Bool
+    let message: String
+    let event: CalendarEvent
+}
+
 class CalendarMCP: ObservableObject {
     private let eventStore = EKEventStore()
     
@@ -91,15 +137,29 @@ class CalendarMCP: ObservableObject {
         
         print("📅 Found \(eventList.count) events")
         
-        return [
-            "success": true,
-            "events": eventList,
-            "count": eventList.count,
-            "date_range": [
-                "startDate": startDateString,
-                "endDate": endDateString
-            ]
-        ]
+        let response = CalendarReadResponse(
+            success: true,
+            events: eventList.map { eventDict in
+                CalendarEvent(
+                    id: eventDict["id"] as? String ?? "",
+                    title: eventDict["title"] as? String ?? "",
+                    startDate: eventDict["start_date"] as? String ?? "",
+                    endDate: eventDict["end_date"] as? String ?? "",
+                    location: eventDict["location"] as? String ?? "",
+                    notes: eventDict["notes"] as? String ?? "",
+                    isAllDay: eventDict["is_all_day"] as? Bool ?? false
+                )
+            },
+            count: eventList.count,
+            dateRange: DateRange(startDate: startDateString, endDate: endDateString)
+        )
+        
+        // Convert to dictionary for compatibility
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let dictionary = try JSONSerialization.jsonObject(with: data, options: []) as! [String: Any]
+        
+        return dictionary
     }
     
     func updateCalendar(arguments: [String: Any]) async throws -> [String: Any] {
@@ -177,19 +237,28 @@ class CalendarMCP: ObservableObject {
                 let outputFormatter = ISO8601DateFormatter()
                 outputFormatter.timeZone = TimeZone.current
                 
-                return [
-                    "success": true,
-                    "message": "Event updated successfully",
-                    "event": [
-                        "id": eventId,
-                        "title": existingEvent.title ?? "",
-                        "start_date": outputFormatter.string(from: finalStartDate),
-                        "end_date": outputFormatter.string(from: finalEndDate),
-                        "location": existingEvent.location ?? "",
-                        "notes": existingEvent.notes ?? "",
-                        "is_all_day": existingEvent.isAllDay
-                    ]
-                ]
+                let event = CalendarEvent(
+                    id: eventId,
+                    title: existingEvent.title ?? "",
+                    startDate: outputFormatter.string(from: finalStartDate),
+                    endDate: outputFormatter.string(from: finalEndDate),
+                    location: existingEvent.location ?? "",
+                    notes: existingEvent.notes ?? "",
+                    isAllDay: existingEvent.isAllDay
+                )
+                
+                let response = CalendarUpdateResponse(
+                    success: true,
+                    message: "Event updated successfully",
+                    event: event
+                )
+                
+                // Convert to dictionary for compatibility
+                let encoder = JSONEncoder()
+                let data = try encoder.encode(response)
+                let dictionary = try JSONSerialization.jsonObject(with: data, options: []) as! [String: Any]
+                
+                return dictionary
             } catch {
                 print("❌ Failed to update event: \(error.localizedDescription)")
                 throw CalendarMCPError.updateFailed("Failed to update event: \(error.localizedDescription)")
@@ -239,19 +308,28 @@ class CalendarMCP: ObservableObject {
                 let outputFormatter = ISO8601DateFormatter()
                 outputFormatter.timeZone = TimeZone.current
                 
-                return [
-                    "success": true,
-                    "message": "Event created successfully",
-                    "event": [
-                        "id": event.eventIdentifier ?? "",
-                        "title": title,
-                        "start_date": outputFormatter.string(from: finalStartDate),
-                        "end_date": outputFormatter.string(from: finalEndDate),
-                        "location": location,
-                        "notes": notes,
-                        "is_all_day": isAllDay
-                    ]
-                ]
+                let calendarEvent = CalendarEvent(
+                    id: event.eventIdentifier ?? "",
+                    title: title,
+                    startDate: outputFormatter.string(from: finalStartDate),
+                    endDate: outputFormatter.string(from: finalEndDate),
+                    location: location,
+                    notes: notes,
+                    isAllDay: isAllDay
+                )
+                
+                let response = CalendarUpdateResponse(
+                    success: true,
+                    message: "Event created successfully",
+                    event: calendarEvent
+                )
+                
+                // Convert to dictionary for compatibility
+                let encoder = JSONEncoder()
+                let data = try encoder.encode(response)
+                let dictionary = try JSONSerialization.jsonObject(with: data, options: []) as! [String: Any]
+                
+                return dictionary
             } catch {
                 print("❌ Failed to create event: \(error.localizedDescription)")
                 throw CalendarMCPError.creationFailed("Failed to create event: \(error.localizedDescription)")

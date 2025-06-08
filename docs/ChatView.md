@@ -11,12 +11,12 @@
 
 ### WorkflowStep
 - id: UUID
-- type: WorkflowStepType
-- title: String // name of tool
+- status: WorkflowStepStatus
+- toolName: String // name of tool
 - details: [String: Any]
 - timestamp: Date
 
-### WorkflowStepType
+### WorkflowStepStatus
 - scheduled
 - executing
 - result
