@@ -57,12 +57,11 @@ class CalendarMCP: ObservableObject {
             throw CalendarMCPError.invalidArguments("startDate and endDate are required")
         }
         
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.timeZone = TimeZone.current
         
-        guard let startDate = dateFormatter.date(from: startDateString),
-              let endDate = dateFormatter.date(from: endDateString) else {
+        guard let startDate = isoFormatter.date(from: startDateString),
+              let endDate = isoFormatter.date(from: endDateString) else {
             throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
         }
         
@@ -77,12 +76,15 @@ class CalendarMCP: ObservableObject {
         let events = eventStore.events(matching: predicate)
         
         // Convert events to dictionary format
+        let outputFormatter = ISO8601DateFormatter()
+        outputFormatter.timeZone = TimeZone.current
+        
         let eventList = events.map { event in
             return [
                 "id": event.eventIdentifier ?? "",
                 "title": event.title ?? "No Title",
-                "start_time": ISO8601DateFormatter().string(from: event.startDate),
-                "end_time": ISO8601DateFormatter().string(from: event.endDate),
+                "start_time": outputFormatter.string(from: event.startDate),
+                "end_time": outputFormatter.string(from: event.endDate),
                 "location": event.location ?? "",
                 "notes": event.notes ?? "",
                 "is_all_day": event.isAllDay
@@ -145,22 +147,20 @@ class CalendarMCP: ObservableObject {
             var finalEndDate = eventEndDate
             
             if let startDateString = arguments["startDate"] as? String {
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-                dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.timeZone = TimeZone.current
                 
-                guard let startDate = dateFormatter.date(from: startDateString) else {
+                guard let startDate = isoFormatter.date(from: startDateString) else {
                     throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
                 }
                 finalStartDate = startDate
             }
             
             if let endDateString = arguments["endDate"] as? String {
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-                dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.timeZone = TimeZone.current
                 
-                guard let endDate = dateFormatter.date(from: endDateString) else {
+                guard let endDate = isoFormatter.date(from: endDateString) else {
                     throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
                 }
                 finalEndDate = endDate
@@ -204,14 +204,17 @@ class CalendarMCP: ObservableObject {
                 try eventStore.save(existingEvent, span: .thisEvent)
                 print("📅 Event updated successfully: \(existingEvent.title ?? "")")
                 
+                let outputFormatter = ISO8601DateFormatter()
+                outputFormatter.timeZone = TimeZone.current
+                
                 return [
                     "success": true,
                     "message": "Event updated successfully",
                     "event": [
                         "id": eventId,
                         "title": existingEvent.title ?? "",
-                        "start_time": ISO8601DateFormatter().string(from: finalStartDate),
-                        "end_time": ISO8601DateFormatter().string(from: finalEndDate),
+                        "start_time": outputFormatter.string(from: finalStartDate),
+                        "end_time": outputFormatter.string(from: finalEndDate),
                         "location": existingEvent.location ?? "",
                         "notes": existingEvent.notes ?? "",
                         "is_all_day": existingEvent.isAllDay
@@ -238,12 +241,11 @@ class CalendarMCP: ObservableObject {
             let isAllDay = arguments["isAllDay"] as? Bool ?? false
             
             // Parse dates
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-            dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.timeZone = TimeZone.current
             
-            guard let startDate = dateFormatter.date(from: startDateString),
-                  let endDate = dateFormatter.date(from: endDateString) else {
+            guard let startDate = isoFormatter.date(from: startDateString),
+                  let endDate = isoFormatter.date(from: endDateString) else {
                 throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
             }
             
@@ -294,14 +296,17 @@ class CalendarMCP: ObservableObject {
                 try eventStore.save(event, span: .thisEvent)
                 print("📅 Event created successfully: \(title)")
                 
+                let outputFormatter = ISO8601DateFormatter()
+                outputFormatter.timeZone = TimeZone.current
+                
                 return [
                     "success": true,
                     "message": "Event created successfully",
                     "event": [
                         "id": event.eventIdentifier ?? "",
                         "title": title,
-                        "start_time": ISO8601DateFormatter().string(from: finalStartDate),
-                        "end_time": ISO8601DateFormatter().string(from: finalEndDate),
+                        "start_time": outputFormatter.string(from: finalStartDate),
+                        "end_time": outputFormatter.string(from: finalEndDate),
                         "location": location,
                         "notes": notes,
                         "is_all_day": isAllDay

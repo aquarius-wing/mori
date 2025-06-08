@@ -86,7 +86,7 @@ class OpenAIService: ObservableObject {
             "model": "deepseek/deepseek-chat-v3-0324",
             "messages": messages,
             "stream": true,
-            "temperature": 0
+            "temperature": 0.7
         ]
         
         return requestBody
