@@ -15,38 +15,48 @@ class OpenAIService: ObservableObject {
         let currentDate = dateFormatter.string(from: Date())
         
         let systemMessage = """
-        You are a helpful assistant with access to these tools:
+        You are Mori, a helpful AI assistant with access to calendar management tools.
 
+        Available Tools:
         \(toolsDescription)
 
-        Current date: \(currentDate)
+        Current date and time: \(currentDate)
 
-        Choose the appropriate tool based on the user's question. If no tool is needed, reply directly.
-
-        IMPORTANT: When you need to use a tool, you must respond with the exact JSON object format below:
+        ## Tool Usage Instructions:
+        1. Analyze the user's request to determine if tools are needed
+        2. When using tools, respond with valid JSON format (no comments):
+        
+        Single tool:
+        {
+            "tool": "tool-name",
+            "arguments": {
+                "param": "value"
+            }
+        }
+        
+        Multiple tools:
         [{
             "tool": "tool-name-1",
             "arguments": {
-                "argument-name-1": "value-1"
+                "param": "value"
             }
-        }
+        },
         {
-            "tool": "tool-name-2",
+            "tool": "tool-name-2", 
             "arguments": {
-                "argument-name-2": "value-2"
+                "param": "value"
             }
         }]
 
-        After receiving tool responses:
-        1. Transform the raw data into a natural, conversational response
-        2. Keep responses concise but informative
-        3. Focus on the most relevant information
-        4. Use appropriate context from the user's question
-        5. Avoid simply repeating the raw data
+        ## Response Guidelines:
+        - After tool execution, provide natural, conversational responses
+        - Focus on the most relevant information from tool results
+        - Be concise but informative
+        - Use context from the user's original question
+        - Don't repeat raw data - transform it into useful insights
+        - Take action when requested (don't ask for confirmation unless critical)
 
-        Please use only the tools that are explicitly defined above. do not has comment in json format.
-
-        Donot ask user, just response by target tool.
+        Always prioritize helping the user accomplish their calendar management tasks efficiently.
         """
         return systemMessage
     }
@@ -80,6 +90,8 @@ class OpenAIService: ObservableObject {
                 "role": role,
                 "content": msg.content
             ])
+            
+
         }
         
         let requestBody: [String: Any] = [
@@ -131,9 +143,9 @@ class OpenAIService: ObservableObject {
                     
                     do {
                         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-                        print("request body---")
-                        print(String(data: request.httpBody!, encoding: .utf8)!)
-                        print("---")
+                        // print("request body---")
+                        // print(String(data: request.httpBody!, encoding: .utf8)!)
+                        // print("---")
                     } catch {
                         print("❌ JSON serialization failed: \(error)")
                         continuation.finish(throwing: error)
@@ -252,7 +264,7 @@ class OpenAIService: ObservableObject {
     
     // MARK: - Tool Processing
     internal func extractToolCalls(from response: String) -> ([ToolCall], String) {
-        print("🔧 Extracting tool calls from response: \(response)")
+        print("🔧 Extracting tool calls from response: \(response.prefix(50))...")
         
         var toolCalls: [ToolCall] = []
         var cleanedText = response
@@ -415,22 +427,11 @@ class OpenAIService: ObservableObject {
                     }
                     
                     while toolExecutionCount < maxToolExecutions {
-                        // Print current conversation state
-                        print("🔄 Tool execution cycle: \(toolExecutionCount + 1), Current messages count: \(currentMessages.count)")
-                        print("📋 Current conversation history:")
-                        for (index, msg) in currentMessages.enumerated() {
-                            let role = msg.isSystem ? "SYSTEM" : (msg.isUser ? "USER" : "ASSISTANT")
-                            // print content first 50 chars
-                            print("  [\(index)] \(role): \(String(msg.content.prefix(50)))...")
-                            print("    ─────────────────────────────────────")
-                        }
-                        
                         // Emit thinking status
                         continuation.yield(("status", "💬 Streaming response..."))
                         
                         // Get response from LLM
                         var llmResponse = ""
-                        // Always send empty message since user message is already in conversationHistory
                         for try await chunk in sendChatMessage(conversationHistory: currentMessages) {
                             llmResponse += chunk
                             if toolExecutionCount == 0 {
@@ -440,7 +441,7 @@ class OpenAIService: ObservableObject {
                         }
                         
                         accumulatedResponse += llmResponse
-                        print("🤖 LLM Response: \(llmResponse)")
+                        print("🤖 LLM Response: \(llmResponse.prefix(50))...")
                         
                         // Extract tool calls and get cleaned text
                         let (toolCalls, cleanedResponse) = extractToolCalls(from: llmResponse)
@@ -449,11 +450,13 @@ class OpenAIService: ObservableObject {
                             // No tools to execute, we're done
                             print("✅ No tools found, conversation complete")
                             if toolExecutionCount > 0 {
-                                // If this is a subsequent iteration, yield the final response (use cleaned response)
+                                // If this is a subsequent iteration, yield the final response
                                 let responseToYield = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
                                 continuation.yield(("response", responseToYield))
                             }
-                            continuation.yield(("add_assistant_message", llmResponse))
+                            // Send the final cleaned response
+                            let finalResponse = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
+                            continuation.yield(("replace_response", finalResponse))
                             break
                         }
                         
@@ -490,12 +493,12 @@ class OpenAIService: ObservableObject {
                                     let resultData = try JSONSerialization.data(withJSONObject: toolResult, options: .prettyPrinted)
                                     if let resultString = String(data: resultData, encoding: .utf8) {
                                         continuation.yield(("tool_results", resultString))
+                                        print("✅ Tool \(toolCall.tool) response: \(resultString.prefix(50))...")
                                     }
                                 } catch {
                                     continuation.yield(("tool_results", "\(toolResult)"))
                                 }
                                 
-                                print("✅ Tool \(toolCall.tool) response: \(toolResult)")
                             } catch {
                                 let errorText = "Tool \(toolCall.tool) failed: \(error.localizedDescription)"
                                 toolResponses.append(errorText)
@@ -507,21 +510,13 @@ class OpenAIService: ObservableObject {
                             }
                         }
                         
-                        // Send assistant message to ChatView
-                        let assistantContent = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
-                        continuation.yield(("add_assistant_message", assistantContent))
-                        
-                        // Send tool responses as system messages to ChatView
-                        for toolResponse in toolResponses {
-                            continuation.yield(("add_user_message", toolResponse))
-                        }
-                        
                         // Update local currentMessages for next iteration
+                        let assistantContent = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
                         let assistantMessage = ChatMessage(content: assistantContent, isUser: false, timestamp: Date())
                         currentMessages.append(assistantMessage)
                         
                         for toolResponse in toolResponses {
-                            let systemMessage = ChatMessage(content: toolResponse, isUser: false, timestamp: Date(), isSystem: true)
+                            let systemMessage = ChatMessage(content: toolResponse, isUser: true, timestamp: Date(), isSystem: false)
                             currentMessages.append(systemMessage)
                         }
                         

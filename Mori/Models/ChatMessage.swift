@@ -2,25 +2,23 @@ import Foundation
 
 // MARK: - Workflow Step Models
 enum WorkflowStepType: String, CaseIterable, Codable {
-    case userQuery = "USER_QUERY"
-    case llmThinking = "LLM_THINKING"
-    case llmResponse = "LLM_RESPONSE"
-    case toolCall = "TOOL_CALL"
-    case toolExecution = "TOOL_EXECUTION"
-    case toolResult = "TOOL_RESULT"
+    case scheduled = "scheduled"
+    case executing = "executing" 
+    case result = "result"
+    case error = "error"
+    
+    // Additional UI status types (not part of core workflow)
     case finalStatus = "FINAL_STATUS"
-    case error = "ERROR"
+    case llmThinking = "LLM_THINKING"
     
     var icon: String {
         switch self {
-        case .userQuery: return "👤"
-        case .llmThinking: return "☁️"
-        case .llmResponse: return "💬"
-        case .toolCall: return "🔧"
-        case .toolExecution: return "⚡️"
-        case .toolResult: return "📊"
-        case .finalStatus: return "✅"
+        case .scheduled: return "⏰"
+        case .executing: return "⚡️"
+        case .result: return "📊"
         case .error: return "❌"
+        case .finalStatus: return "✅"
+        case .llmThinking: return "☁️"
         }
     }
 }
@@ -28,13 +26,28 @@ enum WorkflowStepType: String, CaseIterable, Codable {
 struct WorkflowStep: Identifiable, Codable {
     let id = UUID()
     let type: WorkflowStepType
-    let content: String
-    let details: [String: String]
+    let title: String // name of tool
+    let details: [String: String] // Keep as [String: String] for Codable compatibility
     let timestamp: Date
     
+    // Convenience property for working with Any values
+    var detailsAny: [String: Any] {
+        get {
+            return details.mapValues { $0 as Any }
+        }
+    }
+    
+    init(type: WorkflowStepType, title: String = "", content: String = "", details: [String: String] = [:]) {
+        self.type = type
+        self.title = title.isEmpty ? content : title
+        self.details = details
+        self.timestamp = Date()
+    }
+    
+    // Legacy initializer for backward compatibility
     init(type: WorkflowStepType, content: String, details: [String: String] = [:]) {
         self.type = type
-        self.content = content
+        self.title = content
         self.details = details
         self.timestamp = Date()
     }

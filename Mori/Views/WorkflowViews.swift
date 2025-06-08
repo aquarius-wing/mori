@@ -35,8 +35,8 @@ struct WorkflowView: View {
             ForEach(steps.indices, id: \.self) { index in
                 let step = steps[index]
                 
-                if step.type == .toolCall {
-                    WorkflowToolCallView(step: step, followingSteps: getFollowingSteps(from: index))
+                if step.type == .scheduled || step.type == .executing || step.type == .result || step.type == .finalStatus {
+                    WorkflowStepView(step: step)
                 } else if step.type == .error {
                     WorkflowErrorView(step: step)
                 }
@@ -44,26 +44,12 @@ struct WorkflowView: View {
         }
     }
     
-    private func getFollowingSteps(from index: Int) -> [WorkflowStep] {
-        guard index + 1 < steps.count else { return [] }
-        
-        var followingSteps: [WorkflowStep] = []
-        for i in (index + 1)..<steps.count {
-            let step = steps[i]
-            if step.type == .toolExecution || step.type == .toolResult {
-                followingSteps.append(step)
-            } else if step.type == .toolCall {
-                break // Stop at next tool call
-            }
-        }
-        return followingSteps
-    }
+
 }
 
-// MARK: - Tool Call View
-struct WorkflowToolCallView: View {
+// MARK: - Standard Workflow Step View
+struct WorkflowStepView: View {
     let step: WorkflowStep
-    let followingSteps: [WorkflowStep]
     @State private var isExpanded = false
     
     var body: some View {
@@ -71,57 +57,35 @@ struct WorkflowToolCallView: View {
             Button(action: { isExpanded.toggle() }) {
                 HStack {
                     Text(step.type.icon)
-                    Text("Tool Call: \(step.details["tool_name"] ?? "Unknown")")
+                    Text("\(step.title)")
                         .font(.subheadline)
                         .fontWeight(.medium)
                     Spacer()
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.caption)
+                    if !step.details.isEmpty {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption)
+                    }
                 }
                 .foregroundColor(.primary)
             }
+            .disabled(step.details.isEmpty)
             
-            if isExpanded {
+            if isExpanded && !step.details.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    // Arguments
-                    Text("Arguments:")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                    
-                    if let arguments = step.details["arguments"] {
-                        if arguments == "Pending..." {
-                            Text("Preparing arguments...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text(arguments)
-                                .font(.caption)
-                                .padding(8)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(4)
-                        }
-                    }
-                    
-                    // Following steps (execution and results)
-                    ForEach(followingSteps, id: \.id) { followingStep in
-                        HStack {
-                            Text(followingStep.type.icon)
-                            if followingStep.type == .toolExecution {
-                                Text("Status: \(followingStep.content)")
+                    ForEach(Array(step.details.keys.sorted()), id: \.self) { key in
+                        if let value = step.details[key] {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(key.capitalized):")
                                     .font(.caption)
-                            } else if followingStep.type == .toolResult {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Result:")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                    if let result = followingStep.details["result"] {
-                                        Text(result)
-                                            .font(.caption)
-                                            .padding(8)
-                                            .background(Color.blue.opacity(0.1))
-                                            .cornerRadius(4)
-                                    }
-                                }
+                                    .fontWeight(.semibold)
+                                Text(value)
+                                    .font(.caption)
+                                    .padding(8)
+                                    .background(
+                                        step.type == .result ? Color.blue.opacity(0.1) : 
+                                        step.type == .error ? Color.red.opacity(0.1) : Color.gray.opacity(0.1)
+                                    )
+                                    .cornerRadius(4)
                             }
                         }
                     }
@@ -130,10 +94,16 @@ struct WorkflowToolCallView: View {
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.05))
+        .background(
+            step.type == .result ? Color.blue.opacity(0.05) :
+            step.type == .executing ? Color.orange.opacity(0.05) :
+            step.type == .scheduled ? Color.gray.opacity(0.05) : Color.gray.opacity(0.05)
+        )
         .cornerRadius(8)
     }
 }
+
+
 
 // MARK: - Error View
 struct WorkflowErrorView: View {
@@ -142,7 +112,7 @@ struct WorkflowErrorView: View {
     var body: some View {
         HStack {
             Text(step.type.icon)
-            Text(step.content)
+            Text(step.title)
                 .font(.caption)
                 .foregroundColor(.red)
         }
