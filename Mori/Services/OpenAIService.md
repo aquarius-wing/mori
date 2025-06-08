@@ -204,7 +204,7 @@ The service emits various status types through the streaming interface:
 ## Configuration
 
 ### API Model
-The service is configured to use `google/gemini-2.5-pro-preview` model with:
+The service is configured to use `deepseek/deepseek-chat-v3-0324` model with:
 - Temperature: 0.7
 - Streaming enabled
 - Tool calling support

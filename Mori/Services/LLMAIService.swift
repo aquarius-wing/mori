@@ -145,7 +145,7 @@ class LLMAIService: ObservableObject {
             "model": config.model,
             "messages": messages,
             "stream": true,
-            "temperature": 0.7
+            "temperature": 0
         ]
         
         return requestBody

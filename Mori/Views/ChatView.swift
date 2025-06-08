@@ -109,6 +109,7 @@ struct ChatView: View {
             .navigationTitle("Mori")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                #if DEBUG
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Debug") {
                         // Single tap action (optional)
@@ -158,6 +159,7 @@ struct ChatView: View {
                         }
                     }
                 }
+                #endif
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Clear") {
