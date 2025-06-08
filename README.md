@@ -1,3 +1,8 @@
+<p align="center">
+    <img src="https://github.com/aquarius-wing/mori/blob/dev/Mori/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png?raw=true" alt="Mori Logo" height="200">
+</p>
+
+
 <h1 align="center"> Mori </h1>
 
 <h4 align="center">
