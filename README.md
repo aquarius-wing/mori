@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://github.com/aquarius-wing/mori/blob/dev/Mori/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png?raw=true" alt="Mori Logo" height="200">
+    <img src="https://github.com/aquarius-wing/mori/blob/main/Mori/Assets.xcassets/AppIcon-Display.imageset/AppIcon-Display@3x.png?raw=true" alt="Mori Logo" height="200">
 </p>
 
 
