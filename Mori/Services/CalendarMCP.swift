@@ -52,12 +52,24 @@ class CalendarMCP: ObservableObject {
     
     // MARK: - Tool Definition
     static func getToolDescription() -> String {
+        // current time zone as +08:00
+        let base = Date()                // e.g. today; could come from DatePicker, server, etc.
+        let calendar = Calendar.current  // or Calendar(identifier: .gregorian)
+
+        // 1. Build the two boundary Date values
+        var start = calendar.startOfDay(for: base)          // 00:00:00 local
+        var components = DateComponents(second: 86_399)     // 23 h 59 m 59 s  =  24h-1s
+        let end = calendar.date(byAdding: components, to: start)!  // 23:59:59
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = TimeZone.current
+        let startString = formatter.string(from: start)
+        let endString = formatter.string(from: end)
         return """
         Tool: read-calendar
         Description: If user ask about calendar or events or meeting or something maybe in Calendar, use this tool to read calendar events.
         Arguments:
-        - startDate: like 2024-01-30T00:00:00Z (required)
-        - endDate: like 2024-01-31T23:59:59Z (required)
+        - startDate: like \(startString) (required)
+        - endDate: like \(endString) (required)
         
         
         Tool: update-calendar
@@ -65,8 +77,8 @@ class CalendarMCP: ObservableObject {
         Arguments:
         - id: Event id (required)
         - title: Event title (optional)
-        - startDate: Start date like 2024-01-31T00:00:00Z (optional)
-        - endDate: End date like 2024-01-31T23:59:59Z (optional)
+        - startDate: Start date like \(startString) (optional)
+        - endDate: End date like \(endString) (optional)
         - location: Event location (optional)
         - notes: Event notes (optional)
         - isAllDay: true/false for all day event (optional, default false)

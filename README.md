@@ -9,147 +9,42 @@
     A privacy-first AI Agent app on iOS with voice chat capabilities.
 </h4>
 
-## 🤔 Why Mori?
+## Showcases
 
-1. **Voice-First AI Chat**: Talk to GPT-4o naturally using voice input with Whisper speech-to-text
-2. **Privacy-First**: Your API keys and conversations stay on your device - no data collection
-3. **Seamless Experience**: Stream responses in real-time with beautiful Markdown rendering
-4. **Future-Ready**: Built for extensibility with planned Calendar and Reminders integration
+### Just say the word to update your calendar events.
 
-## ✨ Core Features
+| Screenshot1 | Screenshot2 |
+| -------------------------------------- | -------------------------------------- |
+| <img src="./showcase/screenshot1.png" width="200" alt="screenshot1">   | <img src="./showcase/screenshot2.png" width="200" alt="screenshot2"> |
 
-### 🎙️ Voice Interaction
-- **Voice Recording**: Hold to record, release to send
-- **Speech-to-Text**: Powered by OpenAI Whisper for accurate transcription
-- **Smart Chat**: Streaming conversations with GPT-4o
-- **Rich Responses**: Clean text display for AI responses
-- **Custom API Support**: Configure custom OpenAI-compatible API endpoints
 
-### 🚀 User Experience
-- **Onboarding Flow**: Guided setup for OpenAI API keys with advanced settings
-- **Real-time Streaming**: See AI responses as they're generated
-- **Chat History**: Persistent conversation memory
-- **Permission Management**: Automatic microphone permission handling
-- **Advanced Configuration**: Optional custom API Base URL for alternative services
 
-## 🏗️ Technical Architecture
-
-### 📱 Technologies
-- **SwiftUI**: Modern declarative UI framework
-- **AVFoundation**: Professional audio recording
-- **URLSession**: Efficient networking with streaming support
-
-### 🗂️ Project Structure
-```
-Mori/
-├── MoriApp.swift              # App entry point
-├── ContentView.swift          # Main view controller
-├── Views/
-│   ├── OnboardingView.swift   # API key setup
-│   └── ChatView.swift         # Chat interface
-├── Services/
-│   ├── AudioRecorder.swift    # Audio recording service
-│   └── LLMAIService.swift     # Multi-provider LLM API service
-├── Models/
-│   └── ChatMessage.swift      # Message data model
-└── Assets.xcassets/           # App resources
-```
 
 ## 🚀 Quick Start
 
 ### 1. Requirements
-- Xcode 15.0 or later
-- iOS 17.0 or later
-- Valid OpenAI API key
+- Valid OpenAI or OpenRouter API key
 
-### 2. Get OpenAI API Key
+### 2. Get OpenAI or OpenRouter API Key
 1. Visit [OpenAI API Keys](https://platform.openai.com/api-keys)
-2. Sign in or create an OpenAI account
-3. Create a new API key
-4. Copy and save the key (shown only once)
+2. Or visit [OpenRouter API Keys](https://openrouter.ai/settings/keys)
+3. Sign in or create an account
+4. Create a new API key
+5. Copy and save the key (shown only once)
 
-### 3. Installation & Setup
-1. Clone the repository
-2. Open `Mori.xcodeproj` in Xcode
-3. Select your target device or simulator
-4. Run with ⌘+R
+### 3. Ask what you want
+1. What's the events in my calendar?
+2. Delay all events about John to next week.
 
-### 4. First-time Setup
-1. Enter your OpenAI API key in the onboarding screen
-2. (Optional) Tap "Advanced Settings" to configure custom API Base URL
-3. Tap "Get Started"
-4. Allow microphone access when prompted
-
-## 💬 How to Use
-
-### Voice Chat
-1. **Hold to Record**: Press and hold the microphone button
-2. **Speak Naturally**: Ask your question or make a request
-3. **Release to Send**: Let go to process your voice
-4. **Watch the Magic**: See your speech converted to text and AI response streaming in
-
-### Interface Features
-- **Recording Status**: Button turns red and scales during recording
-- **Permission Prompts**: Automatic microphone permission requests
-- **Error Handling**: Friendly error messages for network/API issues
-- **Clear Chat**: Reset conversation with the clear button
-
-## ⚙️ API Configuration
-
-### OpenAI Models Used
-- **Speech-to-Text**: `whisper-1`
-- **Chat Completion**: `gpt-4o`
-
-### API Settings
-- Audio Format: M4A (AAC encoding)
-- Max Tokens: 2000
-- Temperature: 0.7
-- Streaming: Enabled
-- Custom API Base URL: Configurable (defaults to OpenAI official API)
-
-### Supported API Providers
-- **OpenAI**: Default configuration (https://api.openai.com/v1)
-- **Custom Providers**: Any OpenAI-compatible API service
-- **Self-hosted**: Your own OpenAI-compatible API deployment
-
-## 🔒 Privacy & Security
-
-- ✅ API keys stored locally on device only
-- ✅ Audio files deleted after processing
-- ✅ No user data collection or tracking
-- ✅ All communications use HTTPS encryption
 
 ## ❓ FAQ
 
-### Q: Why does the app need microphone access?
-A: Microphone access is required to record your voice for speech-to-text conversion and AI chat.
+### Q: How does this project make money?  
 
-### Q: Is my API key secure?
-A: Yes, your API key is stored only on your device and never uploaded to any servers.
+A: The app is completely free if you bring your own API key.  
 
-### Q: What languages are supported?
-A: Whisper supports many languages for speech recognition, but the AI primarily responds in English.
+For those who don't have one, we offer premium services through official channels.  
 
-### Q: Why isn't the chat responding?
-A: Check that:
-- Your internet connection is stable
-- Your API key is valid and has credit
-- OpenAI services are operational
-
-## 🛠️ Development
-
-### Future Features
-Planned enhancements include:
-- Text input support
-- Voice playback of AI responses
-- Conversation export
-- Custom AI personalities
-- Calendar and Reminders integration
-- Multi-language support
-- Markdown rendering for rich text responses
-
-### Dependencies
-This project currently has no external dependencies and uses only Apple's built-in frameworks.
 
 ## 📄 License
 

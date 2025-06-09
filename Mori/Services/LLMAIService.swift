@@ -51,10 +51,9 @@ class LLMAIService: ObservableObject {
     private func generateSystemMessage() -> String {
         let toolsDescription = CalendarMCP.getToolDescription()
         
-        // Format current date
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        // Format current date by iso
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.timeZone = TimeZone.current
         let currentDate = dateFormatter.string(from: Date())
         
         let systemMessage = """
