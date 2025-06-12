@@ -424,6 +424,7 @@ struct WorkflowErrorView: View {
 // MARK: - Message View
 struct MessageView: View {
     let message: ChatMessage
+    var onPlayTTS: ((String) -> Void)?
     
     var body: some View {
         VStack(alignment: message.isUser ? .trailing : .leading, spacing: 12) {
@@ -433,7 +434,7 @@ struct MessageView: View {
             }
             
             // Message bubble
-            MessageBubble(message: message)
+            MessageBubble(message: message, onPlayTTS: onPlayTTS)
         }
     }
 } 
