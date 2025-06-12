@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import AVFoundation
 
 // Protocol to allow mixed ChatMessage and WorkflowStep in array
 protocol MessageListItem: Identifiable, Codable {
@@ -33,6 +34,14 @@ struct ChatView: View {
     // Text input related state
     @State private var inputText = ""
     @State private var isSending = false
+    
+    // Voice recording related state
+    @State private var audioRecorder: AVAudioRecorder?
+    @State private var isRecording = false
+    @State private var isTranscribing = false
+    @State private var recordingURL: URL?
+    @State private var recordingPermissionGranted = false
+    @State private var showingFilesView = false
     
     var body: some View {
         NavigationView {
@@ -83,6 +92,33 @@ struct ChatView: View {
                             .lineLimit(1...6)
                             .disabled(isSending || isStreaming)
                         
+                        // Voice recording button
+                        Button(action: {}) {
+                            Image(systemName: isRecording ? "mic.fill" : "mic")
+                                .foregroundColor(isRecording ? .red : (recordingPermissionGranted ? .blue : .gray))
+                                .font(.title2)
+                                .scaleEffect(isRecording ? 1.2 : 1.0)
+                                .animation(.easeInOut(duration: 0.1), value: isRecording)
+                        }
+                        .disabled(isSending || isStreaming || isTranscribing)
+                        .onLongPressGesture(
+                            minimumDuration: 0.1,
+                            maximumDistance: 50,
+                            perform: {
+                                // Long press ended - stop recording
+                                stopRecording()
+                            },
+                            onPressingChanged: { pressing in
+                                if pressing {
+                                    // Long press started - start recording
+                                    startRecording()
+                                } else {
+                                    // Long press ended - stop recording
+                                    stopRecording()
+                                }
+                            }
+                        )
+                        
                         // Send button
                         Button(action: sendMessage) {
                             Image(systemName: isSending ? "hourglass" : "paperplane.fill")
@@ -94,11 +130,16 @@ struct ChatView: View {
                     .padding(.horizontal)
                     
                     // Current status display
-                    if isSending || isStreaming {
+                    if isSending || isStreaming || isRecording || isTranscribing {
                         HStack {
-                            Image(systemName: statusType == .error ? "exclamationmark.triangle" : "gear")
-                                .foregroundColor(statusType == .error ? .red : .blue)
-                            Text(currentStatus)
+                            Image(systemName: statusType == .error ? "exclamationmark.triangle" : 
+                                  isRecording ? "waveform" : 
+                                  isTranscribing ? "doc.text" : "gear")
+                                .foregroundColor(statusType == .error ? .red : 
+                                               isRecording ? .red :
+                                               isTranscribing ? .orange : .blue)
+                            Text(isRecording ? "Recording..." : 
+                                 isTranscribing ? "Transcribing..." : currentStatus)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -157,6 +198,12 @@ struct ChatView: View {
                         }) {
                             Label("Print Request Body", systemImage: "network")
                         }
+                        
+                        Button(action: {
+                            showingFilesView = true
+                        }) {
+                            Label("View Recording Files", systemImage: "folder")
+                        }
                     }
                 }
                 #endif
@@ -173,6 +220,7 @@ struct ChatView: View {
         }
         .onAppear {
             setupLLMService()
+            checkRecordingPermission()
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
@@ -181,6 +229,9 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showingShareSheet) {
             ShareSheet(activityItems: shareItems)
+        }
+        .sheet(isPresented: $showingFilesView) {
+            FilesView()
         }
     }
     
@@ -386,6 +437,186 @@ struct ChatView: View {
         
         llmService = LLMAIService(config: config)
         print("✅ LLM Service initialized with provider: \(providerType.displayName)")
+    }
+    
+    // MARK: - Voice Recording Methods
+    
+    private func checkRecordingPermission() {
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            DispatchQueue.main.async {
+                self.recordingPermissionGranted = granted
+                if granted {
+                    print("✅ Recording permission granted")
+                } else {
+                    print("❌ Recording permission denied")
+                }
+            }
+        }
+    }
+    
+    private func startRecording() {
+        guard recordingPermissionGranted else {
+            print("❌ Recording permission not granted")
+            return
+        }
+        
+        guard !isRecording else { return }
+        
+        // Setup audio session
+        let audioSession = AVAudioSession.sharedInstance()
+        
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .default)
+            try audioSession.setActive(true)
+            
+            // Create recording URL in /recordings directory
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let recordingsPath = documentsPath.appendingPathComponent("recordings")
+            
+            // Create recordings directory if it doesn't exist
+            try FileManager.default.createDirectory(at: recordingsPath, withIntermediateDirectories: true, attributes: nil)
+            
+            let audioFilename = recordingsPath.appendingPathComponent("\(UUID().uuidString).m4a")
+            recordingURL = audioFilename
+            
+            // Setup recorder settings
+            let settings = [
+                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                AVSampleRateKey: 44100,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+            ]
+            
+            // Create and start recorder
+            audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
+            audioRecorder?.record()
+            
+            isRecording = true
+            print("🎤 Started recording to: \(audioFilename)")
+            
+        } catch {
+            print("❌ Failed to start recording: \(error)")
+            errorMessage = "Failed to start recording: \(error.localizedDescription)"
+            showingError = true
+        }
+    }
+    
+    private func stopRecording() {
+        guard isRecording else { return }
+        
+        audioRecorder?.stop()
+        isRecording = false
+        
+        print("⏹️ Stopped recording")
+        
+        // Start transcription
+        if let url = recordingURL {
+            transcribeAudio(url: url)
+        }
+        
+        // Deactivate audio session
+        try? AVAudioSession.sharedInstance().setActive(false)
+    }
+    
+    private func transcribeAudio(url: URL) {
+        guard !openaiApiKey.isEmpty else {
+            errorMessage = "OpenAI API key is required for transcription"
+            showingError = true
+            return
+        }
+        
+        isTranscribing = true
+        
+        Task {
+            do {
+                let transcribedText = try await performWhisperTranscription(audioURL: url)
+                
+                await MainActor.run {
+                    isTranscribing = false
+                    
+                    // Set the transcribed text in input field and send
+                    if !transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        inputText = transcribedText
+                        sendMessage()
+                    }
+                    
+                    // Keep the recording file in /recordings directory for later playback
+                    print("✅ Recording saved to: \(url)")
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isTranscribing = false
+                    errorMessage = "Transcription failed: \(error.localizedDescription)"
+                    showingError = true
+                    
+                    // Keep the recording file even if transcription fails
+                    print("⚠️ Transcription failed but recording saved to: \(url)")
+                }
+            }
+        }
+    }
+    
+    private func performWhisperTranscription(audioURL: URL) async throws -> String {
+        // Prepare the request
+        let baseURL = openaiBaseUrl.isEmpty ? "https://api.openai.com" : openaiBaseUrl
+        guard let url = URL(string: "\(baseURL)/v1/audio/transcriptions") else {
+            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid OpenAI URL"])
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(openaiApiKey)", forHTTPHeaderField: "Authorization")
+        
+        // Create multipart form data
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        var body = Data()
+        
+        // Add model parameter
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
+        body.append("whisper-1\r\n".data(using: .utf8)!)
+        
+        // Add audio file
+        let audioData = try Data(contentsOf: audioURL)
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: audio/mp4\r\n\r\n".data(using: .utf8)!)
+        body.append(audioData)
+        body.append("\r\n".data(using: .utf8)!)
+        
+        // Add response format
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n".data(using: .utf8)!)
+        body.append("json\r\n".data(using: .utf8)!)
+        
+        // Close boundary
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+        
+        // Perform request
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "InvalidResponse", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "API Error (\(httpResponse.statusCode)): \(errorString)"])
+        }
+        
+        // Parse response
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let text = json["text"] as? String {
+            print("✅ Transcription successful: \(String(text.prefix(50)))...")
+            return text
+        } else {
+            throw NSError(domain: "ParseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to parse transcription response"])
+        }
     }
 }
 
