@@ -12,6 +12,10 @@ extension ChatMessage: MessageListItem {}
 extension WorkflowStep: MessageListItem {}
 
 struct ChatView: View {
+    @EnvironmentObject var router: AppRouter
+    @AppStorage("providerConfiguration") private var providerConfigData = Data()
+    
+    // Legacy support
     @AppStorage("currentProvider") private var currentProvider = LLMProviderType.openRouter.rawValue
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
     @AppStorage("openaiBaseUrl") private var openaiBaseUrl = ""
@@ -20,7 +24,6 @@ struct ChatView: View {
     @AppStorage("openrouterBaseUrl") private var openrouterBaseUrl = ""
     @AppStorage("openrouterModel") private var openrouterModel = ""
     @AppStorage("ttsEnabled") private var ttsEnabled = true
-    @AppStorage("ttsVoice") private var ttsVoice = "alloy"
     
     @State private var llmService: LLMAIService?
     
@@ -223,6 +226,12 @@ struct ChatView: View {
                         }) {
                             Label("View Recording Files", systemImage: "folder")
                         }
+                        
+                        Button(action: {
+                            router.navigateToOnboarding()
+                        }) {
+                            Label("Go to Settings", systemImage: "gearshape")
+                        }
                     }
                 }
                 #endif
@@ -245,6 +254,17 @@ struct ChatView: View {
                     }) {
                         Image(systemName: ttsEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                             .foregroundColor(ttsEnabled ? .blue : .gray)
+                    }
+                    .disabled(isStreaming || isSending)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        // Navigate back to onboarding for settings
+                        router.resetOnboarding()
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(.blue)
                     }
                     .disabled(isStreaming || isSending)
                 }
@@ -473,6 +493,27 @@ struct ChatView: View {
     }
     
     private func setupLLMService() {
+        // Try to load new provider configuration first
+        if !providerConfigData.isEmpty {
+            do {
+                let providerConfig = try JSONDecoder().decode(ProviderConfiguration.self, from: providerConfigData)
+                llmService = LLMAIService(providerConfiguration: providerConfig)
+                print("✅ LLM Service initialized with new provider configuration")
+                print("  Text Completion: \(providerConfig.textCompletionProvider.type.displayName)")
+                print("  STT: \(providerConfig.sttProvider.type.displayName)")
+                print("  TTS: \(providerConfig.ttsProvider.type.displayName)")
+                return
+            } catch {
+                print("❌ Failed to decode provider configuration: \(error)")
+                print("⚠️ Falling back to legacy configuration")
+            }
+        }
+        
+        // Fallback to legacy configuration
+        setupLegacyLLMService()
+    }
+    
+    private func setupLegacyLLMService() {
         guard let providerType = LLMProviderType(rawValue: currentProvider) else {
             print("❌ Invalid provider type: \(currentProvider)")
             return
@@ -488,7 +529,7 @@ struct ChatView: View {
                 baseURL: openaiBaseUrl.isEmpty ? nil : openaiBaseUrl,
                 model: openaiModel.isEmpty ? nil : openaiModel
             )
-            print("🔧 OpenAI Configuration:")
+            print("🔧 OpenAI Configuration (Legacy):")
             print("  API Key: \(openaiApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openaiApiKey.count))")")
             print("  Base URL: \(openaiBaseUrl.isEmpty ? "✅ Using default (https://api.openai.com)" : "🔧 Custom: \(openaiBaseUrl)")")
             print("  Model: \(openaiModel.isEmpty ? "✅ Using default (gpt-4o-2024-11-20)" : "🔧 Custom: \(openaiModel)")")
@@ -500,14 +541,14 @@ struct ChatView: View {
                 baseURL: openrouterBaseUrl.isEmpty ? nil : openrouterBaseUrl,
                 model: openrouterModel.isEmpty ? nil : openrouterModel
             )
-            print("🔧 OpenRouter Configuration:")
+            print("🔧 OpenRouter Configuration (Legacy):")
             print("  API Key: \(openrouterApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openrouterApiKey.count))")")
             print("  Base URL: \(openrouterBaseUrl.isEmpty ? "✅ Using default (https://openrouter.ai/api)" : "🔧 Custom: \(openrouterBaseUrl)")")
             print("  Model: \(openrouterModel.isEmpty ? "✅ Using default (deepseek/deepseek-chat-v3-0324)" : "🔧 Custom: \(openrouterModel)")")
         }
         
         llmService = LLMAIService(config: config)
-        print("✅ LLM Service initialized with provider: \(providerType.displayName)")
+        print("✅ LLM Service initialized with legacy provider: \(providerType.displayName)")
     }
     
     // MARK: - Voice Recording Methods
@@ -590,8 +631,8 @@ struct ChatView: View {
     }
     
     private func transcribeAudio(url: URL) {
-        guard !openaiApiKey.isEmpty else {
-            errorMessage = "OpenAI API key is required for transcription"
+        guard let service = llmService, !service.getSTTAPIKey().isEmpty else {
+            errorMessage = "STT API key is required for transcription"
             showingError = true
             return
         }
@@ -629,15 +670,19 @@ struct ChatView: View {
     }
     
     private func performWhisperTranscription(audioURL: URL) async throws -> String {
+        guard let service = llmService else {
+            throw NSError(domain: "ServiceError", code: 0, userInfo: [NSLocalizedDescriptionKey: "LLM service not available"])
+        }
+        
         // Prepare the request
-        let baseURL = openaiBaseUrl.isEmpty ? "https://api.openai.com" : openaiBaseUrl
+        let baseURL = service.getSTTBaseURL()
         guard let url = URL(string: "\(baseURL)/v1/audio/transcriptions") else {
-            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid OpenAI URL"])
+            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid STT API URL"])
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(openaiApiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(service.getSTTAPIKey())", forHTTPHeaderField: "Authorization")
         
         // Create multipart form data
         let boundary = UUID().uuidString
@@ -693,8 +738,8 @@ struct ChatView: View {
     // MARK: - Text-to-Speech Methods
     
     private func generateTTS(for text: String) {
-        guard ttsEnabled, !openaiApiKey.isEmpty else {
-            print("⚠️ TTS disabled or OpenAI API key not available")
+        guard ttsEnabled, let service = llmService, !service.getTTSAPIKey().isEmpty else {
+            print("⚠️ TTS disabled or TTS API key not available")
             return
         }
         
@@ -729,20 +774,24 @@ struct ChatView: View {
     }
     
     private func performTTSGeneration(text: String) async throws -> Data {
-        let baseURL = openaiBaseUrl.isEmpty ? "https://api.openai.com" : openaiBaseUrl
+        guard let service = llmService else {
+            throw NSError(domain: "ServiceError", code: 0, userInfo: [NSLocalizedDescriptionKey: "LLM service not available"])
+        }
+        
+        let baseURL = service.getTTSBaseURL()
         guard let url = URL(string: "\(baseURL)/v1/audio/speech") else {
-            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid OpenAI URL"])
+            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid TTS API URL"])
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(openaiApiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(service.getTTSAPIKey())", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let requestBody: [String: Any] = [
             "model": "tts-1",
             "input": text,
-            "voice": ttsVoice,
+            "voice": service.getTTSVoice(),
             "response_format": "mp3"
         ]
         
@@ -841,7 +890,7 @@ struct ChatView: View {
     }
     
     private func generateStreamingTTS(for text: String) {
-        guard ttsEnabled, !openaiApiKey.isEmpty else {
+        guard ttsEnabled, let service = llmService, !service.getTTSAPIKey().isEmpty else {
             return
         }
         
@@ -922,20 +971,24 @@ struct ChatView: View {
     }
     
     private func performStreamingTTSGeneration(text: String) async throws -> Data {
-        let baseURL = openaiBaseUrl.isEmpty ? "https://api.openai.com" : openaiBaseUrl
+        guard let service = llmService else {
+            throw NSError(domain: "ServiceError", code: 0, userInfo: [NSLocalizedDescriptionKey: "LLM service not available"])
+        }
+        
+        let baseURL = service.getTTSBaseURL()
         guard let url = URL(string: "\(baseURL)/v1/audio/speech") else {
-            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid OpenAI URL"])
+            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid TTS API URL"])
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(openaiApiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(service.getTTSAPIKey())", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let requestBody: [String: Any] = [
             "model": "tts-1",
             "input": text,
-            "voice": ttsVoice,
+            "voice": service.getTTSVoice(),
             "response_format": "mp3"
         ]
         
