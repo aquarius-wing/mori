@@ -1,6 +1,116 @@
 import Foundation
 
 // MARK: - Provider Types
+enum ProviderType: String, CaseIterable, Codable {
+    case openai = "openai"
+    case openRouter = "openRouter"
+    
+    var displayName: String {
+        switch self {
+        case .openai:
+            return "OpenAI"
+        case .openRouter:
+            return "OpenRouter"
+        }
+    }
+}
+
+// MARK: - Text Completion Provider
+struct TextCompletionProvider: Codable {
+    let type: ProviderType
+    let apiKey: String
+    let baseURL: String
+    let model: String
+    
+    init(type: ProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil) {
+        self.type = type
+        self.apiKey = apiKey
+        
+        switch type {
+        case .openai:
+            self.baseURL = baseURL ?? "https://api.openai.com"
+            self.model = model ?? "gpt-4o-2024-11-20"
+        case .openRouter:
+            self.baseURL = baseURL ?? "https://openrouter.ai/api"
+            self.model = model ?? "deepseek/deepseek-chat-v3-0324"
+        }
+    }
+}
+
+// MARK: - STT Provider
+struct STTProvider: Codable {
+    let type: ProviderType
+    let apiKey: String
+    let baseURL: String
+    let model: String
+    
+    init(type: ProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil) {
+        self.type = type
+        self.apiKey = apiKey
+        
+        switch type {
+        case .openai:
+            self.baseURL = baseURL ?? "https://api.openai.com"
+            self.model = model ?? "whisper-1"
+        case .openRouter:
+            self.baseURL = baseURL ?? "https://openrouter.ai/api"
+            self.model = model ?? "whisper-1"
+        }
+    }
+}
+
+// MARK: - TTS Provider
+struct TTSProvider: Codable {
+    let type: ProviderType
+    let apiKey: String
+    let baseURL: String
+    let model: String
+    let voice: String
+    
+    init(type: ProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil, voice: String? = nil) {
+        self.type = type
+        self.apiKey = apiKey
+        
+        switch type {
+        case .openai:
+            self.baseURL = baseURL ?? "https://api.openai.com"
+            self.model = model ?? "tts-1"
+            self.voice = voice ?? "alloy"
+        case .openRouter:
+            self.baseURL = baseURL ?? "https://openrouter.ai/api"
+            self.model = model ?? "tts-1"
+            self.voice = voice ?? "alloy"
+        }
+    }
+}
+
+// MARK: - Provider Configuration
+struct ProviderConfiguration: Codable {
+    let textCompletionProvider: TextCompletionProvider
+    let sttProvider: STTProvider
+    let ttsProvider: TTSProvider
+    
+    // Current provider tracking
+    let currentTextProvider: String
+    let currentSTTProvider: String
+    let currentTTSProvider: String
+    
+    init(textCompletionProvider: TextCompletionProvider, 
+         sttProvider: STTProvider, 
+         ttsProvider: TTSProvider,
+         currentTextProvider: String? = nil,
+         currentSTTProvider: String? = nil,
+         currentTTSProvider: String? = nil) {
+        self.textCompletionProvider = textCompletionProvider
+        self.sttProvider = sttProvider
+        self.ttsProvider = ttsProvider
+        self.currentTextProvider = currentTextProvider ?? textCompletionProvider.type.rawValue
+        self.currentSTTProvider = currentSTTProvider ?? sttProvider.type.rawValue
+        self.currentTTSProvider = currentTTSProvider ?? ttsProvider.type.rawValue
+    }
+}
+
+// MARK: - Legacy Support
 enum LLMProviderType: String, CaseIterable {
     case openRouter = "openRouter"
     case openai = "openai"
@@ -15,7 +125,6 @@ enum LLMProviderType: String, CaseIterable {
     }
 }
 
-// MARK: - Provider Configuration
 struct LLMProviderConfig {
     let type: LLMProviderType
     let apiKey: String
@@ -26,7 +135,6 @@ struct LLMProviderConfig {
         self.type = type
         self.apiKey = apiKey
         
-        // Set default baseURL based on provider type
         switch type {
         case .openai:
             self.baseURL = baseURL ?? "https://api.openai.com"
@@ -34,7 +142,6 @@ struct LLMProviderConfig {
             self.baseURL = baseURL ?? "https://openrouter.ai/api"
         }
         
-        // Set default model based on provider type
         switch type {
         case .openai:
             self.model = model ?? "gpt-4o-2024-11-20"
@@ -46,7 +153,78 @@ struct LLMProviderConfig {
 
 class LLMAIService: ObservableObject {
     private let config: LLMProviderConfig
+    private let providerConfig: ProviderConfiguration?
     private let calendarMCP = CalendarMCP()
+    
+    // New initializer with multi-provider support
+    init(providerConfiguration: ProviderConfiguration) {
+        self.providerConfig = providerConfiguration
+        // Create legacy config for backward compatibility
+        let legacyType: LLMProviderType = providerConfiguration.textCompletionProvider.type == .openai ? .openai : .openRouter
+        self.config = LLMProviderConfig(
+            type: legacyType,
+            apiKey: providerConfiguration.textCompletionProvider.apiKey,
+            baseURL: providerConfiguration.textCompletionProvider.baseURL,
+            model: providerConfiguration.textCompletionProvider.model
+        )
+    }
+    
+    // Legacy initializer for backward compatibility
+    init(config: LLMProviderConfig) {
+        self.config = config
+        self.providerConfig = nil
+    }
+    
+    // Convenience methods to access providers
+    var currentSTTProvider: STTProvider? {
+        return providerConfig?.sttProvider
+    }
+    
+    var currentTTSProvider: TTSProvider? {
+        return providerConfig?.ttsProvider
+    }
+    
+    // Legacy methods for STT using either new or old config
+    func getSTTAPIKey() -> String {
+        if let sttProvider = currentSTTProvider {
+            return sttProvider.apiKey
+        }
+        // Fallback to legacy config
+        return config.apiKey
+    }
+    
+    func getSTTBaseURL() -> String {
+        if let sttProvider = currentSTTProvider {
+            return sttProvider.baseURL
+        }
+        // Fallback to legacy config
+        return config.baseURL
+    }
+    
+    // Legacy methods for TTS using either new or old config
+    func getTTSAPIKey() -> String {
+        if let ttsProvider = currentTTSProvider {
+            return ttsProvider.apiKey
+        }
+        // Fallback to legacy config
+        return config.apiKey
+    }
+    
+    func getTTSBaseURL() -> String {
+        if let ttsProvider = currentTTSProvider {
+            return ttsProvider.baseURL
+        }
+        // Fallback to legacy config
+        return config.baseURL
+    }
+    
+    func getTTSVoice() -> String {
+        if let ttsProvider = currentTTSProvider {
+            return ttsProvider.voice
+        }
+        // Fallback to default
+        return "alloy"
+    }
     
     private func generateSystemMessage() -> String {
         let toolsDescription = CalendarMCP.getToolDescription()
@@ -103,10 +281,6 @@ class LLMAIService: ObservableObject {
         return systemMessage
     }
     
-    init(config: LLMProviderConfig) {
-        self.config = config
-    }
-    
     // Convenience initializer for backward compatibility
     init(apiKey: String, customBaseURL: String? = nil) {
         // Default to OpenRouter for backward compatibility
@@ -117,6 +291,7 @@ class LLMAIService: ObservableObject {
             baseURL: baseURL,
             model: "deepseek/deepseek-chat-v3-0324"
         )
+        self.providerConfig = nil
     }
     
     // MARK: - Generate Request Body
