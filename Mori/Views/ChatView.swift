@@ -2,15 +2,6 @@ import SwiftUI
 import Combine
 import AVFoundation
 
-// Protocol to allow mixed ChatMessage and WorkflowStep in array
-protocol MessageListItem: Identifiable, Codable {
-    var id: UUID { get }
-    var timestamp: Date { get }
-}
-
-extension ChatMessage: MessageListItem {}
-extension WorkflowStep: MessageListItem {}
-
 struct ChatView: View {
     @EnvironmentObject var router: AppRouter
     @AppStorage("providerConfiguration") private var providerConfigData = Data()
@@ -57,222 +48,241 @@ struct ChatView: View {
     @State private var ttsBuffer = ""
     @State private var ttsProcessingTask: Task<Void, Never>?
     
+    // Navigation callbacks
+    var onShowMenu: (() -> Void)?
+    
     var body: some View {
-        NavigationView {
-            VStack {
-                // Message list display
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 16) {
-                            ForEach(Array(messageList.enumerated()), id: \.element.id) { index, item in
-                                if let chatMessage = item as? ChatMessage {
-                                    MessageView(message: chatMessage, onPlayTTS: { text in
-                                        generateTTS(for: text)
-                                    })
-                                        .id(chatMessage.id)
-                                } else if let workflowStep = item as? WorkflowStep {
-                                    WorkflowStepView(step: workflowStep)
-                                        .id(workflowStep.id)
-                                }
-                            }
-                            
-                            // Display current streaming message
-                            if isStreaming || isSending {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    // Status indicator
-                                    StatusIndicator(status: currentStatus, stepStatus: statusType)
-                                }
-                                .id("streaming")
+        VStack {
+            // Message list display
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(Array(messageList.enumerated()), id: \.element.id) { index, item in
+                            if let chatMessage = item as? ChatMessage {
+                                MessageView(message: chatMessage, onPlayTTS: { text in
+                                    generateTTS(for: text)
+                                })
+                                    .id(chatMessage.id)
+                            } else if let workflowStep = item as? WorkflowStep {
+                                WorkflowStepView(step: workflowStep)
+                                    .id(workflowStep.id)
                             }
                         }
-                        .padding()
-                    }
-                    .onChange(of: messageList.count) { _ in
-                        withAnimation {
-                            if let lastItem = messageList.last {
-                                proxy.scrollTo(lastItem.id, anchor: .bottom)
-                            }
-                        }
-                    }
-
-                }
-                
-                Divider()
-                
-                // Text input area
-                VStack(spacing: 12) {
-                    // Text input field
-                    HStack(spacing: 12) {
-                        TextField("Ask something... (e.g., 'What files are in the root directory?')", text: $inputText, axis: .vertical)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .lineLimit(1...6)
-                            .disabled(isSending || isStreaming)
                         
-                        // Voice recording button
-                        Button(action: {}) {
-                            Image(systemName: isRecording ? "mic.fill" : "mic")
-                                .foregroundColor(isRecording ? .red : (recordingPermissionGranted ? .blue : .gray))
-                                .font(.title2)
-                                .scaleEffect(isRecording ? 1.2 : 1.0)
-                                .animation(.easeInOut(duration: 0.1), value: isRecording)
+                        // Display current streaming message
+                        if isStreaming || isSending {
+                            VStack(alignment: .leading, spacing: 12) {
+                                // Status indicator
+                                StatusIndicator(status: currentStatus, stepStatus: statusType)
+                            }
+                            .id("streaming")
                         }
-                        .disabled(isSending || isStreaming || isTranscribing)
-                        .onLongPressGesture(
-                            minimumDuration: 0.1,
-                            maximumDistance: 50,
-                            perform: {
+                    }
+                    .padding()
+                }
+                .onChange(of: messageList.count) { _ in
+                    withAnimation {
+                        if let lastItem = messageList.last {
+                            proxy.scrollTo(lastItem.id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+            
+            Divider()
+            
+            // Text input area
+            VStack(spacing: 12) {
+                // Text input field
+                HStack(spacing: 12) {
+                    TextField("Ask something... (e.g., 'What files are in the root directory?')", text: $inputText, axis: .vertical)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .lineLimit(1...6)
+                        .disabled(isSending || isStreaming)
+                    
+                    // Voice recording button
+                    Button(action: {}) {
+                        Image(systemName: isRecording ? "mic.fill" : "mic")
+                            .foregroundColor(isRecording ? .red : (recordingPermissionGranted ? .blue : .gray))
+                            .font(.title2)
+                            .scaleEffect(isRecording ? 1.2 : 1.0)
+                            .animation(.easeInOut(duration: 0.1), value: isRecording)
+                    }
+                    .disabled(isSending || isStreaming || isTranscribing)
+                    .onLongPressGesture(
+                        minimumDuration: 0.1,
+                        maximumDistance: 50,
+                        perform: {
+                            // Long press ended - stop recording
+                            stopRecording()
+                        },
+                        onPressingChanged: { pressing in
+                            if pressing {
+                                // Long press started - start recording
+                                startRecording()
+                            } else {
                                 // Long press ended - stop recording
                                 stopRecording()
-                            },
-                            onPressingChanged: { pressing in
-                                if pressing {
-                                    // Long press started - start recording
-                                    startRecording()
-                                } else {
-                                    // Long press ended - stop recording
-                                    stopRecording()
-                                }
                             }
-                        )
-                        
-                        // Send button
-                        Button(action: sendMessage) {
-                            Image(systemName: isSending ? "hourglass" : "paperplane.fill")
-                                .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming ? .gray : .blue)
-                                .font(.title2)
                         }
-                        .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming)
-                    }
-                    .padding(.horizontal)
+                    )
                     
-                    // Current status display
-                    if isSending || isStreaming || isRecording || isTranscribing || isGeneratingTTS || isPlayingTTS {
-                        HStack {
-                            Image(systemName: statusType == .error ? "exclamationmark.triangle" : 
-                                  isRecording ? "waveform" : 
-                                  isTranscribing ? "doc.text" :
-                                  isGeneratingTTS ? "speaker.wave.2" :
-                                  isPlayingTTS ? "speaker.wave.3" : "gear")
-                                .foregroundColor(statusType == .error ? .red : 
-                                               isRecording ? .red :
-                                               isTranscribing ? .orange :
-                                               isGeneratingTTS ? .purple :
-                                               isPlayingTTS ? .green : .blue)
-                            Text(isRecording ? "Recording..." : 
-                                 isTranscribing ? "Transcribing..." :
-                                 isGeneratingTTS ? "Generating speech..." :
-                                 isPlayingTTS ? "Playing audio..." : currentStatus)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                    // Send button
+                    Button(action: sendMessage) {
+                        Image(systemName: isSending ? "hourglass" : "paperplane.fill")
+                            .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming ? .gray : .blue)
+                            .font(.title2)
+                    }
+                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming)
+                }
+                .padding(.horizontal)
+                
+                // Current status display
+                if isSending || isStreaming || isRecording || isTranscribing || isGeneratingTTS || isPlayingTTS {
+                    HStack {
+                        Image(systemName: statusType == .error ? "exclamationmark.triangle" : 
+                              isRecording ? "waveform" : 
+                              isTranscribing ? "doc.text" :
+                              isGeneratingTTS ? "speaker.wave.2" :
+                              isPlayingTTS ? "speaker.wave.3" : "gear")
+                            .foregroundColor(statusType == .error ? .red : 
+                                           isRecording ? .red :
+                                           isTranscribing ? .orange :
+                                           isGeneratingTTS ? .purple :
+                                           isPlayingTTS ? .green : .blue)
+                        Text(isRecording ? "Recording..." : 
+                             isTranscribing ? "Transcribing..." :
+                             isGeneratingTTS ? "Generating speech..." :
+                             isPlayingTTS ? "Playing audio..." : currentStatus)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
-                .padding(.bottom)
             }
-            .navigationTitle("Mori")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                #if DEBUG
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Debug") {
-                        // Single tap action (optional)
-                    }
-                    .contextMenu {
-                        Button(action: {
-                            // Print messages in view with all properties using JSONEncoder
-                            let chatMessages = messageList.compactMap { $0 as? ChatMessage }
-                            do {
-                                let encoder = JSONEncoder()
-                                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                                encoder.dateEncodingStrategy = .iso8601
-                                
-                                let jsonData = try encoder.encode(chatMessages)
-                                if let jsonString = String(data: jsonData, encoding: .utf8) {
-                                    print("📋 ChatMessages in View JSON:")
-                                    print(jsonString)
-                                }
-                            } catch {
-                                print("❌ Failed to serialize messages to JSON: \(error)")
-                            }
-                        }) {
-                            Label("Print Messages in View", systemImage: "doc.text")
-                        }
-                        
-                        Button(action: {
-                            // Print request body
-                            guard let service = llmService else {
-                                print("❌ LLM service not available")
-                                return
-                            }
-                            
-                            let chatMessages = messageList.compactMap { $0 as? ChatMessage }
-                            let requestBody = service.generateRequestBodyJSON(from: chatMessages)
-                            
-                            do {
-                                let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
-                                if let jsonString = String(data: jsonData, encoding: .utf8) {
-                                    print("📤 Request Body JSON:")
-                                    print(jsonString)
-                                }
-                            } catch {
-                                print("❌ Failed to serialize request body to JSON: \(error)")
-                            }
-                        }) {
-                            Label("Print Request Body", systemImage: "network")
-                        }
-                        
-                        Button(action: {
-                            showingFilesView = true
-                        }) {
-                            Label("View Recording Files", systemImage: "folder")
-                        }
-                        
-                        Button(action: {
-                            router.navigateToOnboarding()
-                        }) {
-                            Label("Go to Settings", systemImage: "gearshape")
-                        }
-                    }
+            .padding(.bottom)
+        }
+        .navigationTitle("Chat")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Menu button
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    onShowMenu?()
+                }) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.title2)
+                        .foregroundColor(.blue)
                 }
-                #endif
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Clear") {
-                        messageList.removeAll()
-                        currentStatus = "Ready"
-                        statusType = .finalStatus
-                    }
-                    .disabled(isStreaming || isSending)
+                .disabled(isStreaming || isSending)
+            }
+            
+            #if DEBUG
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Debug") {
+                    // Single tap action (optional)
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
+                .contextMenu {
                     Button(action: {
-                        ttsEnabled.toggle()
-                        if !ttsEnabled {
-                            stopTTSPlayback()
+                        // Print messages in view with all properties using JSONEncoder
+                        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
+                        do {
+                            let encoder = JSONEncoder()
+                            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                            encoder.dateEncodingStrategy = .iso8601
+                            
+                            let jsonData = try encoder.encode(chatMessages)
+                            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                                print("📋 ChatMessages in View JSON:")
+                                print(jsonString)
+                            }
+                        } catch {
+                            print("❌ Failed to serialize messages to JSON: \(error)")
                         }
                     }) {
-                        Image(systemName: ttsEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                            .foregroundColor(ttsEnabled ? .blue : .gray)
+                        Label("Print Messages in View", systemImage: "doc.text")
                     }
-                    .disabled(isStreaming || isSending)
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
+                    
                     Button(action: {
-                        // Navigate back to onboarding for settings
-                        router.resetOnboarding()
+                        // Print request body
+                        guard let service = llmService else {
+                            print("❌ LLM service not available")
+                            return
+                        }
+                        
+                        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
+                        let requestBody = service.generateRequestBodyJSON(from: chatMessages)
+                        
+                        do {
+                            let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
+                            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                                print("📤 Request Body JSON:")
+                                print(jsonString)
+                            }
+                        } catch {
+                            print("❌ Failed to serialize request body to JSON: \(error)")
+                        }
                     }) {
-                        Image(systemName: "gearshape.fill")
-                            .foregroundColor(.blue)
+                        Label("Print Request Body", systemImage: "network")
                     }
-                    .disabled(isStreaming || isSending)
+                    
+                    Button(action: {
+                        showingFilesView = true
+                    }) {
+                        Label("View Recording Files", systemImage: "folder")
+                    }
+                    
+                    Button(action: {
+                        router.navigateToOnboarding()
+                    }) {
+                        Label("Go to Settings", systemImage: "gearshape")
+                    }
                 }
+            }
+            #endif
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Clear") {
+                    clearChat()
+                }
+                .disabled(isStreaming || isSending)
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    ttsEnabled.toggle()
+                    if !ttsEnabled {
+                        stopTTSPlayback()
+                    }
+                }) {
+                    Image(systemName: ttsEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .foregroundColor(ttsEnabled ? .blue : .gray)
+                }
+                .disabled(isStreaming || isSending)
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    // Navigate back to onboarding for settings
+                    router.resetOnboarding()
+                }) {
+                    Image(systemName: "gearshape.fill")
+                        .foregroundColor(.blue)
+                }
+                .disabled(isStreaming || isSending)
             }
         }
         .onAppear {
             setupLLMService()
             checkRecordingPermission()
+            
+            // Listen for clear chat notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ClearChat"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                clearChat()
+            }
         }
         .onDisappear {
             // Clean up audio observer when view disappears
@@ -289,6 +299,9 @@ struct ChatView: View {
             ttsQueue.removeAll()
             ttsBuffer = ""
             isGeneratingTTS = false
+            
+            // Remove notification observer
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearChat"), object: nil)
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
@@ -302,6 +315,16 @@ struct ChatView: View {
             FilesView()
         }
     }
+    
+    // MARK: - Public Methods
+    
+    func clearChat() {
+        messageList.removeAll()
+        currentStatus = "Ready"
+        statusType = .finalStatus
+    }
+    
+    // MARK: - Private Methods
     
     private func sendMessage() {
         let messageText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -329,13 +352,13 @@ struct ChatView: View {
                 await processRealToolWorkflow(for: messageText, using: service)
                 
             } catch {
-                            await MainActor.run {
-                let errorStep = WorkflowStep(status: .error, toolName: "Send failed: \(error.localizedDescription)")
-                messageList.append(errorStep)
-                updateStatus("Error: \(error.localizedDescription)", type: .error)
-                isSending = false
-                isStreaming = false
-            }
+                await MainActor.run {
+                    let errorStep = WorkflowStep(status: .error, toolName: "Send failed: \(error.localizedDescription)")
+                    messageList.append(errorStep)
+                    updateStatus("Error: \(error.localizedDescription)", type: .error)
+                    isSending = false
+                    isStreaming = false
+                }
             }
         }
     }
@@ -1012,88 +1035,7 @@ struct ChatView: View {
     }
 }
 
-struct MessageBubble: View {
-    let message: ChatMessage
-    var isStreaming = false
-    var onPlayTTS: ((String) -> Void)?
-    
-    var body: some View {
-        HStack {
-            if message.isUser {
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(message.content)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(16)
-                    
-                    Text(formatTime(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(message.content)
-                        .padding()
-                        .background(Color(UIColor.systemGray6))
-                        .cornerRadius(16)
-                    
-                    HStack {
-                        Text(formatTime(message.timestamp))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        
-                        if isStreaming {
-                            Image(systemName: "ellipsis")
-                                .foregroundColor(.secondary)
-                                .scaleEffect(0.8)
-                        }
-                        
-                        Spacer()
-                        
-                        // Play TTS button for assistant messages
-                        if !message.isUser && !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Button(action: {
-                                onPlayTTS?(message.content)
-                            }) {
-                                Image(systemName: "play.circle")
-                                    .foregroundColor(.blue)
-                                    .font(.caption)
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .leading)
-                
-                Spacer()
-            }
-        }
-    }
-    
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-}
-
-// MARK: - ShareSheet
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-        return controller
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
-        // No updates needed
-    }
-}
-
 #Preview {
     ChatView()
+        .environmentObject(AppRouter())
 } 
