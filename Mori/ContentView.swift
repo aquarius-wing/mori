@@ -74,7 +74,7 @@ struct ContentView: View {
                     OnboardingView()
                         .environmentObject(router)
                 case .chat:
-                    ChatView()
+                    MainView()
                         .environmentObject(router)
                 }
             }
