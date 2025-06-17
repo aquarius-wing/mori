@@ -4,17 +4,95 @@ import AVFoundation
 import Foundation
 
 // MARK: - Chat History Models
+
+// MARK: - MessageListItemType enum for Codable support
+enum MessageListItemType: Codable, Identifiable {
+    case chatMessage(ChatMessage)
+    case workflowStep(WorkflowStep)
+    
+    var id: UUID {
+        switch self {
+        case .chatMessage(let message):
+            return message.id
+        case .workflowStep(let step):
+            return step.id
+        }
+    }
+    
+    var timestamp: Date {
+        switch self {
+        case .chatMessage(let message):
+            return message.timestamp
+        case .workflowStep(let step):
+            return step.timestamp
+        }
+    }
+    
+    var messageListItem: any MessageListItem {
+        switch self {
+        case .chatMessage(let message):
+            return message
+        case .workflowStep(let step):
+            return step
+        }
+    }
+    
+    // Codable support
+    enum CodingKeys: String, CodingKey {
+        case type, chatMessage, workflowStep
+    }
+    
+    enum TypeKey: String, Codable {
+        case chatMessage, workflowStep
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(TypeKey.self, forKey: .type)
+        
+        switch type {
+        case .chatMessage:
+            let message = try container.decode(ChatMessage.self, forKey: .chatMessage)
+            self = .chatMessage(message)
+        case .workflowStep:
+            let step = try container.decode(WorkflowStep.self, forKey: .workflowStep)
+            self = .workflowStep(step)
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .chatMessage(let message):
+            try container.encode(TypeKey.chatMessage, forKey: .type)
+            try container.encode(message, forKey: .chatMessage)
+        case .workflowStep(let step):
+            try container.encode(TypeKey.workflowStep, forKey: .type)
+            try container.encode(step, forKey: .workflowStep)
+        }
+    }
+}
+
 struct ChatHistory: Codable, Identifiable {
     let id: String
     var title: String
-    var messageList: [ChatMessage]
+    var messageList: [MessageListItemType]
     let createDate: Date
     var updateDate: Date
     
-    init(title: String? = nil, messageList: [ChatMessage] = []) {
+    init(title: String? = nil, messageList: [any MessageListItem] = []) {
         self.id = UUID().uuidString
         self.title = title ?? "New Chat at \(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short))"
-        self.messageList = messageList
+        self.messageList = messageList.map { item in
+            if let chatMessage = item as? ChatMessage {
+                return .chatMessage(chatMessage)
+            } else if let workflowStep = item as? WorkflowStep {
+                return .workflowStep(workflowStep)
+            } else {
+                fatalError("Unsupported MessageListItem type")
+            }
+        }
         self.createDate = Date()
         self.updateDate = Date()
     }
@@ -318,7 +396,7 @@ struct ChatView: View {
         // Load new chat
         currentChatHistory = chatHistory
         currentChatHistoryId = chatHistory.id
-        messageList = chatHistory.messageList.map { $0 as MessageListItem }
+        messageList = chatHistory.messageList.map { $0.messageListItem }
         shouldAutoSave = true
         
         print("📚 Loaded chat history: \(chatHistory.title)")
@@ -777,9 +855,11 @@ struct ChatView: View {
         
         do {
             let data = try Data(contentsOf: filePath)
-            let chatHistory = try JSONDecoder().decode(ChatHistory.self, from: data)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let chatHistory = try decoder.decode(ChatHistory.self, from: data)
             currentChatHistory = chatHistory
-            messageList = chatHistory.messageList.map { $0 as MessageListItem }
+            messageList = chatHistory.messageList.map { $0.messageListItem }
             shouldAutoSave = true
             print("📚 Loaded chat history: \(chatHistory.title)")
         } catch {
@@ -795,7 +875,15 @@ struct ChatView: View {
         
         do {
             var updatedChatHistory = chatHistory
-            updatedChatHistory.messageList = messageList.compactMap { $0 as? ChatMessage }
+            updatedChatHistory.messageList = messageList.map { item in
+                if let chatMessage = item as? ChatMessage {
+                    return .chatMessage(chatMessage)
+                } else if let workflowStep = item as? WorkflowStep {
+                    return .workflowStep(workflowStep)
+                } else {
+                    fatalError("Unsupported MessageListItem type")
+                }
+            }
             updatedChatHistory.updateDate = Date()
             
             let encoder = JSONEncoder()
@@ -863,8 +951,7 @@ struct ChatView: View {
     }
     
     private func createNewChatHistoryFromCurrentMessages() {
-        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
-        let newChatHistory = ChatHistory(messageList: chatMessages)
+        let newChatHistory = ChatHistory(messageList: messageList)
         currentChatHistory = newChatHistory
         currentChatHistoryId = newChatHistory.id
         shouldAutoSave = true
@@ -926,7 +1013,9 @@ struct ChatView: View {
         
         do {
             let data = try Data(contentsOf: filePath)
-            var updatedChatHistory = try JSONDecoder().decode(ChatHistory.self, from: data)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            var updatedChatHistory = try decoder.decode(ChatHistory.self, from: data)
             updatedChatHistory.title = newTitle
             updatedChatHistory.updateDate = Date()
             
