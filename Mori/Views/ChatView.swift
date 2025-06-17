@@ -37,7 +37,6 @@ struct ChatView: View {
     @AppStorage("openrouterApiKey") private var openrouterApiKey = ""
     @AppStorage("openrouterBaseUrl") private var openrouterBaseUrl = ""
     @AppStorage("openrouterModel") private var openrouterModel = ""
-    @AppStorage("ttsEnabled") private var ttsEnabled = true
     
     @State private var llmService: LLMAIService?
     
@@ -62,15 +61,6 @@ struct ChatView: View {
     @State private var recordingPermissionGranted = false
     @State private var showingFilesView = false
     
-    // TTS related state
-    @State private var audioPlayer: AVAudioPlayer?
-    @State private var isGeneratingTTS = false
-    @State private var isPlayingTTS = false
-    @State private var audioPlayerObserver: NSObjectProtocol?
-    @State private var ttsQueue: [String] = []
-    @State private var ttsBuffer = ""
-    @State private var ttsProcessingTask: Task<Void, Never>?
-    
     // Navigation callbacks
     var onShowMenu: (() -> Void)?
     
@@ -82,9 +72,7 @@ struct ChatView: View {
                     LazyVStack(spacing: 16) {
                         ForEach(Array(messageList.enumerated()), id: \.element.id) { index, item in
                             if let chatMessage = item as? ChatMessage {
-                                MessageView(message: chatMessage, onPlayTTS: { text in
-                                    generateTTS(for: text)
-                                })
+                                MessageView(message: chatMessage)
                                     .id(chatMessage.id)
                             } else if let workflowStep = item as? WorkflowStep {
                                 WorkflowStepView(step: workflowStep)
@@ -161,22 +149,16 @@ struct ChatView: View {
                 .padding(.horizontal)
                 
                 // Current status display
-                if isSending || isStreaming || isRecording || isTranscribing || isGeneratingTTS || isPlayingTTS {
+                if isSending || isStreaming || isRecording || isTranscribing {
                     HStack {
                         Image(systemName: statusType == .error ? "exclamationmark.triangle" : 
                               isRecording ? "waveform" : 
-                              isTranscribing ? "doc.text" :
-                              isGeneratingTTS ? "speaker.wave.2" :
-                              isPlayingTTS ? "speaker.wave.3" : "gear")
+                              isTranscribing ? "doc.text" : "gear")
                             .foregroundColor(statusType == .error ? .red : 
                                            isRecording ? .red :
-                                           isTranscribing ? .orange :
-                                           isGeneratingTTS ? .purple :
-                                           isPlayingTTS ? .green : .blue)
+                                           isTranscribing ? .orange : .blue)
                         Text(isRecording ? "Recording..." : 
-                             isTranscribing ? "Transcribing..." :
-                             isGeneratingTTS ? "Generating speech..." :
-                             isPlayingTTS ? "Playing audio..." : currentStatus)
+                             isTranscribing ? "Transcribing..." : currentStatus)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -302,21 +284,6 @@ struct ChatView: View {
             }
         }
         .onDisappear {
-            // Clean up audio observer when view disappears
-            if let observer = audioPlayerObserver {
-                NotificationCenter.default.removeObserver(observer)
-                audioPlayerObserver = nil
-            }
-            audioPlayer?.stop()
-            isPlayingTTS = false
-            
-            // Clean up TTS tasks and buffers
-            ttsProcessingTask?.cancel()
-            ttsProcessingTask = nil
-            ttsQueue.removeAll()
-            ttsBuffer = ""
-            isGeneratingTTS = false
-            
             // Remove notification observers
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearChat"), object: nil)
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("LoadChatHistory"), object: nil)
@@ -474,20 +441,10 @@ struct ChatView: View {
                                 isSystem: lastMessage.isSystem
                             )
                             messageList[lastIndex] = updatedMessage
-                            
-                            // Generate TTS for the new content delta if TTS is enabled
-                            if ttsEnabled && !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                generateStreamingTTS(for: content)
-                            }
                         } else {
                             // Create new assistant message
                             let newMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
                             messageList.append(newMessage)
-                            
-                            // Generate TTS for the initial content if TTS is enabled
-                            if ttsEnabled && !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                generateStreamingTTS(for: content)
-                            }
                         }
                     case "error":
                         let errorStep = WorkflowStep(status: .error, toolName: content)
@@ -529,19 +486,6 @@ struct ChatView: View {
                 if shouldAutoSave, let currentChat = currentChatHistory {
                     saveChatHistoryAsync(currentChat)
                 }
-                
-                // Flush any remaining TTS buffer
-                if ttsEnabled && !ttsBuffer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    let remainingText = ttsBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
-                    ttsBuffer = ""
-                    ttsQueue.append(remainingText)
-                    
-                    if ttsProcessingTask == nil {
-                        ttsProcessingTask = Task {
-                            await processTTSQueue()
-                        }
-                    }
-                }
             }
         } catch {
             await MainActor.run {
@@ -567,7 +511,7 @@ struct ChatView: View {
                 print("✅ LLM Service initialized with new provider configuration")
                 print("  Text Completion: \(providerConfig.textCompletionProvider.type.displayName)")
                 print("  STT: \(providerConfig.sttProvider.type.displayName)")
-                print("  TTS: \(providerConfig.ttsProvider.type.displayName)")
+                
                 return
             } catch {
                 print("❌ Failed to decode provider configuration: \(error)")
@@ -799,282 +743,6 @@ struct ChatView: View {
         } else {
             throw NSError(domain: "ParseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to parse transcription response"])
         }
-    }
-    
-    // MARK: - Text-to-Speech Methods
-    
-    private func generateTTS(for text: String) {
-        guard ttsEnabled, let service = llmService, !service.getTTSAPIKey().isEmpty else {
-            print("⚠️ TTS disabled or TTS API key not available")
-            return
-        }
-        
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            print("⚠️ Empty text, skipping TTS")
-            return
-        }
-        
-        // Stop any currently playing audio
-        audioPlayer?.stop()
-        isPlayingTTS = false
-        
-        isGeneratingTTS = true
-        
-        Task {
-            do {
-                let audioData = try await performTTSGeneration(text: text)
-                
-                await MainActor.run {
-                    isGeneratingTTS = false
-                    playTTSAudio(data: audioData)
-                }
-                
-            } catch {
-                await MainActor.run {
-                    isGeneratingTTS = false
-                    print("❌ TTS generation failed: \(error.localizedDescription)")
-                    // Don't show error alert for TTS failures to avoid interrupting user experience
-                }
-            }
-        }
-    }
-    
-    private func performTTSGeneration(text: String) async throws -> Data {
-        guard let service = llmService else {
-            throw NSError(domain: "ServiceError", code: 0, userInfo: [NSLocalizedDescriptionKey: "LLM service not available"])
-        }
-        
-        let baseURL = service.getTTSBaseURL()
-        guard let url = URL(string: "\(baseURL)/v1/audio/speech") else {
-            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid TTS API URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(service.getTTSAPIKey())", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let requestBody: [String: Any] = [
-            "model": "tts-1",
-            "input": text,
-            "voice": service.getTTSVoice(),
-            "response_format": "mp3"
-        ]
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        print("🎵 Generating TTS for text: \(String(text.prefix(50)))...")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "InvalidResponse", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "TTS API Error (\(httpResponse.statusCode)): \(errorString)"])
-        }
-        
-        print("✅ TTS generation successful, received \(data.count) bytes")
-        return data
-    }
-    
-    private func playTTSAudio(data: Data) {
-        do {
-            // Setup audio session for playback
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default)
-            try audioSession.setActive(true)
-            
-            // Remove previous observer if any
-            if let observer = audioPlayerObserver {
-                NotificationCenter.default.removeObserver(observer)
-            }
-            
-            // Create audio player
-            audioPlayer = try AVAudioPlayer(data: data)
-            
-            // Observe when audio finishes playing
-            audioPlayerObserver = NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemDidPlayToEndTime,
-                object: nil,
-                queue: .main
-            ) { _ in
-                isPlayingTTS = false
-                print("🔇 TTS playback finished")
-            }
-            
-            audioPlayer?.prepareToPlay()
-            audioPlayer?.play()
-            
-            isPlayingTTS = true
-            print("🔊 Started TTS playback")
-            
-            // Set up a timer to check if audio has finished (fallback)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                checkAudioPlaybackStatus()
-            }
-            
-        } catch {
-            print("❌ Failed to play TTS audio: \(error.localizedDescription)")
-            isPlayingTTS = false
-        }
-    }
-    
-    private func checkAudioPlaybackStatus() {
-        guard isPlayingTTS else { return }
-        
-        if let player = audioPlayer, !player.isPlaying {
-            isPlayingTTS = false
-            print("🔇 TTS playback finished (detected by status check)")
-        } else if isPlayingTTS {
-            // Check again after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                checkAudioPlaybackStatus()
-            }
-        }
-    }
-    
-    private func stopTTSPlayback() {
-        audioPlayer?.stop()
-        isPlayingTTS = false
-        print("⏹️ Stopped TTS playback")
-        
-        // Remove observer
-        if let observer = audioPlayerObserver {
-            NotificationCenter.default.removeObserver(observer)
-            audioPlayerObserver = nil
-        }
-        
-        // Cancel TTS processing and clear buffers
-        ttsProcessingTask?.cancel()
-        ttsProcessingTask = nil
-        ttsQueue.removeAll()
-        ttsBuffer = ""
-        isGeneratingTTS = false
-    }
-    
-    private func generateStreamingTTS(for text: String) {
-        guard ttsEnabled, let service = llmService, !service.getTTSAPIKey().isEmpty else {
-            return
-        }
-        
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return
-        }
-        
-        // Add text to buffer
-        ttsBuffer += text
-        
-        // Check if we have enough text to generate TTS (at least a sentence or meaningful chunk)
-        let shouldGenerateTTS = ttsBuffer.contains(".") || 
-                               ttsBuffer.contains("!") || 
-                               ttsBuffer.contains("?") || 
-                               ttsBuffer.contains("\n") ||
-                               ttsBuffer.count >= 50 // Generate if buffer gets too long
-        
-        if shouldGenerateTTS {
-            let textToSpeak = ttsBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
-            ttsBuffer = "" // Clear buffer
-            
-            // Add to queue for processing
-            ttsQueue.append(textToSpeak)
-            
-            // Start processing if not already running
-            if ttsProcessingTask == nil {
-                ttsProcessingTask = Task {
-                    await processTTSQueue()
-                }
-            }
-        }
-    }
-    
-    private func processTTSQueue() async {
-        while !ttsQueue.isEmpty {
-            let textToSpeak = ttsQueue.removeFirst()
-            
-            do {
-                await MainActor.run {
-                    if !isGeneratingTTS && !isPlayingTTS {
-                        isGeneratingTTS = true
-                    }
-                }
-                
-                let audioData = try await performStreamingTTSGeneration(text: textToSpeak)
-                
-                await MainActor.run {
-                    isGeneratingTTS = false
-                    
-                    // Wait for current audio to finish before playing next
-                    if isPlayingTTS {
-                        // Add a small delay to ensure smooth transition
-                        Task {
-                            while isPlayingTTS {
-                                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
-                            }
-                            playTTSAudio(data: audioData)
-                        }
-                    } else {
-                        playTTSAudio(data: audioData)
-                    }
-                }
-                
-                // Wait a bit before processing next item to avoid overwhelming the API
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second
-                
-            } catch {
-                await MainActor.run {
-                    isGeneratingTTS = false
-                    print("❌ Streaming TTS generation failed: \(error.localizedDescription)")
-                }
-            }
-        }
-        
-        await MainActor.run {
-            ttsProcessingTask = nil
-        }
-    }
-    
-    private func performStreamingTTSGeneration(text: String) async throws -> Data {
-        guard let service = llmService else {
-            throw NSError(domain: "ServiceError", code: 0, userInfo: [NSLocalizedDescriptionKey: "LLM service not available"])
-        }
-        
-        let baseURL = service.getTTSBaseURL()
-        guard let url = URL(string: "\(baseURL)/v1/audio/speech") else {
-            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid TTS API URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(service.getTTSAPIKey())", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let requestBody: [String: Any] = [
-            "model": "tts-1",
-            "input": text,
-            "voice": service.getTTSVoice(),
-            "response_format": "mp3"
-        ]
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        print("🎵 Generating TTS for text: \(String(text.prefix(50)))...")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "InvalidResponse", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "TTS API Error (\(httpResponse.statusCode)): \(errorString)"])
-        }
-        
-        print("✅ TTS generation successful, received \(data.count) bytes")
-        return data
     }
     
     // MARK: - Chat History Management Methods
