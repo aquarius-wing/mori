@@ -1,10 +1,33 @@
 import SwiftUI
 import Combine
 import AVFoundation
+import Foundation
+
+// MARK: - Chat History Models
+struct ChatHistory: Codable, Identifiable {
+    let id: String
+    var title: String
+    var messageList: [ChatMessage]
+    let createDate: Date
+    var updateDate: Date
+    
+    init(title: String? = nil, messageList: [ChatMessage] = []) {
+        self.id = UUID().uuidString
+        self.title = title ?? "New Chat at \(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short))"
+        self.messageList = messageList
+        self.createDate = Date()
+        self.updateDate = Date()
+    }
+}
 
 struct ChatView: View {
     @EnvironmentObject var router: AppRouter
     @AppStorage("providerConfiguration") private var providerConfigData = Data()
+    
+    // Chat History Management
+    @AppStorage("currentChatHistoryId") private var currentChatHistoryId: String?
+    @State private var currentChatHistory: ChatHistory?
+    @State private var shouldAutoSave = false
     
     // Legacy support
     @AppStorage("currentProvider") private var currentProvider = LLMProviderType.openRouter.rawValue
@@ -180,7 +203,8 @@ struct ChatView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button("Debug") {
                     // Single tap action (optional)
-                }
+                }                
+                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 10)) // Customize context menu preview
                 .contextMenu {
                     Button(action: {
                         // Print messages in view with all properties using JSONEncoder
@@ -241,8 +265,12 @@ struct ChatView: View {
             #endif
             
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Clear") {
-                    clearChat()
+                Button(action: {
+                    createNewChatHistory()
+                }) {
+                    Image(systemName: "plus")
+                        .font(.title2)
+                        .foregroundColor(.blue)
                 }
                 .disabled(isStreaming || isSending)
             }
@@ -274,6 +302,7 @@ struct ChatView: View {
         .onAppear {
             setupLLMService()
             checkRecordingPermission()
+            loadCurrentChatHistory()
             
             // Listen for clear chat notification
             NotificationCenter.default.addObserver(
@@ -282,6 +311,17 @@ struct ChatView: View {
                 queue: .main
             ) { _ in
                 clearChat()
+            }
+            
+            // Listen for load chat history notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("LoadChatHistory"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let chatHistory = notification.object as? ChatHistory {
+                    loadChatHistory(chatHistory)
+                }
             }
         }
         .onDisappear {
@@ -300,8 +340,9 @@ struct ChatView: View {
             ttsBuffer = ""
             isGeneratingTTS = false
             
-            // Remove notification observer
+            // Remove notification observers
             NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearChat"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("LoadChatHistory"), object: nil)
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
@@ -324,6 +365,21 @@ struct ChatView: View {
         statusType = .finalStatus
     }
     
+    func loadChatHistory(_ chatHistory: ChatHistory) {
+        // Save current chat if it has messages
+        if !messageList.isEmpty, let currentChat = currentChatHistory {
+            saveChatHistory(currentChat)
+        }
+        
+        // Load new chat
+        currentChatHistory = chatHistory
+        currentChatHistoryId = chatHistory.id
+        messageList = chatHistory.messageList.map { $0 as MessageListItem }
+        shouldAutoSave = true
+        
+        print("📚 Loaded chat history: \(chatHistory.title)")
+    }
+    
     // MARK: - Private Methods
     
     private func sendMessage() {
@@ -338,6 +394,11 @@ struct ChatView: View {
         // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
         messageList.append(userMessage)
+        
+        // Ensure we have a current chat history
+        if currentChatHistory == nil {
+            createNewChatHistoryFromCurrentMessages()
+        }
         
         Task {
             do {
@@ -486,6 +547,11 @@ struct ChatView: View {
                 isStreaming = false
                 
                 print("🏁 Workflow completed. Final messageList count: \(messageList.count)")
+                
+                // Auto-save current chat history
+                if shouldAutoSave, let currentChat = currentChatHistory {
+                    saveChatHistoryAsync(currentChat)
+                }
                 
                 // Flush any remaining TTS buffer
                 if ttsEnabled && !ttsBuffer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1032,6 +1098,202 @@ struct ChatView: View {
         
         print("✅ TTS generation successful, received \(data.count) bytes")
         return data
+    }
+    
+    // MARK: - Chat History Management Methods
+    
+    private func getChatHistoryDirectory() -> URL {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documentsPath.appendingPathComponent("chatHistorys")
+    }
+    
+    private func ensureChatHistoryDirectoryExists() {
+        let chatHistoryDir = getChatHistoryDirectory()
+        if !FileManager.default.fileExists(atPath: chatHistoryDir.path) {
+            try? FileManager.default.createDirectory(at: chatHistoryDir, withIntermediateDirectories: true, attributes: nil)
+        }
+    }
+    
+    private func loadCurrentChatHistory() {
+        guard let historyId = currentChatHistoryId else {
+            print("🆕 No current chat history ID - starting fresh")
+            return
+        }
+        
+        ensureChatHistoryDirectoryExists()
+        let chatHistoryDir = getChatHistoryDirectory()
+        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(historyId).json")
+        
+        guard FileManager.default.fileExists(atPath: filePath.path) else {
+            print("⚠️ Chat history file not found for ID: \(historyId)")
+            currentChatHistoryId = nil
+            return
+        }
+        
+        do {
+            let data = try Data(contentsOf: filePath)
+            let chatHistory = try JSONDecoder().decode(ChatHistory.self, from: data)
+            currentChatHistory = chatHistory
+            messageList = chatHistory.messageList.map { $0 as MessageListItem }
+            shouldAutoSave = true
+            print("📚 Loaded chat history: \(chatHistory.title)")
+        } catch {
+            print("❌ Failed to load chat history: \(error)")
+            currentChatHistoryId = nil
+        }
+    }
+    
+    private func saveChatHistory(_ chatHistory: ChatHistory) {
+        ensureChatHistoryDirectoryExists()
+        let chatHistoryDir = getChatHistoryDirectory()
+        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
+        
+        do {
+            var updatedChatHistory = chatHistory
+            updatedChatHistory.messageList = messageList.compactMap { $0 as? ChatMessage }
+            updatedChatHistory.updateDate = Date()
+            
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(updatedChatHistory)
+            try data.write(to: filePath)
+            
+            // Update current chat history
+            currentChatHistory = updatedChatHistory
+            
+            print("💾 Saved chat history: \(updatedChatHistory.title)")
+        } catch {
+            print("❌ Failed to save chat history: \(error)")
+        }
+    }
+    
+    private func saveChatHistoryAsync(_ chatHistory: ChatHistory) {
+        Task.detached {
+            await MainActor.run { [chatHistory] in
+                // We need to call static method since we can't capture self in struct
+                ChatView.saveChatHistoryStatic(chatHistory)
+            }
+        }
+    }
+    
+    private static func saveChatHistoryStatic(_ chatHistory: ChatHistory) {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
+        
+        // Ensure directory exists
+        if !FileManager.default.fileExists(atPath: chatHistoryDir.path) {
+            try? FileManager.default.createDirectory(at: chatHistoryDir, withIntermediateDirectories: true, attributes: nil)
+        }
+        
+        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(chatHistory)
+            try data.write(to: filePath)
+            
+            print("💾 Saved chat history: \(chatHistory.title)")
+        } catch {
+            print("❌ Failed to save chat history: \(error)")
+        }
+    }
+    
+    private func createNewChatHistory() {
+        // Save current chat if it has messages
+        if !messageList.isEmpty, let currentChat = currentChatHistory {
+            saveChatHistory(currentChat)
+        }
+        
+        // Create new chat
+        let newChatHistory = ChatHistory()
+        currentChatHistory = newChatHistory
+        currentChatHistoryId = newChatHistory.id
+        messageList.removeAll()
+        currentStatus = "Ready"
+        statusType = .finalStatus
+        shouldAutoSave = true
+        
+        print("🆕 Created new chat history: \(newChatHistory.title)")
+    }
+    
+    private func createNewChatHistoryFromCurrentMessages() {
+        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
+        let newChatHistory = ChatHistory(messageList: chatMessages)
+        currentChatHistory = newChatHistory
+        currentChatHistoryId = newChatHistory.id
+        shouldAutoSave = true
+        
+        print("🆕 Created new chat history from current messages: \(newChatHistory.title)")
+    }
+    
+    static func loadAllChatHistories() -> [ChatHistory] {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
+        
+        guard FileManager.default.fileExists(atPath: chatHistoryDir.path) else {
+            return []
+        }
+        
+        do {
+            let fileURLs = try FileManager.default.contentsOfDirectory(at: chatHistoryDir, includingPropertiesForKeys: nil)
+            let jsonFiles = fileURLs.filter { $0.pathExtension == "json" && $0.lastPathComponent.hasPrefix("chatHistory_") }
+            
+            var chatHistories: [ChatHistory] = []
+            
+            for fileURL in jsonFiles {
+                do {
+                    let data = try Data(contentsOf: fileURL)
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    let chatHistory = try decoder.decode(ChatHistory.self, from: data)
+                    chatHistories.append(chatHistory)
+                } catch {
+                    print("❌ Failed to load chat history from \(fileURL.lastPathComponent): \(error)")
+                }
+            }
+            
+            // Sort by update date descending
+            return chatHistories.sorted { $0.updateDate > $1.updateDate }
+        } catch {
+            print("❌ Failed to read chat history directory: \(error)")
+            return []
+        }
+    }
+    
+    static func deleteChatHistory(_ chatHistory: ChatHistory) {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
+        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
+        
+        do {
+            try FileManager.default.removeItem(at: filePath)
+            print("🗑️ Deleted chat history: \(chatHistory.title)")
+        } catch {
+            print("❌ Failed to delete chat history: \(error)")
+        }
+    }
+    
+    static func renameChatHistory(_ chatHistory: ChatHistory, newTitle: String) {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
+        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
+        
+        do {
+            let data = try Data(contentsOf: filePath)
+            var updatedChatHistory = try JSONDecoder().decode(ChatHistory.self, from: data)
+            updatedChatHistory.title = newTitle
+            updatedChatHistory.updateDate = Date()
+            
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let updatedData = try encoder.encode(updatedChatHistory)
+            try updatedData.write(to: filePath)
+            
+            print("✏️ Renamed chat history to: \(newTitle)")
+        } catch {
+            print("❌ Failed to rename chat history: \(error)")
+        }
     }
 }
 

@@ -16,6 +16,9 @@ struct MainView: View {
     @State private var showingMenu = false
     @State private var showingFilesView = false
     
+    // Chat reference
+    @State private var chatViewRef: ChatView?
+    
     var body: some View {
         ZStack {
             NavigationView {
@@ -47,6 +50,13 @@ struct MainView: View {
                         },
                         onShowFiles: {
                             showingFilesView = true
+                        },
+                        onSelectChatHistory: { chatHistory in
+                            // ChatView will handle loading the selected chat history
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("LoadChatHistory"),
+                                object: chatHistory
+                            )
                         }
                     )
                     .transition(.move(edge: .leading))
