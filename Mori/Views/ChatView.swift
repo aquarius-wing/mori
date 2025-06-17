@@ -275,29 +275,6 @@ struct ChatView: View {
                 .disabled(isStreaming || isSending)
             }
             
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    ttsEnabled.toggle()
-                    if !ttsEnabled {
-                        stopTTSPlayback()
-                    }
-                }) {
-                    Image(systemName: ttsEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                        .foregroundColor(ttsEnabled ? .blue : .gray)
-                }
-                .disabled(isStreaming || isSending)
-            }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    // Navigate back to onboarding for settings
-                    router.resetOnboarding()
-                }) {
-                    Image(systemName: "gearshape.fill")
-                        .foregroundColor(.blue)
-                }
-                .disabled(isStreaming || isSending)
-            }
         }
         .onAppear {
             setupLLMService()
