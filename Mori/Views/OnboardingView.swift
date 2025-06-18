@@ -1,11 +1,13 @@
 import SwiftUI
+import EventKit
 
 enum OnboardingStep: Int, CaseIterable {
     case welcome = 1
     case textCompletion = 2
     case stt = 3
     case tts = 4
-    case save = 5
+    case permission = 5
+    case done = 6
     
     var title: String {
         switch self {
@@ -13,7 +15,8 @@ enum OnboardingStep: Int, CaseIterable {
         case .textCompletion: return "Text Completion Provider"
         case .stt: return "Speech-to-Text Provider"
         case .tts: return "Text-to-Speech Provider"
-        case .save: return "Complete Setup"
+        case .permission: return "Require Permission"
+        case .done: return "🎉"
         }
     }
 }
@@ -22,15 +25,7 @@ struct OnboardingView: View {
     @EnvironmentObject var router: AppRouter
     @AppStorage("providerConfiguration") private var providerConfigData = Data()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    
-    // Legacy support
-    @AppStorage("currentProvider") private var currentProvider = LLMProviderType.openRouter.rawValue
-    @AppStorage("openaiApiKey") private var openaiApiKey = ""
-    @AppStorage("openaiBaseUrl") private var openaiBaseUrl = ""
-    @AppStorage("openaiModel") private var openaiModel = ""
-    @AppStorage("openrouterApiKey") private var openrouterApiKey = ""
-    @AppStorage("openrouterBaseUrl") private var openrouterBaseUrl = ""
-    @AppStorage("openrouterModel") private var openrouterModel = ""
+    @AppStorage("apiProviderChoice") private var apiProviderChoice: String = ""
     
     @State private var currentStep: OnboardingStep = .welcome
     @State private var showingAlert = false
@@ -58,22 +53,24 @@ struct OnboardingView: View {
     @State private var ttsVoice = ""
     @State private var showTTSAdvanced = false
     
+    // Calendar permission
+    @State private var calendarPermissionGranted = false
+    private let eventStore = EKEventStore()
+    
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 // Header (only show on first step)
                 if currentStep == .welcome {
                     welcomeHeader
+                } else {
+                    // Progress bar (only show for non-welcome steps)
+                    progressBar
                 }
-                
-                // Progress bar
-                progressBar
                 
                 // Main content
                 ScrollView {
-                    VStack(spacing: 30) {
-                        stepContent
-                    }
+                    stepContent
                     .padding(.horizontal)
                 }
                 
@@ -83,11 +80,32 @@ struct OnboardingView: View {
                 navigationButtons
                     .padding(.horizontal)
             }
-            .padding()
+            .padding(.horizontal)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
             .onAppear {
                 loadExistingConfiguration()
             }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if currentStep != .welcome {
+                        Button(action: goBack) {
+                            HStack {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                        }
+                    }
+                }
+                
+                ToolbarItem(placement: .principal) {
+                    Text(currentStep.title)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+            }
         }
+        .navigationBarTitleDisplayMode(.inline)
         .alert("Notice", isPresented: $showingAlert) {
             Button("OK") { }
         } message: {
@@ -115,17 +133,36 @@ struct OnboardingView: View {
     
     private var progressBar: some View {
         VStack(spacing: 8) {
-            Text(currentStep.title)
-                .font(.headline)
-                .fontWeight(.semibold)
+            let totalSteps = getTotalStepsForCurrentPath()
+            let currentStepNumber = getCurrentStepNumberForPath()
             
-            ProgressView(value: Double(currentStep.rawValue), total: Double(OnboardingStep.allCases.count))
+            ProgressView(value: Double(currentStepNumber), total: Double(totalSteps))
                 .progressViewStyle(LinearProgressViewStyle())
                 .frame(height: 8)
             
-            Text("Step \(currentStep.rawValue) of \(OnboardingStep.allCases.count)")
+            Text("Step \(currentStepNumber) of \(totalSteps)")
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+    }
+    
+    private func getTotalStepsForCurrentPath() -> Int {
+        if apiProviderChoice == "official" {
+            return 2 // welcome → done
+        } else {
+            return 6 // welcome → textCompletion → stt → tts → permission → done
+        }
+    }
+    
+    private func getCurrentStepNumberForPath() -> Int {
+        if apiProviderChoice == "official" {
+            switch currentStep {
+            case .welcome: return 1
+            case .done: return 2
+            default: return 1
+            }
+        } else {
+            return currentStep.rawValue
         }
     }
     
@@ -140,8 +177,10 @@ struct OnboardingView: View {
             sttContent
         case .tts:
             ttsContent
-        case .save:
-            saveContent
+        case .permission:
+            permissionContent
+        case .done:
+            doneContent
         }
     }
     
@@ -153,38 +192,74 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
             
-            Text("We'll configure three types of providers:")
+            Text("Choose your setup preference:")
                 .font(.subheadline)
                 .fontWeight(.medium)
+                .frame(maxWidth: .infinity)
             
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .foregroundColor(.blue)
-                        .frame(width: 20)
-                    Text("Text Completion: For chat responses")
-                        .font(.subheadline)
+            VStack(spacing: 16) {
+                Button("Choose Official API Provider") {
+                    apiProviderChoice = "official"
+                    withAnimation {
+                        currentStep = .permission
+                    }
                 }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .cornerRadius(10)
                 
-                HStack {
-                    Image(systemName: "mic")
-                        .foregroundColor(.green)
-                        .frame(width: 20)
-                    Text("Speech-to-Text: For voice transcription")
-                        .font(.subheadline)
+                Button("Choose Custom API Provider") {
+                    apiProviderChoice = "custom"
+                    withAnimation {
+                        currentStep = .textCompletion
+                    }
                 }
-                
-                HStack {
-                    Image(systemName: "speaker.wave.2")
-                        .foregroundColor(.purple)
-                        .frame(width: 20)
-                    Text("Text-to-Speech: For voice responses")
-                        .font(.subheadline)
-                }
+                .font(.headline)
+                .foregroundColor(.blue)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color(UIColor.systemGray6))
+                .cornerRadius(10)
             }
-            .padding()
-            .background(Color(UIColor.systemGray6))
-            .cornerRadius(12)
+            
+            if apiProviderChoice == "custom" {
+                Text("We'll configure three types of providers:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .padding(.top)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .foregroundColor(.blue)
+                            .frame(width: 20)
+                        Text("Text Completion: For chat responses")
+                            .font(.subheadline)
+                    }
+                    
+                    HStack {
+                        Image(systemName: "mic")
+                            .foregroundColor(.green)
+                            .frame(width: 20)
+                        Text("Speech-to-Text: For voice transcription")
+                            .font(.subheadline)
+                    }
+                    
+                    HStack {
+                        Image(systemName: "speaker.wave.2")
+                            .foregroundColor(.purple)
+                            .frame(width: 20)
+                        Text("Text-to-Speech: For voice responses")
+                            .font(.subheadline)
+                    }
+                }
+                .padding()
+                .background(Color(UIColor.systemGray6))
+                .cornerRadius(12)
+            }
         }
     }
     
@@ -276,20 +351,59 @@ struct OnboardingView: View {
         }
     }
     
-    private var saveContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Text("Review Your Configuration")
+    private var permissionContent: some View {
+        VStack(spacing: 24) {
+            Text("Calendar Permission")
                 .font(.headline)
                 .fontWeight(.semibold)
             
-            VStack(alignment: .leading, spacing: 16) {
-                configSummaryRow(title: "Text Completion", provider: textProviderType.displayName, hasKey: !textApiKey.isEmpty)
-                configSummaryRow(title: "Speech-to-Text", provider: sttProviderType.displayName, hasKey: !sttApiKey.isEmpty)
-                configSummaryRow(title: "Text-to-Speech", provider: ttsProviderType.displayName, hasKey: !ttsApiKey.isEmpty)
+            Text("Mori needs access to your calendar to provide better scheduling assistance.")
+                .font(.body)
+                .foregroundColor(.secondary)
+            
+            Button("Request Calendar Permission") {
+                requestCalendarPermission()
             }
+            .font(.headline)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
             .padding()
-            .background(Color(UIColor.systemGray6))
-            .cornerRadius(12)
+            .background(calendarPermissionGranted ? Color.green : Color.blue)
+            .cornerRadius(10)
+            .disabled(calendarPermissionGranted)
+            
+            if calendarPermissionGranted {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Calendar permission granted")
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                }
+            }
+        }
+    }
+    
+    private var doneContent: some View {
+        VStack(alignment: .center, spacing: 24) {
+            Text("🎉")
+                .font(.system(size: 80))
+            
+            Text("Setup Complete!")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+            
+            if apiProviderChoice == "official" {
+                Text("You've chosen to use official API providers. Default configurations have been applied.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Your custom API providers have been configured successfully.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
             
             Text("All API keys are stored securely on your device and never sent to third parties.")
                 .font(.caption)
@@ -299,55 +413,72 @@ struct OnboardingView: View {
         }
     }
     
-    private func configSummaryRow(title: String, provider: String, hasKey: Bool) -> some View {
-        HStack {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.medium)
-            
-            Spacer()
-            
-            Text(provider)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            Image(systemName: hasKey ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundColor(hasKey ? .green : .red)
-        }
-    }
-    
     private var navigationButtons: some View {
         HStack {
+            // Only show button for non-welcome steps
             if currentStep != .welcome {
-                Button("Previous") {
-                    withAnimation {
-                        if let previousStep = OnboardingStep(rawValue: currentStep.rawValue - 1) {
-                            currentStep = previousStep
-                        }
+                Button(getButtonTitle()) {
+                    if currentStep == .done {
+                        saveAndComplete()
+                    } else {
+                        nextStep()
                     }
                 }
                 .font(.headline)
-                .foregroundColor(.blue)
+                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(UIColor.systemGray6))
+                .background(canProceed() ? Color.blue : Color.gray)
                 .cornerRadius(10)
+                .disabled(!canProceed())
             }
-            
-            Button(currentStep == .save ? "Get Started" : "Next") {
-                if currentStep == .save {
-                    saveAndComplete()
+        }
+    }
+    
+    private func getButtonTitle() -> String {
+        switch currentStep {
+        case .welcome:
+            return ""
+        case .done:
+            return "Get Started"
+        default:
+            return "Next"
+        }
+    }
+    
+    private func goBack() {
+        withAnimation {
+            switch currentStep {
+            case .textCompletion:
+                currentStep = .welcome
+            case .stt:
+                currentStep = .textCompletion
+            case .tts:
+                currentStep = .stt
+            case .permission:
+                currentStep = .tts
+            case .done:
+                if apiProviderChoice == "official" {
+                    currentStep = .welcome
                 } else {
-                    nextStep()
+                    currentStep = .permission
+                }
+            default:
+                break
+            }
+        }
+    }
+    
+    private func requestCalendarPermission() {
+        eventStore.requestFullAccessToEvents { granted, error in
+            DispatchQueue.main.async {
+                if granted {
+                    calendarPermissionGranted = true
+                } else {
+                    alertMessage = "Calendar permission denied. You can enable it later in Settings."
+                    showingAlert = true
                 }
             }
-            .font(.headline)
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(canProceed() ? Color.blue : Color.gray)
-            .cornerRadius(10)
-            .disabled(!canProceed())
         }
     }
     
@@ -373,38 +504,6 @@ struct OnboardingView: View {
                 ttsVoice = config.ttsProvider.voice
             } catch {
                 print("Failed to load provider configuration: \(error)")
-                loadLegacyConfiguration()
-            }
-        } else {
-            loadLegacyConfiguration()
-        }
-    }
-    
-    private func loadLegacyConfiguration() {
-        // Load from legacy AppStorage
-        if let provider = LLMProviderType(rawValue: currentProvider) {
-            textProviderType = provider == .openai ? .openai : .openRouter
-            
-            switch provider {
-            case .openai:
-                textApiKey = openaiApiKey
-                textBaseUrl = openaiBaseUrl
-                textModel = openaiModel
-            case .openRouter:
-                textApiKey = openrouterApiKey
-                textBaseUrl = openrouterBaseUrl
-                textModel = openrouterModel
-            }
-            
-            // Set default STT and TTS to OpenAI if we have OpenAI text completion
-            if provider == .openai {
-                sttProviderType = .openai
-                sttApiKey = textApiKey
-                sttBaseUrl = textBaseUrl
-                
-                ttsProviderType = .openai
-                ttsApiKey = textApiKey
-                ttsBaseUrl = textBaseUrl
             }
         }
     }
@@ -412,15 +511,17 @@ struct OnboardingView: View {
     private func canProceed() -> Bool {
         switch currentStep {
         case .welcome:
-            return true
+            return false // Handled by buttons in welcome content
         case .textCompletion:
             return !textApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .stt:
             return !sttApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .tts:
             return !ttsApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .save:
-            return !textApiKey.isEmpty && !sttApiKey.isEmpty && !ttsApiKey.isEmpty
+        case .permission:
+            return true // Can proceed regardless of permission status
+        case .done:
+            return true
         }
     }
     
@@ -445,6 +546,10 @@ struct OnboardingView: View {
             alertMessage = "Please enter a valid API key for speech-to-text"
         case .tts:
             alertMessage = "Please enter a valid API key for text-to-speech"
+        case .permission:
+            alertMessage = "Calendar permission is required"
+        case .done:
+            alertMessage = "Please complete all required fields"
         default:
             alertMessage = "Please complete all required fields"
         }
@@ -452,62 +557,91 @@ struct OnboardingView: View {
     }
     
     private func saveAndComplete() {
-        guard canProceed() else {
-            showValidationError()
-            return
-        }
-        
-        // Create provider configuration
-        let textProvider = TextCompletionProvider(
-            type: textProviderType,
-            apiKey: textApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            baseURL: textBaseUrl.isEmpty ? nil : textBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
-            model: textModel.isEmpty ? nil : textModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        
-        let sttProvider = STTProvider(
-            type: sttProviderType,
-            apiKey: sttApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            baseURL: sttBaseUrl.isEmpty ? nil : sttBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
-            model: sttModel.isEmpty ? nil : sttModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        
-        let ttsProvider = TTSProvider(
-            type: ttsProviderType,
-            apiKey: ttsApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            baseURL: ttsBaseUrl.isEmpty ? nil : ttsBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
-            model: ttsModel.isEmpty ? nil : ttsModel.trimmingCharacters(in: .whitespacesAndNewlines),
-            voice: ttsVoice.isEmpty ? nil : ttsVoice.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        
-        let configuration = ProviderConfiguration(
-            textCompletionProvider: textProvider,
-            sttProvider: sttProvider,
-            ttsProvider: ttsProvider
-        )
-        
-        // Save configuration
-        do {
-            let data = try JSONEncoder().encode(configuration)
-            providerConfigData = data
-        } catch {
-            alertMessage = "Failed to save configuration: \(error.localizedDescription)"
-            showingAlert = true
-            return
-        }
-        
-        // Save legacy configuration for backward compatibility
-        currentProvider = textProviderType == .openai ? LLMProviderType.openai.rawValue : LLMProviderType.openRouter.rawValue
-        
-        switch textProviderType {
-        case .openai:
-            openaiApiKey = textProvider.apiKey
-            openaiBaseUrl = textProvider.baseURL
-            openaiModel = textProvider.model
-        case .openRouter:
-            openrouterApiKey = textProvider.apiKey
-            openrouterBaseUrl = textProvider.baseURL
-            openrouterModel = textProvider.model
+        if apiProviderChoice == "official" {
+            // Create default official provider configuration
+            let textProvider = TextCompletionProvider(
+                type: .openai,
+                apiKey: "official",
+                baseURL: nil,
+                model: nil
+            )
+            
+            let sttProvider = STTProvider(
+                type: .openai,
+                apiKey: "official",
+                baseURL: nil,
+                model: nil
+            )
+            
+            let ttsProvider = TTSProvider(
+                type: .openai,
+                apiKey: "official",
+                baseURL: nil,
+                model: nil,
+                voice: nil
+            )
+            
+            let configuration = ProviderConfiguration(
+                textCompletionProvider: textProvider,
+                sttProvider: sttProvider,
+                ttsProvider: ttsProvider
+            )
+            
+            // Save configuration
+            do {
+                let data = try JSONEncoder().encode(configuration)
+                providerConfigData = data
+            } catch {
+                alertMessage = "Failed to save configuration: \(error.localizedDescription)"
+                showingAlert = true
+                return
+            }
+        } else {
+            // Validate custom configuration
+            guard !textApiKey.isEmpty && !sttApiKey.isEmpty && !ttsApiKey.isEmpty else {
+                alertMessage = "Please complete all API key configurations"
+                showingAlert = true
+                return
+            }
+            
+            // Create custom provider configuration
+            let textProvider = TextCompletionProvider(
+                type: textProviderType,
+                apiKey: textApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                baseURL: textBaseUrl.isEmpty ? nil : textBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
+                model: textModel.isEmpty ? nil : textModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            
+            let sttProvider = STTProvider(
+                type: sttProviderType,
+                apiKey: sttApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                baseURL: sttBaseUrl.isEmpty ? nil : sttBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
+                model: sttModel.isEmpty ? nil : sttModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            
+            let ttsProvider = TTSProvider(
+                type: ttsProviderType,
+                apiKey: ttsApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                baseURL: ttsBaseUrl.isEmpty ? nil : ttsBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
+                model: ttsModel.isEmpty ? nil : ttsModel.trimmingCharacters(in: .whitespacesAndNewlines),
+                voice: ttsVoice.isEmpty ? nil : ttsVoice.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            
+            let configuration = ProviderConfiguration(
+                textCompletionProvider: textProvider,
+                sttProvider: sttProvider,
+                ttsProvider: ttsProvider
+            )
+            
+            // Save configuration
+            do {
+                let data = try JSONEncoder().encode(configuration)
+                providerConfigData = data
+            } catch {
+                alertMessage = "Failed to save configuration: \(error.localizedDescription)"
+                showingAlert = true
+                return
+            }
         }
         
         // Complete onboarding

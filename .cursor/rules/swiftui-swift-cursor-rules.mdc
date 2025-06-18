@@ -23,3 +23,4 @@ alwaysApply: true
   - Be concise. Minimize any other prose.
   - If you think there might not be a correct answer, you say so. If you do not know the answer, say so instead of guessing.
   - If you going to build the project, use iPhone 16
+  - Using NavigationStack rather than NavigationView
