@@ -1,6 +1,16 @@
 import EventKit
 import SwiftUI
 
+// Custom button style for dark background
+struct CustomButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 enum OnboardingStep: Int, CaseIterable {
     case welcome = 1
     case example = 2
@@ -58,15 +68,16 @@ struct OnboardingView: View {
         NavigationStack {
             GeometryReader { geometry in
                 ZStack {
-                    Rectangle()
+                    // Background gradient
+                    currentStep == .welcome ? Rectangle()
                         .foregroundColor(.clear)
                         .frame(
                             width: (geometry.size.width
                                 - geometry.safeAreaInsets.leading
-                                - geometry.safeAreaInsets.trailing) * 5 / 7,
-                            height: geometry.size.height
+                                    - geometry.safeAreaInsets.trailing) * 1,
+                            height: (geometry.size.height
                                 - geometry.safeAreaInsets.top
-                                - geometry.safeAreaInsets.bottom
+                                - geometry.safeAreaInsets.bottom) * 0.7
                         )
                         .background(
                             EllipticalGradient(
@@ -92,56 +103,58 @@ struct OnboardingView: View {
                             x: -geometry.size.width / 2 / 4,
                             y: -geometry.size.height / 2 / 5
                         )
-                        .scaleEffect(5)
-                    VStack(spacing: 20) {
-                        // Header (only show on first step)
-                        if currentStep == .welcome {
-                            welcomeHeader
-                        } else {
-                            // Progress bar (only show for non-welcome steps)
+                        .scaleEffect(5) : nil
+                    
+                    VStack(spacing: 0) {
+                        // Progress bar (only show for non-welcome steps)
+                        if currentStep != .welcome {
                             progressBar
-                            
-                            Spacer()
-                            
-                            // Step content
-                            stepContent
-                            
-                            Spacer()
-                            
-                            // Navigation buttons
-                            navigationButtons
+                                .padding(.horizontal)
+                                .padding(.top, 20)
                         }
+                        
+                        Spacer()
+                        
+                        // Step content
+                        stepContent
+                            .padding(.horizontal)
+                            .padding(.top, 40)
+                            .padding(.bottom, 40)
+                        
+                        Spacer()
+                        
+                        // Navigation button
+                        navigationButton
+                            .padding(.horizontal)
+                            .padding(.bottom, 40)
+                            .cornerRadius(16)
                     }
-                    .padding(.horizontal)
-                    .frame(
-                        maxWidth: .infinity,
-                        maxHeight: .infinity,
-                    )
-
-                    .onAppear {
-                        loadExistingConfiguration()
-                    }
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            if currentStep != .welcome {
-                                Button(action: goBack) {
-                                    HStack {
-                                        Image(systemName: "chevron.left")
-                                        Text("Back")
-                                    }
-                                }
-                            }
-                        }
-
-                        ToolbarItem(placement: .principal) {
-                            if currentStep != .welcome {
-                                Text(currentStep.title)
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .background(Color.black.ignoresSafeArea())
+            }
+            .onAppear {
+                loadExistingConfiguration()
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if currentStep != .welcome {
+                        Button(action: goBack) {
+                            HStack {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
                             }
                         }
                     }
-                }.background(Color.black.ignoresSafeArea())
+                }
+
+                ToolbarItem(placement: .principal) {
+                    if currentStep != .welcome {
+                        Text(currentStep.title)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                    }
+                }
             }
         }
         .navigationBarTitleDisplayMode(
@@ -155,50 +168,7 @@ struct OnboardingView: View {
         }
     }
 
-    private var welcomeHeader: some View {
-        VStack(spacing: 30) {
 
-            Image("AppIcon-Display")
-                .resizable()
-                .frame(width: 120, height: 120)
-                .cornerRadius(24)
-                .padding(.top, 100)
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                Text("Hello, Here is Mori!")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-
-                Text("Let me help make your life better.")
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-            }
-            .padding(.bottom, 16)
-
-            Button(action: {
-                nextStep()
-            }) {
-                Text("Get Started")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.white)
-            }
-            .cornerRadius(16)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 36)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private var progressBar: some View {
         VStack(spacing: 8) {
@@ -245,29 +215,60 @@ struct OnboardingView: View {
     }
 
     private var welcomeContent: some View {
-        // Content is now handled in welcomeHeader for the new design
-        EmptyView()
+        VStack(spacing: 30) {
+            Image("AppIcon-Display")
+                .resizable()
+                .frame(width: 120, height: 120)
+                .cornerRadius(24)
+            
+            Spacer()
+
+            VStack(spacing: 12) {
+                Text("Hello, Here is Mori!")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+
+                Text("Let me help make your life better.")
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+        }
     }
 
     private var exampleContent: some View {
         VStack(spacing: 24) {
             Text("Example")
-                .font(.headline)
-                .fontWeight(.semibold)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+            
+            Text("This is an example of how Mori can help you organize your tasks and schedule.")
+                .font(.body)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
         }
     }
 
     private var permissionContent: some View {
         VStack(spacing: 24) {
             Text("Calendar Permission")
-                .font(.headline)
-                .fontWeight(.semibold)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
 
-            Text(
-                "Mori needs access to your calendar to provide better scheduling assistance."
-            )
-            .font(.body)
-            .foregroundColor(.secondary)
+            Text("Mori needs access to your calendar to provide better scheduling assistance.")
+                .font(.body)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
 
             Button("Request Calendar Permission") {
                 requestCalendarPermission()
@@ -300,64 +301,55 @@ struct OnboardingView: View {
             Text("Setup Complete!")
                 .font(.largeTitle)
                 .fontWeight(.bold)
-
-            if apiProviderChoice == "official" {
-                Text(
-                    "You've chosen to use official API providers. Default configurations have been applied."
-                )
-                .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white)
                 .multilineTextAlignment(.center)
-            } else {
-                Text(
-                    "Your custom API providers have been configured successfully."
-                )
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            }
 
-            Text(
-                "All API keys are stored securely on your device and never sent to third parties."
-            )
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
+            Text("You're all set up! Mori is ready to help you organize your life.")
+                .font(.body)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+
+            Text("All API keys are stored securely on your device and never sent to third parties.")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
         }
     }
 
-    private var navigationButtons: some View {
-        HStack {
-            // Only show button for non-welcome steps
-            if currentStep != .welcome {
-                Button(getButtonTitle()) {
-                    if currentStep == .done {
-                        hasCompletedOnboarding = true
-                        router.completeOnboarding()
-                    } else {
-                        nextStep()
-                    }
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(canProceed() ? Color.blue : Color.gray)
-                .cornerRadius(10)
-                .disabled(!canProceed())
+    private var navigationButton: some View {
+        Button(action: {
+                if currentStep == .done {
+                hasCompletedOnboarding = true
+                router.completeOnboarding()
+            } else {
+                nextStep()
             }
-        }
+            }) {
+                Text(getButtonTitle())
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(canProceed() ? .black : .white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(canProceed() ? Color.white : Color.gray)
+                    .cornerRadius(16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(CustomButtonStyle())
+            .disabled(!canProceed())
+            .padding(.horizontal, 40)
     }
 
     private func getButtonTitle() -> String {
         switch currentStep {
         case .welcome:
-            return ""
-        case .done:
             return "Get Started"
-        default:
-            return "Next"
+        case .example, .permission:
+            return "Continue"
+        case .done:
+            return "Let's go"
         }
     }
 
