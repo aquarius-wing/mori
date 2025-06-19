@@ -3,18 +3,14 @@ import SwiftUI
 
 enum OnboardingStep: Int, CaseIterable {
     case welcome = 1
-    case textCompletion = 2
-    case stt = 3
-    case tts = 4
-    case permission = 5
-    case done = 6
+    case example = 2
+    case permission = 3
+    case done = 4
 
     var title: String {
         switch self {
         case .welcome: return "Welcome to Mori"
-        case .textCompletion: return "Text Completion Provider"
-        case .stt: return "Speech-to-Text Provider"
-        case .tts: return "Text-to-Speech Provider"
+        case .example: return "Example"
         case .permission: return "Require Permission"
         case .done: return "🎉"
         }
@@ -67,7 +63,7 @@ struct OnboardingView: View {
                         .frame(
                             width: (geometry.size.width
                                 - geometry.safeAreaInsets.leading
-                                - geometry.safeAreaInsets.trailing ) * 5 / 7,
+                                - geometry.safeAreaInsets.trailing) * 5 / 7,
                             height: geometry.size.height
                                 - geometry.safeAreaInsets.top
                                 - geometry.safeAreaInsets.bottom
@@ -104,8 +100,17 @@ struct OnboardingView: View {
                         } else {
                             // Progress bar (only show for non-welcome steps)
                             progressBar
+                            
+                            Spacer()
+                            
+                            // Step content
+                            stepContent
+                            
+                            Spacer()
+                            
+                            // Navigation buttons
+                            navigationButtons
                         }
-                        
                     }
                     .padding(.horizontal)
                     .frame(
@@ -178,10 +183,7 @@ struct OnboardingView: View {
             .padding(.bottom, 16)
 
             Button(action: {
-                apiProviderChoice = "official"
-                withAnimation {
-                    currentStep = .permission
-                }
+                nextStep()
             }) {
                 Text("Get Started")
                     .font(.headline)
@@ -218,22 +220,14 @@ struct OnboardingView: View {
 
     private func getTotalStepsForCurrentPath() -> Int {
         if apiProviderChoice == "official" {
-            return 2  // welcome → done
+            return 3  // welcome → permission → done
         } else {
-            return 6  // welcome → textCompletion → stt → tts → permission → done
+            return 4  // welcome → example → permission → done
         }
     }
 
     private func getCurrentStepNumberForPath() -> Int {
-        if apiProviderChoice == "official" {
-            switch currentStep {
-            case .welcome: return 1
-            case .done: return 2
-            default: return 1
-            }
-        } else {
-            return currentStep.rawValue
-        }
+        return currentStep.rawValue
     }
 
     @ViewBuilder
@@ -241,12 +235,8 @@ struct OnboardingView: View {
         switch currentStep {
         case .welcome:
             welcomeContent
-        case .textCompletion:
-            textCompletionContent
-        case .stt:
-            sttContent
-        case .tts:
-            ttsContent
+        case .example:
+            exampleContent
         case .permission:
             permissionContent
         case .done:
@@ -259,93 +249,11 @@ struct OnboardingView: View {
         EmptyView()
     }
 
-    private var textCompletionContent: some View {
-        ProviderConfigView(
-            title: "Text Completion Provider",
-            description: "Choose your provider for AI chat responses",
-            providerType: $textProviderType,
-            apiKey: $textApiKey,
-            baseUrl: $textBaseUrl,
-            model: $textModel,
-            showAdvanced: $showTextAdvanced,
-            extraField: .constant(""),
-            extraFieldTitle: ""
-        )
-    }
-
-    private var sttContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            STTProviderConfigView(
-                title: "Speech-to-Text Provider",
-                description:
-                    "Configure voice transcription settings (OpenAI only)",
-                apiKey: $sttApiKey,
-                baseUrl: $sttBaseUrl,
-                model: $sttModel,
-                showAdvanced: $showSTTAdvanced
-            )
-
-            if textProviderType == .openai && !textApiKey.isEmpty {
-                Button("Auto-fill from Text Completion Provider") {
-                    sttProviderType = .openai
-                    sttApiKey = textApiKey
-                    sttBaseUrl = textBaseUrl
-                    sttModel = textModel.isEmpty ? "whisper-1" : textModel
-                }
-                .font(.subheadline)
-                .foregroundColor(.white)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.blue)
-                .cornerRadius(8)
-            }
-        }
-    }
-
-    private var ttsContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            TTSProviderConfigView(
-                title: "Text-to-Speech Provider",
-                description:
-                    "Configure voice generation settings (OpenAI only)",
-                apiKey: $ttsApiKey,
-                baseUrl: $ttsBaseUrl,
-                model: $ttsModel,
-                voice: $ttsVoice,
-                showAdvanced: $showTTSAdvanced
-            )
-
-            VStack(spacing: 12) {
-                if textProviderType == .openai && !textApiKey.isEmpty {
-                    Button("Auto-fill from Text Completion Provider") {
-                        ttsProviderType = .openai
-                        ttsApiKey = textApiKey
-                        ttsBaseUrl = textBaseUrl
-                        ttsModel = textModel.isEmpty ? "tts-1" : textModel
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue)
-                    .cornerRadius(8)
-                }
-
-                if sttProviderType == .openai && !sttApiKey.isEmpty {
-                    Button("Auto-fill from STT Provider") {
-                        ttsProviderType = .openai
-                        ttsApiKey = sttApiKey
-                        ttsBaseUrl = sttBaseUrl
-                        ttsModel = sttModel.isEmpty ? "tts-1" : sttModel
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.green)
-                    .cornerRadius(8)
-                }
-            }
+    private var exampleContent: some View {
+        VStack(spacing: 24) {
+            Text("Example")
+                .font(.headline)
+                .fontWeight(.semibold)
         }
     }
 
@@ -425,7 +333,8 @@ struct OnboardingView: View {
             if currentStep != .welcome {
                 Button(getButtonTitle()) {
                     if currentStep == .done {
-                        saveAndComplete()
+                        hasCompletedOnboarding = true
+                        router.completeOnboarding()
                     } else {
                         nextStep()
                     }
@@ -455,20 +364,12 @@ struct OnboardingView: View {
     private func goBack() {
         withAnimation {
             switch currentStep {
-            case .textCompletion:
+            case .example:
                 currentStep = .welcome
-            case .stt:
-                currentStep = .textCompletion
-            case .tts:
-                currentStep = .stt
             case .permission:
-                currentStep = .tts
+                currentStep = .example
             case .done:
-                if apiProviderChoice == "official" {
-                    currentStep = .welcome
-                } else {
-                    currentStep = .permission
-                }
+                currentStep = .permission
             default:
                 break
             }
@@ -521,16 +422,9 @@ struct OnboardingView: View {
     private func canProceed() -> Bool {
         switch currentStep {
         case .welcome:
-            return false  // Handled by buttons in welcome content
-        case .textCompletion:
-            return !textApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                .isEmpty
-        case .stt:
-            return !sttApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                .isEmpty
-        case .tts:
-            return !ttsApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                .isEmpty
+            return true  // Handled by buttons in welcome content
+        case .example:
+            return true  // Can always proceed from example
         case .permission:
             return true  // Can proceed regardless of permission status
         case .done:
@@ -554,12 +448,8 @@ struct OnboardingView: View {
 
     private func showValidationError() {
         switch currentStep {
-        case .textCompletion:
-            alertMessage = "Please enter a valid API key for text completion"
-        case .stt:
-            alertMessage = "Please enter a valid API key for speech-to-text"
-        case .tts:
-            alertMessage = "Please enter a valid API key for text-to-speech"
+        case .example:
+            alertMessage = "Please complete the example step"
         case .permission:
             alertMessage = "Calendar permission is required"
         case .done:
@@ -568,559 +458,6 @@ struct OnboardingView: View {
             alertMessage = "Please complete all required fields"
         }
         showingAlert = true
-    }
-
-    private func saveAndComplete() {
-        if apiProviderChoice == "official" {
-            // Create default official provider configuration
-            let textProvider = TextCompletionProvider(
-                type: .openai,
-                apiKey: "official",
-                baseURL: nil,
-                model: nil
-            )
-
-            let sttProvider = STTProvider(
-                type: .openai,
-                apiKey: "official",
-                baseURL: nil,
-                model: nil
-            )
-
-            let ttsProvider = TTSProvider(
-                type: .openai,
-                apiKey: "official",
-                baseURL: nil,
-                model: nil,
-                voice: nil
-            )
-
-            let configuration = ProviderConfiguration(
-                textCompletionProvider: textProvider,
-                sttProvider: sttProvider,
-                ttsProvider: ttsProvider
-            )
-
-            // Save configuration
-            do {
-                let data = try JSONEncoder().encode(configuration)
-                providerConfigData = data
-            } catch {
-                alertMessage =
-                    "Failed to save configuration: \(error.localizedDescription)"
-                showingAlert = true
-                return
-            }
-        } else {
-            // Validate custom configuration
-            guard
-                !textApiKey.isEmpty && !sttApiKey.isEmpty && !ttsApiKey.isEmpty
-            else {
-                alertMessage = "Please complete all API key configurations"
-                showingAlert = true
-                return
-            }
-
-            // Create custom provider configuration
-            let textProvider = TextCompletionProvider(
-                type: textProviderType,
-                apiKey: textApiKey.trimmingCharacters(
-                    in: .whitespacesAndNewlines
-                ),
-                baseURL: textBaseUrl.isEmpty
-                    ? nil
-                    : textBaseUrl.trimmingCharacters(
-                        in: .whitespacesAndNewlines
-                    ),
-                model: textModel.isEmpty
-                    ? nil
-                    : textModel.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
-
-            let sttProvider = STTProvider(
-                type: sttProviderType,
-                apiKey: sttApiKey.trimmingCharacters(
-                    in: .whitespacesAndNewlines
-                ),
-                baseURL: sttBaseUrl.isEmpty
-                    ? nil
-                    : sttBaseUrl.trimmingCharacters(
-                        in: .whitespacesAndNewlines
-                    ),
-                model: sttModel.isEmpty
-                    ? nil
-                    : sttModel.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
-
-            let ttsProvider = TTSProvider(
-                type: ttsProviderType,
-                apiKey: ttsApiKey.trimmingCharacters(
-                    in: .whitespacesAndNewlines
-                ),
-                baseURL: ttsBaseUrl.isEmpty
-                    ? nil
-                    : ttsBaseUrl.trimmingCharacters(
-                        in: .whitespacesAndNewlines
-                    ),
-                model: ttsModel.isEmpty
-                    ? nil
-                    : ttsModel.trimmingCharacters(in: .whitespacesAndNewlines),
-                voice: ttsVoice.isEmpty
-                    ? nil
-                    : ttsVoice.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
-
-            let configuration = ProviderConfiguration(
-                textCompletionProvider: textProvider,
-                sttProvider: sttProvider,
-                ttsProvider: ttsProvider
-            )
-
-            // Save configuration
-            do {
-                let data = try JSONEncoder().encode(configuration)
-                providerConfigData = data
-            } catch {
-                alertMessage =
-                    "Failed to save configuration: \(error.localizedDescription)"
-                showingAlert = true
-                return
-            }
-        }
-
-        // Complete onboarding
-        router.completeOnboarding()
-    }
-}
-
-struct ProviderConfigView: View {
-    let title: String
-    let description: String
-    @Binding var providerType: ProviderType
-    @Binding var apiKey: String
-    @Binding var baseUrl: String
-    @Binding var model: String
-    @Binding var showAdvanced: Bool
-    @Binding var extraField: String
-    let extraFieldTitle: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            // Provider selection
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Provider")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Picker("Provider", selection: $providerType) {
-                    ForEach(ProviderType.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Key")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text(getProviderDescription())
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                SecureField(
-                    "Enter your \(providerType.displayName) API key",
-                    text: $apiKey
-                )
-                .textFieldStyle(.roundedBorder)
-            }
-
-            // Advanced settings
-            Button(action: {
-                showAdvanced.toggle()
-            }) {
-                HStack {
-                    Text("Advanced Settings")
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
-                    Spacer()
-                    Image(
-                        systemName: showAdvanced ? "chevron.up" : "chevron.down"
-                    )
-                    .font(.caption)
-                    .foregroundColor(.blue)
-                }
-            }
-
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 15) {
-                    // Base URL
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Custom API Base URL (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text(getBaseUrlDescription())
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        TextField(getDefaultBaseUrl(), text: $baseUrl)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.URL)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-
-                    // Model
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Model (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text(getModelDescription())
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        TextField(getDefaultModel(), text: $model)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-
-                    // Extra field (for TTS voice)
-                    if !extraFieldTitle.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("\(extraFieldTitle) (Optional)")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-
-                            Text("Leave empty to use default voice 'alloy'")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-
-                            TextField("alloy", text: $extraField)
-                                .textFieldStyle(.roundedBorder)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
-                        }
-                    }
-                }
-                .padding(.top, 10)
-                .transition(.opacity.combined(with: .slide))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: showAdvanced)
-    }
-
-    private func getProviderDescription() -> String {
-        switch providerType {
-        case .openai:
-            return "Your OpenAI API key will only be stored on this device."
-        case .openRouter:
-            return "Your OpenRouter API key will only be stored on this device."
-        }
-    }
-
-    private func getBaseUrlDescription() -> String {
-        switch providerType {
-        case .openai:
-            return
-                "Leave empty to use official OpenAI API. Enter custom URL for compatible services."
-        case .openRouter:
-            return
-                "Leave empty to use official OpenRouter API. Enter custom URL for compatible services."
-        }
-    }
-
-    private func getDefaultBaseUrl() -> String {
-        switch providerType {
-        case .openai:
-            return "https://api.openai.com"
-        case .openRouter:
-            return "https://openrouter.ai/api"
-        }
-    }
-
-    private func getModelDescription() -> String {
-        switch providerType {
-        case .openai:
-            return "Leave empty to use default. e.g., gpt-4o-2024-11-20"
-        case .openRouter:
-            return
-                "Leave empty to use default. e.g., deepseek/deepseek-chat-v3-0324"
-        }
-    }
-
-    private func getDefaultModel() -> String {
-        switch providerType {
-        case .openai:
-            return "gpt-4o-2024-11-20"
-        case .openRouter:
-            return "deepseek/deepseek-chat-v3-0324"
-        }
-    }
-}
-
-struct STTProviderConfigView: View {
-    let title: String
-    let description: String
-    @Binding var apiKey: String
-    @Binding var baseUrl: String
-    @Binding var model: String
-    @Binding var showAdvanced: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            // Provider info (read-only)
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Provider")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                HStack {
-                    Text("OpenAI")
-                        .font(.subheadline)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(8)
-
-                    Spacer()
-
-                    Text("Only OpenAI supports STT")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Key")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text("Your OpenAI API key will only be stored on this device.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                SecureField("Enter your OpenAI API key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            // Advanced settings
-            Button(action: {
-                showAdvanced.toggle()
-            }) {
-                HStack {
-                    Text("Advanced Settings")
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
-                    Spacer()
-                    Image(
-                        systemName: showAdvanced ? "chevron.up" : "chevron.down"
-                    )
-                    .font(.caption)
-                    .foregroundColor(.blue)
-                }
-            }
-
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 15) {
-                    // Base URL
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Custom API Base URL (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text("Leave empty to use official OpenAI API.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        TextField("https://api.openai.com", text: $baseUrl)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.URL)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-
-                    // Model
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Model (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text("Leave empty to use default whisper-1 model.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        TextField("whisper-1", text: $model)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                }
-                .padding(.top, 10)
-                .transition(.opacity.combined(with: .slide))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: showAdvanced)
-    }
-}
-
-struct TTSProviderConfigView: View {
-    let title: String
-    let description: String
-    @Binding var apiKey: String
-    @Binding var baseUrl: String
-    @Binding var model: String
-    @Binding var voice: String
-    @Binding var showAdvanced: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            // Provider info (read-only)
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Provider")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                HStack {
-                    Text("OpenAI")
-                        .font(.subheadline)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(8)
-
-                    Spacer()
-
-                    Text("Only OpenAI supports TTS")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Key")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text("Your OpenAI API key will only be stored on this device.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                SecureField("Enter your OpenAI API key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            // Advanced settings
-            Button(action: {
-                showAdvanced.toggle()
-            }) {
-                HStack {
-                    Text("Advanced Settings")
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
-                    Spacer()
-                    Image(
-                        systemName: showAdvanced ? "chevron.up" : "chevron.down"
-                    )
-                    .font(.caption)
-                    .foregroundColor(.blue)
-                }
-            }
-
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 15) {
-                    // Base URL
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Custom API Base URL (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text("Leave empty to use official OpenAI API.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        TextField("https://api.openai.com", text: $baseUrl)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.URL)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-
-                    // Model
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Model (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text("Leave empty to use default tts-1 model.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        TextField("tts-1", text: $model)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-
-                    // Voice
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Voice (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text("Leave empty to use default 'alloy' voice.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        TextField("alloy", text: $voice)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                }
-                .padding(.top, 10)
-                .transition(.opacity.combined(with: .slide))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: showAdvanced)
     }
 }
 
