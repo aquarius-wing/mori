@@ -1,6 +1,5 @@
 import SwiftUI
 import Foundation
-import UIKit
 
 struct ChatView: View {
     @State private var chatItems: [ChatItem] = [
@@ -54,6 +53,10 @@ struct ChatView: View {
                                 }
                             }
                         }
+                        .onTapGesture {
+                            // Dismiss keyboard when tapping on chat area
+                            isTextFieldFocused = false
+                        }
                     }
                     
                     // Input area with action buttons
@@ -89,6 +92,10 @@ struct ChatView: View {
                             }
                             .padding(.horizontal, 20)
                             .padding(.vertical, 12)
+                            .onTapGesture {
+                                // Dismiss keyboard when tapping on action buttons area
+                                isTextFieldFocused = false
+                            }
                         }
                         
                         // Input field
@@ -130,6 +137,10 @@ struct ChatView: View {
             .navigationTitle("聊天")
             .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
+            .onTapGesture {
+                // Dismiss keyboard when tapping anywhere outside input area
+                isTextFieldFocused = false
+            }
         }
     }
     
