@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 struct ChatView: View {
     @State private var chatItems: [ChatItem] = [
@@ -12,12 +13,13 @@ struct ChatView: View {
     
     @State private var inputText = ""
     @State private var isProcessing = false
+    @State private var keyboardHeight: CGFloat = 0
+    @FocusState private var isTextFieldFocused: Bool
     
     var body: some View {
         NavigationStack {
-            ZStack {
+            GeometryReader { geometry in
                 // Dark background
-                Color.black.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Chat messages area
@@ -43,6 +45,7 @@ struct ChatView: View {
                                 }
                             }
                             .padding(.vertical, 20)
+                            .padding(.bottom, 0) // Adjust spacing when keyboard is shown
                         }
                         .onChange(of: chatItems.count) { _, _ in
                             if let lastItem = chatItems.last {
@@ -89,29 +92,40 @@ struct ChatView: View {
                         }
                         
                         // Input field
-                        HStack(spacing: 12) {
+                        VStack(spacing: 12) {
                             TextField("输入消息...", text: $inputText, axis: .vertical)
-                                .textFieldStyle(.roundedBorder)
+                                .textFieldStyle(.plain)
                                 .lineLimit(1...5)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(8)
-                            
-                            Button(action: sendMessage) {
-                                Image(systemName: "paperplane.fill")
-                                    .foregroundColor(.white)
-                                    .padding(10)
-                                    .background(
-                                        Circle()
-                                            .fill(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.5) : Color.blue)
-                                    )
+                                .foregroundColor(.white)
+                                .accentColor(.white)
+                                .focused($isTextFieldFocused)
+                            HStack(spacing: 12) {
+                                Spacer()
+                                
+                                Button(action: sendMessage) {
+                                    Image(systemName: "paperplane.fill")
+                                        .foregroundColor(.white)
+                                        .padding(10)
+                                        .background(
+                                            Circle()
+                                                .fill(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.5) : Color.blue)
+                                        )
+                                }
+                                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isProcessing)
                             }
-                            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isProcessing)
                         }
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
+                        .padding(.top, 16)
+                        .padding(.bottom, 20)//max(keyboardHeight > 0 ? 16 : 40, geometry.safeAreaInsets.bottom + 16))
+                        .background(
+                            UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 20)
+                                .fill(Color.white.opacity(0.1))
+                                
+                        )
                     }
-                    .background(Color.black)
+                    
                 }
+                
             }
             .navigationTitle("聊天")
             .navigationBarTitleDisplayMode(.inline)
@@ -124,21 +138,21 @@ struct ChatView: View {
         guard !message.isEmpty else { return }
         
         // Add user message
-        chatItems.append(.message(message, isUser: true))
+        chatItems.append(ChatItem.message(message, isUser: true))
         inputText = ""
         isProcessing = true
         
         // Simulate AI processing
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             // Add workflow step
-            chatItems.append(.workflowStep(.executing, toolName: "AI Processing", details: ["action": "analyzing message"]))
+            chatItems.append(ChatItem.workflowStep(.executing, toolName: "AI Processing", details: ["action": "analyzing message"]))
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 // Add result
-                chatItems.append(.workflowStep(.result, toolName: "AI Processing", details: ["result": "completed analysis"]))
+                chatItems.append(ChatItem.workflowStep(.result, toolName: "AI Processing", details: ["result": "completed analysis"]))
                 
                 // Add AI response
-                chatItems.append(.message("I understand your message: \"\(message)\". How can I help you further?", isUser: false))
+                chatItems.append(ChatItem.message("I understand your message: \"\(message)\". How can I help you further?", isUser: false))
                 isProcessing = false
             }
         }
