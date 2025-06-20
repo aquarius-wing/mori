@@ -120,9 +120,9 @@ struct ChatView: View {
                         }
 
                         // Input field
-                        VStack(spacing: 12) {
+                        VStack(spacing: 16) {
                             TextField(
-                                "输入消息...",
+                                "Input message...",
                                 text: $inputText,
                                 axis: .vertical
                             )
@@ -133,34 +133,38 @@ struct ChatView: View {
                             .focused($isTextFieldFocused)
                             HStack(spacing: 12) {
                                 Spacer()
-
                                 Button(action: sendMessage) {
-                                    Image(systemName: "paperplane.fill")
+                                    Image(systemName: "arrow.up")
                                         .foregroundColor(.white)
-                                        .padding(10)
-                                        .background(
-                                            Circle()
-                                                .fill(
-                                                    inputText.trimmingCharacters(
-                                                        in:
-                                                            .whitespacesAndNewlines
-                                                    ).isEmpty
-                                                        ? Color.gray.opacity(
-                                                            0.5
-                                                        ) : Color.blue
-                                                )
-                                        )
+                                        
                                 }
-                                .disabled(
-                                    inputText.trimmingCharacters(
-                                        in: .whitespacesAndNewlines
-                                    ).isEmpty || isProcessing
-                                )
+                                .frame(width: 32, height: 32)
+                                .background(Color.blue)
+                                .cornerRadius(16)
+                                .contentShape(Rectangle())
+
+                                if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing {
+                                    
+                                }
                             }
                         }
+                        .contentShape(Rectangle()) // Make the entire VStack tappable
+                        .onTapGesture {
+                            // Focus on TextField when tapping on the VStack area
+                            isTextFieldFocused = true
+                        }
+                        .overlay(
+                            // Floating gray rectangle
+                            Rectangle()
+                                .fill(Color.white.opacity(0.1))
+                                .frame(height: geometry.safeAreaInsets.bottom)
+                                .frame(width: geometry.size.width)
+                                .offset(y: geometry.safeAreaInsets.bottom + 12), // Adjust this value to position the rectangle
+                            alignment: .bottom
+                        )
                         .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                        .padding(.bottom, 20)  //max(keyboardHeight > 0 ? 16 : 40, geometry.safeAreaInsets.bottom + 16))
+                        .padding(.top, 20)
+                        .padding(.bottom, 12)  //max(keyboardHeight > 0 ? 16 : 40, geometry.safeAreaInsets.bottom + 16))
                         .background(
                             UnevenRoundedRectangle(
                                 topLeadingRadius: 20,
