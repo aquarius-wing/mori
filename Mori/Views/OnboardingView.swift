@@ -1,939 +1,870 @@
+import EventKit
 import SwiftUI
+import UserNotifications
+import Intents
+
+// Custom button style for dark background
+struct CustomButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(
+                .easeInOut(duration: 0.1),
+                value: configuration.isPressed
+            )
+    }
+}
 
 enum OnboardingStep: Int, CaseIterable {
     case welcome = 1
-    case textCompletion = 2
-    case stt = 3
-    case tts = 4
-    case save = 5
-    
+    case example = 2
+    case permission = 3
+    case done = 4
+
     var title: String {
         switch self {
         case .welcome: return "Welcome to Mori"
-        case .textCompletion: return "Text Completion Provider"
-        case .stt: return "Speech-to-Text Provider"
-        case .tts: return "Text-to-Speech Provider"
-        case .save: return "Complete Setup"
+        case .example: return "Example"
+        case .permission: return "Configure Permissions"
+        case .done: return "🎉"
         }
     }
 }
 
 struct OnboardingView: View {
     @EnvironmentObject var router: AppRouter
-    @AppStorage("providerConfiguration") private var providerConfigData = Data()
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    
-    // Legacy support
-    @AppStorage("currentProvider") private var currentProvider = LLMProviderType.openRouter.rawValue
-    @AppStorage("openaiApiKey") private var openaiApiKey = ""
-    @AppStorage("openaiBaseUrl") private var openaiBaseUrl = ""
-    @AppStorage("openaiModel") private var openaiModel = ""
-    @AppStorage("openrouterApiKey") private var openrouterApiKey = ""
-    @AppStorage("openrouterBaseUrl") private var openrouterBaseUrl = ""
-    @AppStorage("openrouterModel") private var openrouterModel = ""
-    
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding =
+        false
+
     @State private var currentStep: OnboardingStep = .welcome
+
+    // Initializer for setting initial step (useful for previews)
+    init(initialStep: OnboardingStep = .welcome) {
+        self._currentStep = State(initialValue: initialStep)
+    }
+
     @State private var showingAlert = false
     @State private var alertMessage = ""
+
     
-    // Text Completion Provider settings
-    @State private var textProviderType: ProviderType = .openRouter
-    @State private var textApiKey = ""
-    @State private var textBaseUrl = ""
-    @State private var textModel = ""
-    @State private var showTextAdvanced = false
-    
-    // STT Provider settings
-    @State private var sttProviderType: ProviderType = .openai
-    @State private var sttApiKey = ""
-    @State private var sttBaseUrl = ""
-    @State private var sttModel = ""
-    @State private var showSTTAdvanced = false
-    
-    // TTS Provider settings
-    @State private var ttsProviderType: ProviderType = .openai
-    @State private var ttsApiKey = ""
-    @State private var ttsBaseUrl = ""
-    @State private var ttsModel = ""
-    @State private var ttsVoice = ""
-    @State private var showTTSAdvanced = false
-    
+
+    // Permissions
+    @State private var calendarPermissionGranted = false
+    @State private var notificationPermissionGranted = false
+    @State private var siriPermissionGranted = false
+    private let eventStore = EKEventStore()
+
+    // Example card expansion state
+    @State private var isExampleCardExpanded = false
+
     var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                // Header (only show on first step)
-                if currentStep == .welcome {
-                    welcomeHeader
-                }
-                
-                // Progress bar
-                progressBar
-                
-                // Main content
-                ScrollView {
-                    VStack(spacing: 30) {
+        NavigationStack {
+            GeometryReader { geometry in
+                ZStack {
+                    // Background gradient
+                    currentStep == .welcome
+                        ? Rectangle()
+                            .foregroundColor(.clear)
+                            .frame(
+                                width: (geometry.size.width
+                                    - geometry.safeAreaInsets.leading
+                                    - geometry.safeAreaInsets.trailing) * 1,
+                                height: (geometry.size.height
+                                    - geometry.safeAreaInsets.top
+                                    - geometry.safeAreaInsets.bottom) * 0.7
+                            )
+                            .background(
+                                EllipticalGradient(
+                                    stops: [
+                                        Gradient.Stop(
+                                            color: Color(
+                                                red: 0.24,
+                                                green: 0.1,
+                                                blue: 0.1
+                                            ),
+                                            location: 0.00
+                                        ),
+                                        Gradient.Stop(
+                                            color: .black,
+                                            location: 1.00
+                                        ),
+                                    ],
+                                    center: UnitPoint(x: 0.5, y: 0.5)
+                                )
+                            )
+                            .rotationEffect(Angle(degrees: -30.38))
+                            .offset(
+                                x: -geometry.size.width / 2 / 4,
+                                y: -geometry.size.height / 2 / 5
+                            )
+                            .scaleEffect(5) : nil
+
+                    VStack(spacing: 0) {
+                        // Progress bar (only show for non-welcome steps)
+
+                        Spacer()
+
+                        // Step content
+
                         stepContent
+                            .padding(.horizontal)
+
+                        Spacer()
+
+                        if currentStep != .welcome {
+                            HStack {
+                                Spacer()
+                                progressBar
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.bottom, 20)
+                        }
+
+                        // Navigation button
+                        navigationButton
+                            .padding(.horizontal)
+                            .padding(.bottom, 20)
+                            .cornerRadius(16)
                     }
-                    .padding(.horizontal)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                
-                Spacer()
-                
-                // Navigation buttons
-                navigationButtons
-                    .padding(.horizontal)
+                .background(Color.black.ignoresSafeArea())
             }
-            .padding()
-            .onAppear {
-                loadExistingConfiguration()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if currentStep != .welcome {
+                        Button(action: goBack) {
+                            HStack {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                            .foregroundColor(.white)
+                        }
+                    }
+                }
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(currentStep == .welcome)
         .alert("Notice", isPresented: $showingAlert) {
-            Button("OK") { }
+            Button("OK") {}
         } message: {
             Text(alertMessage)
         }
     }
-    
-    private var welcomeHeader: some View {
-        VStack(spacing: 10) {
-            Image("AppIcon-Display")
-                .resizable()
-                .frame(width: 80, height: 80)
-                .cornerRadius(16)
-            
-            Text("Mori")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-            
-            Text("Privacy-first AI Assistant")
-                .font(.headline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-    }
-    
+
     private var progressBar: some View {
-        VStack(spacing: 8) {
-            Text(currentStep.title)
-                .font(.headline)
-                .fontWeight(.semibold)
-            
-            ProgressView(value: Double(currentStep.rawValue), total: Double(OnboardingStep.allCases.count))
-                .progressViewStyle(LinearProgressViewStyle())
-                .frame(height: 8)
-            
-            Text("Step \(currentStep.rawValue) of \(OnboardingStep.allCases.count)")
-                .font(.caption)
-                .foregroundColor(.secondary)
+        HStack(spacing: 8) {
+            let totalSteps = 3
+            let currentStepNumber = getCurrentStepNumberForPath()
+
+            ForEach(1...totalSteps, id: \.self) { step in
+                Circle()
+                    .fill(
+                        step == currentStepNumber
+                            ? Color.white : Color.gray.opacity(0.4)
+                    )
+                    .frame(width: 8, height: 8)
+                    .animation(
+                        .easeInOut(duration: 0.3),
+                        value: currentStepNumber
+                    )
+            }
         }
+        .padding(.top, 8)
     }
-    
+
+    private func getCurrentStepNumberForPath() -> Int {
+        // Subtract 1 to exclude welcome step from count
+        return max(1, currentStep.rawValue - 1)
+    }
+
     @ViewBuilder
     private var stepContent: some View {
         switch currentStep {
         case .welcome:
             welcomeContent
-        case .textCompletion:
-            textCompletionContent
-        case .stt:
-            sttContent
-        case .tts:
-            ttsContent
-        case .save:
-            saveContent
+        case .example:
+            exampleContent
+        case .permission:
+            permissionContent
+        case .done:
+            doneContent
         }
     }
-    
+
     private var welcomeContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Welcome to Mori! Let's set up your AI providers.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-            
-            Text("We'll configure three types of providers:")
-                .font(.subheadline)
-                .fontWeight(.medium)
-            
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .foregroundColor(.blue)
-                        .frame(width: 20)
-                    Text("Text Completion: For chat responses")
-                        .font(.subheadline)
-                }
-                
-                HStack {
-                    Image(systemName: "mic")
-                        .foregroundColor(.green)
-                        .frame(width: 20)
-                    Text("Speech-to-Text: For voice transcription")
-                        .font(.subheadline)
-                }
-                
-                HStack {
-                    Image(systemName: "speaker.wave.2")
-                        .foregroundColor(.purple)
-                        .frame(width: 20)
-                    Text("Text-to-Speech: For voice responses")
-                        .font(.subheadline)
-                }
-            }
-            .padding()
-            .background(Color(UIColor.systemGray6))
-            .cornerRadius(12)
-        }
-    }
-    
-    private var textCompletionContent: some View {
-        ProviderConfigView(
-            title: "Text Completion Provider",
-            description: "Choose your provider for AI chat responses",
-            providerType: $textProviderType,
-            apiKey: $textApiKey,
-            baseUrl: $textBaseUrl,
-            model: $textModel,
-            showAdvanced: $showTextAdvanced,
-            extraField: .constant(""),
-            extraFieldTitle: ""
-        )
-    }
-    
-    private var sttContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            STTProviderConfigView(
-                title: "Speech-to-Text Provider",
-                description: "Configure voice transcription settings (OpenAI only)",
-                apiKey: $sttApiKey,
-                baseUrl: $sttBaseUrl,
-                model: $sttModel,
-                showAdvanced: $showSTTAdvanced
-            )
-            
-            if textProviderType == .openai && !textApiKey.isEmpty {
-                Button("Auto-fill from Text Completion Provider") {
-                    sttProviderType = .openai
-                    sttApiKey = textApiKey
-                    sttBaseUrl = textBaseUrl
-                    sttModel = textModel.isEmpty ? "whisper-1" : textModel
-                }
-                .font(.subheadline)
-                .foregroundColor(.white)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.blue)
-                .cornerRadius(8)
-            }
-        }
-    }
-    
-    private var ttsContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            TTSProviderConfigView(
-                title: "Text-to-Speech Provider",
-                description: "Configure voice generation settings (OpenAI only)",
-                apiKey: $ttsApiKey,
-                baseUrl: $ttsBaseUrl,
-                model: $ttsModel,
-                voice: $ttsVoice,
-                showAdvanced: $showTTSAdvanced
-            )
-            
-            VStack(spacing: 12) {
-                if textProviderType == .openai && !textApiKey.isEmpty {
-                    Button("Auto-fill from Text Completion Provider") {
-                        ttsProviderType = .openai
-                        ttsApiKey = textApiKey
-                        ttsBaseUrl = textBaseUrl
-                        ttsModel = textModel.isEmpty ? "tts-1" : textModel
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue)
-                    .cornerRadius(8)
-                }
-                
-                if sttProviderType == .openai && !sttApiKey.isEmpty {
-                    Button("Auto-fill from STT Provider") {
-                        ttsProviderType = .openai
-                        ttsApiKey = sttApiKey
-                        ttsBaseUrl = sttBaseUrl
-                        ttsModel = sttModel.isEmpty ? "tts-1" : sttModel
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.green)
-                    .cornerRadius(8)
-                }
-            }
-        }
-    }
-    
-    private var saveContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Text("Review Your Configuration")
-                .font(.headline)
-                .fontWeight(.semibold)
-            
-            VStack(alignment: .leading, spacing: 16) {
-                configSummaryRow(title: "Text Completion", provider: textProviderType.displayName, hasKey: !textApiKey.isEmpty)
-                configSummaryRow(title: "Speech-to-Text", provider: sttProviderType.displayName, hasKey: !sttApiKey.isEmpty)
-                configSummaryRow(title: "Text-to-Speech", provider: ttsProviderType.displayName, hasKey: !ttsApiKey.isEmpty)
-            }
-            .padding()
-            .background(Color(UIColor.systemGray6))
-            .cornerRadius(12)
-            
-            Text("All API keys are stored securely on your device and never sent to third parties.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-        }
-    }
-    
-    private func configSummaryRow(title: String, provider: String, hasKey: Bool) -> some View {
-        HStack {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.medium)
-            
+        VStack(spacing: 30) {
+
+            Image("AppIcon-Display")
+                .resizable()
+                .frame(width: 120, height: 120)
+                .cornerRadius(24)
+                .padding(.top, 24)
+
             Spacer()
-            
-            Text(provider)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            Image(systemName: hasKey ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundColor(hasKey ? .green : .red)
+
+            VStack(spacing: 12) {
+                Text("Hello, Here is Mori!")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+
+                Text("Let me help make your life better.")
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
         }
+        .padding(.top, 40)
+        .padding(.bottom, 40)
     }
-    
-    private var navigationButtons: some View {
-        HStack {
-            if currentStep != .welcome {
-                Button("Previous") {
-                    withAnimation {
-                        if let previousStep = OnboardingStep(rawValue: currentStep.rawValue - 1) {
-                            currentStep = previousStep
+
+    private var exampleContent: some View {
+        ScrollView {
+            ScrollViewReader { proxy in
+                VStack(spacing: 32) {
+                    VStack(spacing: 8) {
+                        VStack(spacing: 0) {
+                            Text("One word")
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+
+                            Text("to rule them all")
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                        }
+
+                        Text(
+                            "All your personal calendar events and reminders will be managed by Mori"
+                        )
+                        .font(.body)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.leading)
+                        .lineSpacing(4)
+                        .padding(.top, 8)
+                    }
+
+                    VStack(spacing: 16) {
+                        // Example card
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "lightbulb.fill")
+                                    .foregroundColor(.green)
+                                    .font(.system(size: 20))
+
+                                Text("Save events to calendar")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+
+                                Spacer()
+                            }
+
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 16))
+                                    .padding(2)
+
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(
+                                        "Move all my events today to tomorrow"
+                                    )
+                                    .font(.body)
+                                    .foregroundColor(.gray)
+                                    .lineSpacing(2)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(
+                                        horizontal: false,
+                                        vertical: true
+                                    )
+                                }
+                            }
+
+                            // Expandable section
+                            if isExampleCardExpanded {
+                                VStack(spacing: 12) {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Image(systemName: "calendar")
+                                            .foregroundColor(.gray)
+                                            .font(.system(size: 16))
+                                            .padding(2)
+
+                                        VStack(alignment: .leading, spacing: 0)
+                                        {
+                                            Text(
+                                                "I'll help you move all your events today to tomorrow:"
+                                            )
+                                            .font(.body)
+                                            .foregroundColor(.gray)
+                                            .lineSpacing(2)
+                                            .multilineTextAlignment(.leading)
+                                            .fixedSize(
+                                                horizontal: false,
+                                                vertical: true
+                                            )
+                                        }
+
+                                        Spacer()
+                                    }
+
+                                    // Event Card 1 - Before and After
+                                    HStack(spacing: 8) {
+                                        // Original Event Card 1
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.yellow)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
+                                                Text("Kickoff Meeting")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.yellow)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/17")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+
+                                        Image(systemName: "arrow.right")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 14))
+
+                                        // Modified Event Card 1
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.green)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
+                                                Text("Kickoff Meeting")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.green)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/18")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                    .padding(.top, 8)
+
+                                    // Event Card 2 - Before and After
+                                    HStack(spacing: 8) {
+                                        // Original Event Card 2
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.yellow)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
+                                                Text("Prototype Walkthrough")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.yellow)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/17")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+
+                                        Image(systemName: "arrow.right")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 14))
+
+                                        // Modified Event Card 2
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.green)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
+                                                Text("Prototype Walkthrough")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.green)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/18")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                }
+                                .transition(
+                                    .opacity.combined(with: .move(edge: .top))
+                                )
+                                .animation(
+                                    .easeInOut(duration: 0.3),
+                                    value: isExampleCardExpanded
+                                )
+                            }
+
+                            // Expand/Collapse button
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    isExampleCardExpanded.toggle()
+                                }
+                            }) {
+                                HStack {
+                                    Spacer()
+                                    Image(
+                                        systemName: "chevron.down"
+                                    )
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 16))
+                                    .rotationEffect(
+                                        .degrees(
+                                            isExampleCardExpanded ? 180 : 0
+                                        )
+                                    )
+                                    .animation(
+                                        .easeInOut(duration: 0.3),
+                                        value: isExampleCardExpanded
+                                    )
+                                    Spacer()
+                                }
+                                .padding(.top, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        .padding(20)
+                        .background(Color.gray.opacity(0.15))
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            // Allow tapping anywhere on the card to expand/collapse
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isExampleCardExpanded.toggle()
+                            }
+                        }
+                    }
+
+                    Spacer()
+
+                    // Invisible anchor for scrolling to bottom
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom")
+                }
+                .padding(.top, 40)
+                .padding(.bottom, 40)
+                .onChange(of: isExampleCardExpanded) { _, newValue in
+                    if newValue {
+                        // Scroll to bottom when expanded with a delay for smooth animation
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                proxy.scrollTo("bottom", anchor: .bottom)
+                            }
                         }
                     }
                 }
-                .font(.headline)
-                .foregroundColor(.blue)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(UIColor.systemGray6))
-                .cornerRadius(10)
             }
-            
-            Button(currentStep == .save ? "Get Started" : "Next") {
-                if currentStep == .save {
-                    saveAndComplete()
+        }
+    }
+
+    private var permissionContent: some View {
+        VStack(spacing: 32) {
+            // Title
+            Text("Configure Permissions")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+
+            VStack(spacing: 16) {
+                // Calendar Permission Card
+                PermissionCard(
+                    icon: "calendar",
+                    title: "Calendar",
+                    description: "Mori needs to access your calendar data to manage events.",
+                    isGranted: calendarPermissionGranted,
+                    action: {
+                        requestCalendarPermission()
+                    }
+                )
+                
+                // Notification Permission Card
+                PermissionCard(
+                    icon: "bell",
+                    title: "Notifications",
+                    description: "Mori needs to notification permissions in order to remind you about upcoming events.",
+                    isGranted: notificationPermissionGranted,
+                    action: {
+                        requestNotificationPermission()
+                    }
+                )
+            }
+            Spacer()
+        }
+        .onAppear {
+            checkPermissionStatus()
+        }
+    }
+
+    private var doneContent: some View {
+        VStack(alignment: .center, spacing: 24) {
+            Text("🎉")
+                .font(.system(size: 80))
+
+            Text("Setup Complete!")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+
+        }
+    }
+
+    private var navigationButton: some View {
+        Button(action: {
+            if currentStep == .done {
+                hasCompletedOnboarding = true
+                router.completeOnboarding()
+            } else {
+                nextStep()
+            }
+        }) {
+            Text(getButtonTitle())
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(canProceed() ? .black : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(canProceed() ? Color.white : Color.gray)
+                .cornerRadius(16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(CustomButtonStyle())
+        .disabled(!canProceed())
+        .padding(.horizontal, 40)
+    }
+
+    private func getButtonTitle() -> String {
+        switch currentStep {
+        case .welcome:
+            return "Get Started"
+        case .example:
+            return "Continue"
+        case .permission:
+            return "Continue"
+        case .done:
+            return "Let's go!"
+        }
+    }
+
+    private func goBack() {
+        withAnimation {
+            switch currentStep {
+            case .example:
+                currentStep = .welcome
+            case .permission:
+                currentStep = .example
+            case .done:
+                currentStep = .permission
+            default:
+                break
+            }
+        }
+    }
+
+    private func checkPermissionStatus() {
+        #if DEBUG
+        // In preview mode or debug, provide mock permission status
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Mock some permissions as granted for preview purposes
+            calendarPermissionGranted = false
+            notificationPermissionGranted = false
+            siriPermissionGranted = false
+            return
+        }
+        #endif
+        
+        // Check calendar permission
+        let calendarStatus = EKEventStore.authorizationStatus(for: .event)
+        calendarPermissionGranted = (calendarStatus == .fullAccess)
+        
+        // Check notification permission
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                notificationPermissionGranted = (settings.authorizationStatus == .authorized)
+            }
+        }
+        
+        // Check Siri permission
+        let siriStatus = INPreferences.siriAuthorizationStatus()
+        siriPermissionGranted = (siriStatus == .authorized)
+    }
+    
+    private func requestCalendarPermission() {
+        #if DEBUG
+        // In preview mode, simulate permission grant
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            DispatchQueue.main.async {
+                calendarPermissionGranted = true
+            }
+            return
+        }
+        #endif
+        
+        eventStore.requestFullAccessToEvents { granted, error in
+            DispatchQueue.main.async {
+                if granted {
+                    calendarPermissionGranted = true
                 } else {
-                    nextStep()
+                    alertMessage =
+                        "Calendar permission denied. You can enable it later in Settings."
+                    showingAlert = true
                 }
             }
-            .font(.headline)
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(canProceed() ? Color.blue : Color.gray)
-            .cornerRadius(10)
-            .disabled(!canProceed())
         }
     }
     
-    private func loadExistingConfiguration() {
-        // Try to load existing configuration
-        if !providerConfigData.isEmpty {
-            do {
-                let config = try JSONDecoder().decode(ProviderConfiguration.self, from: providerConfigData)
-                textProviderType = config.textCompletionProvider.type
-                textApiKey = config.textCompletionProvider.apiKey
-                textBaseUrl = config.textCompletionProvider.baseURL
-                textModel = config.textCompletionProvider.model
-                
-                sttProviderType = config.sttProvider.type
-                sttApiKey = config.sttProvider.apiKey
-                sttBaseUrl = config.sttProvider.baseURL
-                sttModel = config.sttProvider.model
-                
-                ttsProviderType = config.ttsProvider.type
-                ttsApiKey = config.ttsProvider.apiKey
-                ttsBaseUrl = config.ttsProvider.baseURL
-                ttsModel = config.ttsProvider.model
-                ttsVoice = config.ttsProvider.voice
-            } catch {
-                print("Failed to load provider configuration: \(error)")
-                loadLegacyConfiguration()
+    private func requestNotificationPermission() {
+        #if DEBUG
+        // In preview mode, simulate permission grant
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            DispatchQueue.main.async {
+                notificationPermissionGranted = true
             }
-        } else {
-            loadLegacyConfiguration()
+            return
         }
-    }
-    
-    private func loadLegacyConfiguration() {
-        // Load from legacy AppStorage
-        if let provider = LLMProviderType(rawValue: currentProvider) {
-            textProviderType = provider == .openai ? .openai : .openRouter
-            
-            switch provider {
-            case .openai:
-                textApiKey = openaiApiKey
-                textBaseUrl = openaiBaseUrl
-                textModel = openaiModel
-            case .openRouter:
-                textApiKey = openrouterApiKey
-                textBaseUrl = openrouterBaseUrl
-                textModel = openrouterModel
-            }
-            
-            // Set default STT and TTS to OpenAI if we have OpenAI text completion
-            if provider == .openai {
-                sttProviderType = .openai
-                sttApiKey = textApiKey
-                sttBaseUrl = textBaseUrl
-                
-                ttsProviderType = .openai
-                ttsApiKey = textApiKey
-                ttsBaseUrl = textBaseUrl
+        #endif
+        
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            DispatchQueue.main.async {
+                if granted {
+                    notificationPermissionGranted = true
+                } else {
+                    alertMessage =
+                        "Notification permission denied. You can enable it later in Settings."
+                    showingAlert = true
+                }
             }
         }
     }
     
+    private func requestSiriPermission() {
+        #if DEBUG
+        // In preview mode, simulate permission grant
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            DispatchQueue.main.async {
+                siriPermissionGranted = true
+            }
+            return
+        }
+        #endif
+        
+        INPreferences.requestSiriAuthorization { status in
+            DispatchQueue.main.async {
+                if status == .authorized {
+                    siriPermissionGranted = true
+                } else {
+                    alertMessage =
+                        "Siri permission denied. You can enable it later in Settings."
+                    showingAlert = true
+                }
+            }
+        }
+    }
+
     private func canProceed() -> Bool {
         switch currentStep {
         case .welcome:
+            return true  // Handled by buttons in welcome content
+        case .example:
+            return true  // Can always proceed from example
+        case .permission:
+            return true  // Can proceed regardless of permission status
+        case .done:
             return true
-        case .textCompletion:
-            return !textApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .stt:
-            return !sttApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .tts:
-            return !ttsApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .save:
-            return !textApiKey.isEmpty && !sttApiKey.isEmpty && !ttsApiKey.isEmpty
         }
     }
-    
+
     private func nextStep() {
         guard canProceed() else {
             showValidationError()
             return
         }
-        
+
         withAnimation {
-            if let nextStep = OnboardingStep(rawValue: currentStep.rawValue + 1) {
+            if let nextStep = OnboardingStep(rawValue: currentStep.rawValue + 1)
+            {
                 currentStep = nextStep
             }
         }
     }
-    
+
     private func showValidationError() {
         switch currentStep {
-        case .textCompletion:
-            alertMessage = "Please enter a valid API key for text completion"
-        case .stt:
-            alertMessage = "Please enter a valid API key for speech-to-text"
-        case .tts:
-            alertMessage = "Please enter a valid API key for text-to-speech"
+        case .example:
+            alertMessage = "Please complete the example step"
+        case .permission:
+            alertMessage = "Calendar permission is required"
+        case .done:
+            alertMessage = "Please complete all required fields"
         default:
             alertMessage = "Please complete all required fields"
         }
         showingAlert = true
     }
-    
-    private func saveAndComplete() {
-        guard canProceed() else {
-            showValidationError()
-            return
-        }
-        
-        // Create provider configuration
-        let textProvider = TextCompletionProvider(
-            type: textProviderType,
-            apiKey: textApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            baseURL: textBaseUrl.isEmpty ? nil : textBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
-            model: textModel.isEmpty ? nil : textModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        
-        let sttProvider = STTProvider(
-            type: sttProviderType,
-            apiKey: sttApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            baseURL: sttBaseUrl.isEmpty ? nil : sttBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
-            model: sttModel.isEmpty ? nil : sttModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        
-        let ttsProvider = TTSProvider(
-            type: ttsProviderType,
-            apiKey: ttsApiKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            baseURL: ttsBaseUrl.isEmpty ? nil : ttsBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines),
-            model: ttsModel.isEmpty ? nil : ttsModel.trimmingCharacters(in: .whitespacesAndNewlines),
-            voice: ttsVoice.isEmpty ? nil : ttsVoice.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        
-        let configuration = ProviderConfiguration(
-            textCompletionProvider: textProvider,
-            sttProvider: sttProvider,
-            ttsProvider: ttsProvider
-        )
-        
-        // Save configuration
-        do {
-            let data = try JSONEncoder().encode(configuration)
-            providerConfigData = data
-        } catch {
-            alertMessage = "Failed to save configuration: \(error.localizedDescription)"
-            showingAlert = true
-            return
-        }
-        
-        // Save legacy configuration for backward compatibility
-        currentProvider = textProviderType == .openai ? LLMProviderType.openai.rawValue : LLMProviderType.openRouter.rawValue
-        
-        switch textProviderType {
-        case .openai:
-            openaiApiKey = textProvider.apiKey
-            openaiBaseUrl = textProvider.baseURL
-            openaiModel = textProvider.model
-        case .openRouter:
-            openrouterApiKey = textProvider.apiKey
-            openrouterBaseUrl = textProvider.baseURL
-            openrouterModel = textProvider.model
-        }
-        
-        // Complete onboarding
-        router.completeOnboarding()
-    }
-}
-
-struct ProviderConfigView: View {
-    let title: String
-    let description: String
-    @Binding var providerType: ProviderType
-    @Binding var apiKey: String
-    @Binding var baseUrl: String
-    @Binding var model: String
-    @Binding var showAdvanced: Bool
-    @Binding var extraField: String
-    let extraFieldTitle: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Provider selection
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Provider")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Picker("Provider", selection: $providerType) {
-                    ForEach(ProviderType.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-            
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Key")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text(getProviderDescription())
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                SecureField("Enter your \(providerType.displayName) API key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
-            }
-            
-            // Advanced settings
-            Button(action: {
-                showAdvanced.toggle()
-            }) {
-                HStack {
-                    Text("Advanced Settings")
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
-                    Spacer()
-                    Image(systemName: showAdvanced ? "chevron.up" : "chevron.down")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                }
-            }
-            
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 15) {
-                    // Base URL
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Custom API Base URL (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text(getBaseUrlDescription())
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField(getDefaultBaseUrl(), text: $baseUrl)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.URL)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                    
-                    // Model
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Model (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text(getModelDescription())
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField(getDefaultModel(), text: $model)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                    
-                    // Extra field (for TTS voice)
-                    if !extraFieldTitle.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("\(extraFieldTitle) (Optional)")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            Text("Leave empty to use default voice 'alloy'")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            TextField("alloy", text: $extraField)
-                                .textFieldStyle(.roundedBorder)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
-                        }
-                    }
-                }
-                .padding(.top, 10)
-                .transition(.opacity.combined(with: .slide))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: showAdvanced)
-    }
-    
-    private func getProviderDescription() -> String {
-        switch providerType {
-        case .openai:
-            return "Your OpenAI API key will only be stored on this device."
-        case .openRouter:
-            return "Your OpenRouter API key will only be stored on this device."
-        }
-    }
-    
-    private func getBaseUrlDescription() -> String {
-        switch providerType {
-        case .openai:
-            return "Leave empty to use official OpenAI API. Enter custom URL for compatible services."
-        case .openRouter:
-            return "Leave empty to use official OpenRouter API. Enter custom URL for compatible services."
-        }
-    }
-    
-    private func getDefaultBaseUrl() -> String {
-        switch providerType {
-        case .openai:
-            return "https://api.openai.com"
-        case .openRouter:
-            return "https://openrouter.ai/api"
-        }
-    }
-    
-    private func getModelDescription() -> String {
-        switch providerType {
-        case .openai:
-            return "Leave empty to use default. e.g., gpt-4o-2024-11-20"
-        case .openRouter:
-            return "Leave empty to use default. e.g., deepseek/deepseek-chat-v3-0324"
-        }
-    }
-    
-    private func getDefaultModel() -> String {
-        switch providerType {
-        case .openai:
-            return "gpt-4o-2024-11-20"
-        case .openRouter:
-            return "deepseek/deepseek-chat-v3-0324"
-        }
-    }
-}
-
-struct STTProviderConfigView: View {
-    let title: String
-    let description: String
-    @Binding var apiKey: String
-    @Binding var baseUrl: String
-    @Binding var model: String
-    @Binding var showAdvanced: Bool
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Provider info (read-only)
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Provider")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                HStack {
-                    Text("OpenAI")
-                        .font(.subheadline)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(8)
-                    
-                    Spacer()
-                    
-                    Text("Only OpenAI supports STT")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Key")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text("Your OpenAI API key will only be stored on this device.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                SecureField("Enter your OpenAI API key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
-            }
-            
-            // Advanced settings
-            Button(action: {
-                showAdvanced.toggle()
-            }) {
-                HStack {
-                    Text("Advanced Settings")
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
-                    Spacer()
-                    Image(systemName: showAdvanced ? "chevron.up" : "chevron.down")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                }
-            }
-            
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 15) {
-                    // Base URL
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Custom API Base URL (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text("Leave empty to use official OpenAI API.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField("https://api.openai.com", text: $baseUrl)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.URL)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                    
-                    // Model
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Model (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text("Leave empty to use default whisper-1 model.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField("whisper-1", text: $model)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                }
-                .padding(.top, 10)
-                .transition(.opacity.combined(with: .slide))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: showAdvanced)
-    }
-}
-
-struct TTSProviderConfigView: View {
-    let title: String
-    let description: String
-    @Binding var apiKey: String
-    @Binding var baseUrl: String
-    @Binding var model: String
-    @Binding var voice: String
-    @Binding var showAdvanced: Bool
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Provider info (read-only)
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Provider")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                HStack {
-                    Text("OpenAI")
-                        .font(.subheadline)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(8)
-                    
-                    Spacer()
-                    
-                    Text("Only OpenAI supports TTS")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Key")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text("Your OpenAI API key will only be stored on this device.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                SecureField("Enter your OpenAI API key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
-            }
-            
-            // Advanced settings
-            Button(action: {
-                showAdvanced.toggle()
-            }) {
-                HStack {
-                    Text("Advanced Settings")
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
-                    Spacer()
-                    Image(systemName: showAdvanced ? "chevron.up" : "chevron.down")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                }
-            }
-            
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 15) {
-                    // Base URL
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Custom API Base URL (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text("Leave empty to use official OpenAI API.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField("https://api.openai.com", text: $baseUrl)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.URL)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                    
-                    // Model
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Model (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text("Leave empty to use default tts-1 model.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField("tts-1", text: $model)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                    
-                    // Voice
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Voice (Optional)")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text("Leave empty to use default 'alloy' voice.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField("alloy", text: $voice)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-                }
-                .padding(.top, 10)
-                .transition(.opacity.combined(with: .slide))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: showAdvanced)
-    }
 }
 
 #Preview {
-    OnboardingView()
-} 
+    NavigationStack {
+        OnboardingView()
+            .environmentObject(AppRouter())
+    }
+}
+
+#Preview("Example Step") {
+    NavigationStack {
+        OnboardingView(initialStep: .example)
+            .environmentObject(AppRouter())
+    }
+}
+
+#Preview("Permission Step") {
+    NavigationStack {
+        OnboardingView(initialStep: .permission)
+            .environmentObject(AppRouter())
+    }
+}
+
+#Preview("Done Step") {
+    NavigationStack {
+        OnboardingView(initialStep: .done)
+            .environmentObject(AppRouter())
+    }
+}
+
+// MARK: - Permission Card Component
+struct PermissionCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let isGranted: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // First row: Icon and Choose button
+            HStack {
+                // Icon
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 24, height: 24)
+                
+                Spacer()
+                
+                // Choose/Done Button
+                Button(action: action) {
+                    Text(isGranted ? "Done" : "Choose")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(width: 80, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18)
+                                .fill(isGranted ? Color.green : Color.blue)
+                        )
+                }
+                .disabled(isGranted)
+            }
+            
+            // Second row: Title
+            Text(title)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+            
+            // Third row: Description
+            Text(description)
+                .font(.body)
+                .foregroundColor(.gray)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(2)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.15))
+        )
+    }
+}
