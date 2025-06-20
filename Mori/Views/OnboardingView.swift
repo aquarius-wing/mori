@@ -1,5 +1,7 @@
 import EventKit
 import SwiftUI
+import UserNotifications
+import Intents
 
 // Custom button style for dark background
 struct CustomButtonStyle: ButtonStyle {
@@ -24,7 +26,7 @@ enum OnboardingStep: Int, CaseIterable {
         switch self {
         case .welcome: return "Welcome to Mori"
         case .example: return "Example"
-        case .permission: return "Require Permission"
+        case .permission: return "Configure Permissions"
         case .done: return "🎉"
         }
     }
@@ -32,10 +34,8 @@ enum OnboardingStep: Int, CaseIterable {
 
 struct OnboardingView: View {
     @EnvironmentObject var router: AppRouter
-    @AppStorage("providerConfiguration") private var providerConfigData = Data()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding =
         false
-    @AppStorage("apiProviderChoice") private var apiProviderChoice: String = ""
 
     @State private var currentStep: OnboardingStep = .welcome
 
@@ -47,30 +47,12 @@ struct OnboardingView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
-    // Text Completion Provider settings
-    @State private var textProviderType: ProviderType = .openRouter
-    @State private var textApiKey = ""
-    @State private var textBaseUrl = ""
-    @State private var textModel = ""
-    @State private var showTextAdvanced = false
+    
 
-    // STT Provider settings
-    @State private var sttProviderType: ProviderType = .openai
-    @State private var sttApiKey = ""
-    @State private var sttBaseUrl = ""
-    @State private var sttModel = ""
-    @State private var showSTTAdvanced = false
-
-    // TTS Provider settings
-    @State private var ttsProviderType: ProviderType = .openai
-    @State private var ttsApiKey = ""
-    @State private var ttsBaseUrl = ""
-    @State private var ttsModel = ""
-    @State private var ttsVoice = ""
-    @State private var showTTSAdvanced = false
-
-    // Calendar permission
+    // Permissions
     @State private var calendarPermissionGranted = false
+    @State private var notificationPermissionGranted = false
+    @State private var siriPermissionGranted = false
     private let eventStore = EKEventStore()
 
     // Example card expansion state
@@ -150,9 +132,6 @@ struct OnboardingView: View {
                 }
                 .background(Color.black.ignoresSafeArea())
             }
-            .onAppear {
-                loadExistingConfiguration()
-            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if currentStep != .welcome {
@@ -161,15 +140,8 @@ struct OnboardingView: View {
                                 Image(systemName: "chevron.left")
                                 Text("Back")
                             }
+                            .foregroundColor(.white)
                         }
-                    }
-                }
-
-                ToolbarItem(placement: .principal) {
-                    if currentStep != .welcome {
-                        Text(currentStep.title)
-                            .font(.headline)
-                            .fontWeight(.semibold)
                     }
                 }
             }
@@ -185,7 +157,7 @@ struct OnboardingView: View {
 
     private var progressBar: some View {
         HStack(spacing: 8) {
-            let totalSteps = getTotalStepsForCurrentPath()
+            let totalSteps = 3
             let currentStepNumber = getCurrentStepNumberForPath()
 
             ForEach(1...totalSteps, id: \.self) { step in
@@ -202,14 +174,6 @@ struct OnboardingView: View {
             }
         }
         .padding(.top, 8)
-    }
-
-    private func getTotalStepsForCurrentPath() -> Int {
-        if apiProviderChoice == "official" {
-            return 2  // permission → done (excluding welcome)
-        } else {
-            return 3  // example → permission → done (excluding welcome)
-        }
     }
 
     private func getCurrentStepNumberForPath() -> Int {
@@ -233,10 +197,12 @@ struct OnboardingView: View {
 
     private var welcomeContent: some View {
         VStack(spacing: 30) {
+
             Image("AppIcon-Display")
                 .resizable()
                 .frame(width: 120, height: 120)
                 .cornerRadius(24)
+                .padding(.top, 24)
 
             Spacer()
 
@@ -331,7 +297,8 @@ struct OnboardingView: View {
                                             .font(.system(size: 16))
                                             .padding(2)
 
-                                        VStack(alignment: .leading, spacing: 0) {
+                                        VStack(alignment: .leading, spacing: 0)
+                                        {
                                             Text(
                                                 "I'll help you move all your events today to tomorrow:"
                                             )
@@ -344,7 +311,7 @@ struct OnboardingView: View {
                                                 vertical: true
                                             )
                                         }
-                                        
+
                                         Spacer()
                                     }
 
@@ -357,7 +324,10 @@ struct OnboardingView: View {
                                                 .frame(width: 3, height: 35)
                                                 .cornerRadius(1.5)
 
-                                            VStack(alignment: .leading, spacing: 2) {
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
                                                 Text("Kickoff Meeting")
                                                     .font(.subheadline)
                                                     .fontWeight(.medium)
@@ -373,18 +343,18 @@ struct OnboardingView: View {
                                                         .foregroundColor(.gray)
                                                 }
                                             }
-                                            
+
                                             Spacer()
                                         }
                                         .padding(12)
                                         .background(Color.gray.opacity(0.1))
                                         .cornerRadius(8)
                                         .frame(maxWidth: .infinity)
-                                        
+
                                         Image(systemName: "arrow.right")
                                             .foregroundColor(.green)
                                             .font(.system(size: 14))
-                                        
+
                                         // Modified Event Card 1
                                         HStack(spacing: 8) {
                                             Rectangle()
@@ -392,7 +362,10 @@ struct OnboardingView: View {
                                                 .frame(width: 3, height: 35)
                                                 .cornerRadius(1.5)
 
-                                            VStack(alignment: .leading, spacing: 2) {
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
                                                 Text("Kickoff Meeting")
                                                     .font(.subheadline)
                                                     .fontWeight(.medium)
@@ -408,7 +381,7 @@ struct OnboardingView: View {
                                                         .foregroundColor(.gray)
                                                 }
                                             }
-                                            
+
                                             Spacer()
                                         }
                                         .padding(12)
@@ -416,7 +389,7 @@ struct OnboardingView: View {
                                         .cornerRadius(8)
                                         .frame(maxWidth: .infinity)
                                     }
-                                        .padding(.top, 8)
+                                    .padding(.top, 8)
 
                                     // Event Card 2 - Before and After
                                     HStack(spacing: 8) {
@@ -427,7 +400,10 @@ struct OnboardingView: View {
                                                 .frame(width: 3, height: 35)
                                                 .cornerRadius(1.5)
 
-                                            VStack(alignment: .leading, spacing: 2) {
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
                                                 Text("Prototype Walkthrough")
                                                     .font(.subheadline)
                                                     .fontWeight(.medium)
@@ -443,18 +419,18 @@ struct OnboardingView: View {
                                                         .foregroundColor(.gray)
                                                 }
                                             }
-                                            
+
                                             Spacer()
                                         }
                                         .padding(12)
                                         .background(Color.gray.opacity(0.1))
                                         .cornerRadius(8)
                                         .frame(maxWidth: .infinity)
-                                        
+
                                         Image(systemName: "arrow.right")
                                             .foregroundColor(.green)
                                             .font(.system(size: 14))
-                                        
+
                                         // Modified Event Card 2
                                         HStack(spacing: 8) {
                                             Rectangle()
@@ -462,7 +438,10 @@ struct OnboardingView: View {
                                                 .frame(width: 3, height: 35)
                                                 .cornerRadius(1.5)
 
-                                            VStack(alignment: .leading, spacing: 2) {
+                                            VStack(
+                                                alignment: .leading,
+                                                spacing: 2
+                                            ) {
                                                 Text("Prototype Walkthrough")
                                                     .font(.subheadline)
                                                     .fontWeight(.medium)
@@ -478,7 +457,7 @@ struct OnboardingView: View {
                                                         .foregroundColor(.gray)
                                                 }
                                             }
-                                            
+
                                             Spacer()
                                         }
                                         .padding(12)
@@ -560,41 +539,41 @@ struct OnboardingView: View {
     }
 
     private var permissionContent: some View {
-        VStack(spacing: 24) {
-            Text("Calendar Permission")
-                .font(.largeTitle)
+        VStack(spacing: 32) {
+            // Title
+            Text("Configure Permissions")
+                .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
 
-            Text(
-                "Mori needs access to your calendar to provide better scheduling assistance."
-            )
-            .font(.body)
-            .foregroundColor(.gray)
-            .multilineTextAlignment(.center)
-            .lineSpacing(4)
-
-            Button("Request Calendar Permission") {
-                requestCalendarPermission()
+            VStack(spacing: 16) {
+                // Calendar Permission Card
+                PermissionCard(
+                    icon: "calendar",
+                    title: "Calendar",
+                    description: "Mori needs to access your calendar data to manage events.",
+                    isGranted: calendarPermissionGranted,
+                    action: {
+                        requestCalendarPermission()
+                    }
+                )
+                
+                // Notification Permission Card
+                PermissionCard(
+                    icon: "bell",
+                    title: "Notifications",
+                    description: "Mori needs to notification permissions in order to remind you about upcoming events.",
+                    isGranted: notificationPermissionGranted,
+                    action: {
+                        requestNotificationPermission()
+                    }
+                )
             }
-            .font(.headline)
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(calendarPermissionGranted ? Color.green : Color.blue)
-            .cornerRadius(10)
-            .disabled(calendarPermissionGranted)
-
-            if calendarPermissionGranted {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Calendar permission granted")
-                        .font(.subheadline)
-                        .foregroundColor(.green)
-                }
-            }
+            Spacer()
+        }
+        .onAppear {
+            checkPermissionStatus()
         }
     }
 
@@ -609,21 +588,6 @@ struct OnboardingView: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
 
-            Text(
-                "You're all set up! Mori is ready to help you organize your life."
-            )
-            .font(.body)
-            .foregroundColor(.gray)
-            .multilineTextAlignment(.center)
-            .lineSpacing(4)
-
-            Text(
-                "All API keys are stored securely on your device and never sent to third parties."
-            )
-            .font(.caption)
-            .foregroundColor(.gray)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
         }
     }
 
@@ -655,10 +619,12 @@ struct OnboardingView: View {
         switch currentStep {
         case .welcome:
             return "Get Started"
-        case .example, .permission:
+        case .example:
+            return "Continue"
+        case .permission:
             return "Continue"
         case .done:
-            return "Let's go"
+            return "Let's go!"
         }
     }
 
@@ -677,7 +643,45 @@ struct OnboardingView: View {
         }
     }
 
+    private func checkPermissionStatus() {
+        #if DEBUG
+        // In preview mode or debug, provide mock permission status
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Mock some permissions as granted for preview purposes
+            calendarPermissionGranted = false
+            notificationPermissionGranted = false
+            siriPermissionGranted = false
+            return
+        }
+        #endif
+        
+        // Check calendar permission
+        let calendarStatus = EKEventStore.authorizationStatus(for: .event)
+        calendarPermissionGranted = (calendarStatus == .fullAccess)
+        
+        // Check notification permission
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                notificationPermissionGranted = (settings.authorizationStatus == .authorized)
+            }
+        }
+        
+        // Check Siri permission
+        let siriStatus = INPreferences.siriAuthorizationStatus()
+        siriPermissionGranted = (siriStatus == .authorized)
+    }
+    
     private func requestCalendarPermission() {
+        #if DEBUG
+        // In preview mode, simulate permission grant
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            DispatchQueue.main.async {
+                calendarPermissionGranted = true
+            }
+            return
+        }
+        #endif
+        
         eventStore.requestFullAccessToEvents { granted, error in
             DispatchQueue.main.async {
                 if granted {
@@ -690,32 +694,51 @@ struct OnboardingView: View {
             }
         }
     }
-
-    private func loadExistingConfiguration() {
-        // Try to load existing configuration
-        if !providerConfigData.isEmpty {
-            do {
-                let config = try JSONDecoder().decode(
-                    ProviderConfiguration.self,
-                    from: providerConfigData
-                )
-                textProviderType = config.textCompletionProvider.type
-                textApiKey = config.textCompletionProvider.apiKey
-                textBaseUrl = config.textCompletionProvider.baseURL
-                textModel = config.textCompletionProvider.model
-
-                sttProviderType = config.sttProvider.type
-                sttApiKey = config.sttProvider.apiKey
-                sttBaseUrl = config.sttProvider.baseURL
-                sttModel = config.sttProvider.model
-
-                ttsProviderType = config.ttsProvider.type
-                ttsApiKey = config.ttsProvider.apiKey
-                ttsBaseUrl = config.ttsProvider.baseURL
-                ttsModel = config.ttsProvider.model
-                ttsVoice = config.ttsProvider.voice
-            } catch {
-                print("Failed to load provider configuration: \(error)")
+    
+    private func requestNotificationPermission() {
+        #if DEBUG
+        // In preview mode, simulate permission grant
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            DispatchQueue.main.async {
+                notificationPermissionGranted = true
+            }
+            return
+        }
+        #endif
+        
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            DispatchQueue.main.async {
+                if granted {
+                    notificationPermissionGranted = true
+                } else {
+                    alertMessage =
+                        "Notification permission denied. You can enable it later in Settings."
+                    showingAlert = true
+                }
+            }
+        }
+    }
+    
+    private func requestSiriPermission() {
+        #if DEBUG
+        // In preview mode, simulate permission grant
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            DispatchQueue.main.async {
+                siriPermissionGranted = true
+            }
+            return
+        }
+        #endif
+        
+        INPreferences.requestSiriAuthorization { status in
+            DispatchQueue.main.async {
+                if status == .authorized {
+                    siriPermissionGranted = true
+                } else {
+                    alertMessage =
+                        "Siri permission denied. You can enable it later in Settings."
+                    showingAlert = true
+                }
             }
         }
     }
@@ -765,23 +788,83 @@ struct OnboardingView: View {
 #Preview {
     NavigationStack {
         OnboardingView()
+            .environmentObject(AppRouter())
     }
 }
 
 #Preview("Example Step") {
     NavigationStack {
         OnboardingView(initialStep: .example)
+            .environmentObject(AppRouter())
     }
 }
 
 #Preview("Permission Step") {
     NavigationStack {
         OnboardingView(initialStep: .permission)
+            .environmentObject(AppRouter())
     }
 }
 
 #Preview("Done Step") {
     NavigationStack {
         OnboardingView(initialStep: .done)
+            .environmentObject(AppRouter())
+    }
+}
+
+// MARK: - Permission Card Component
+struct PermissionCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let isGranted: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // First row: Icon and Choose button
+            HStack {
+                // Icon
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 24, height: 24)
+                
+                Spacer()
+                
+                // Choose/Done Button
+                Button(action: action) {
+                    Text(isGranted ? "Done" : "Choose")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(width: 80, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18)
+                                .fill(isGranted ? Color.green : Color.blue)
+                        )
+                }
+                .disabled(isGranted)
+            }
+            
+            // Second row: Title
+            Text(title)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+            
+            // Third row: Description
+            Text(description)
+                .font(.body)
+                .foregroundColor(.gray)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(2)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.15))
+        )
     }
 }
