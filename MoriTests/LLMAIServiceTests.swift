@@ -7,14 +7,8 @@ class LLMAIServiceTests: XCTestCase {
     var mockCalendarMCP: MockCalendarMCP!
     
     override func setUpWithError() throws {
-        // Initialize with test configuration
-        let config = LLMProviderConfig(
-            type: .openRouter,
-            apiKey: "test-api-key",
-            baseURL: "https://api.test.com",
-            model: "test-model"
-        )
-        llmService = LLMAIService(config: config)
+        // Initialize with simplified configuration
+        llmService = LLMAIService()
         mockCalendarMCP = MockCalendarMCP()
     }
     
@@ -172,37 +166,76 @@ class LLMAIServiceTests: XCTestCase {
     
     // Test LLM Service initialization
     func testLLMServiceInitialization() {
-        // Given: OpenAI configuration
-        let openaiConfig = LLMProviderConfig(
-            type: .openai,
-            apiKey: "test-openai-key",
-            baseURL: "https://api.openai.com",
-            model: "gpt-4o-2024-11-20"
-        )
-        
-        // When: Initialize service with OpenAI
-        let openaiService = LLMAIService(config: openaiConfig)
+        // When: Initialize service with simplified configuration
+        let service = LLMAIService()
         
         // Then: Service should be initialized
-        XCTAssertNotNil(openaiService, "OpenAI service should be initialized")
+        XCTAssertNotNil(service, "LLM service should be initialized")
+    }
+    
+    // Test sendChatMessage basic functionality
+    func testSendChatMessage() async throws {
+        // Given: A simple conversation history
+        let conversationHistory = [
+           ChatMessage(
+               content: "Hello, how are you?",
+               isUser: true,
+               timestamp: Date(),
+               isSystem: false,
+               workflowSteps: []
+           )
+       ]
         
-        // Given: OpenRouter configuration
-        let openrouterConfig = LLMProviderConfig(
-            type: .openRouter,
-            apiKey: "test-openrouter-key",
-            baseURL: "https://openrouter.ai/api",
-            model: "deepseek/deepseek-chat-v3-0324"
-        )
+        print("🧪 Starting sendChatMessage test")
+        print("📝 Created conversation history with 1 message")
         
-        // When: Initialize service with OpenRouter
-        let openrouterService = LLMAIService(config: openrouterConfig)
+        // When: Send chat message using the stream
+        var hasReceivedData = false
+        var accumulatedResponse = ""
         
-        // Then: Service should be initialized
-        XCTAssertNotNil(openrouterService, "OpenRouter service should be initialized")
+        // Use a shorter timeout since this might fail due to network
+        let timeoutTask = Task {
+            try await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds timeout
+            throw NSError(domain: "TimeoutError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Test timeout - no data received within 5 seconds"])
+        }
         
-        // Test backward compatibility initializer
-        let compatService = LLMAIService(apiKey: "test-key", customBaseURL: "https://custom.api.com")
-        XCTAssertNotNil(compatService, "Backward compatibility service should be initialized")
+        let streamTask = Task {
+            for try await chunk in llmService.sendChatMessage(conversationHistory: conversationHistory) {
+                hasReceivedData = true
+                accumulatedResponse += chunk
+                print("📦 Received chunk: \(chunk.prefix(50))...")
+                
+                // Cancel timeout task once we receive data
+                timeoutTask.cancel()
+                
+                // For testing, we only need to verify we get some response
+                if accumulatedResponse.count > 10 {
+                    break
+                }
+            }
+        }
+        
+        // Race between stream and timeout - if either throws, the test will fail
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { try await streamTask.value }
+            group.addTask { try await timeoutTask.value }
+            
+            // Wait for either task to complete
+            try await group.next()
+            
+            // Cancel remaining tasks
+            streamTask.cancel()
+            timeoutTask.cancel()
+        }
+        
+        // Then: Verify we received data
+        XCTAssertTrue(hasReceivedData, "Should have received data from sendChatMessage")
+        XCTAssertTrue(accumulatedResponse.count > 0, "Should receive some response data")
+        
+        print("✅ Test PASSED: Received data from sendChatMessage")
+        print("📊 Accumulated response length: \(accumulatedResponse.count) characters")
+        print("📝 Response preview: \(accumulatedResponse.prefix(100))...")
+        print("🏁 sendChatMessage test completed")
     }
     
     // Simulated tool call extraction for testing
@@ -285,6 +318,50 @@ class LLMAIServiceTests: XCTestCase {
         }
         
         return (toolCalls, cleanedText)
+    }
+}
+
+// MARK: - Test Helper Classes
+class TestLLMAIService: LLMAIService {
+    // Override with invalid URL to trigger network error
+    override func sendChatMessage(conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    // Use an invalid URL that will definitely fail
+                    guard let invalidURL = URL(string: "https://invalid-nonexistent-domain-12345.com/api") else {
+                        continuation.finish(throwing: LLMError.invalidResponse)
+                        return
+                    }
+                    
+                    var request = URLRequest(url: invalidURL)
+                    request.httpMethod = "POST"
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.timeoutInterval = 5.0 // Short timeout for testing
+                    
+                    let requestBody = ["messages": [["role": "user", "content": "test"]]]
+                    request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+                    
+                    // This should fail with a network error
+                    let (_, _) = try await URLSession.shared.data(for: request)
+                    
+                } catch {
+                    // Convert URLError to LLMError for testing
+                    if let urlError = error as? URLError {
+                        switch urlError.code {
+                        case .cannotFindHost, .cannotConnectToHost:
+                            continuation.finish(throwing: LLMError.networkError(urlError))
+                        case .timedOut:
+                            continuation.finish(throwing: LLMError.connectionTimeout)
+                        default:
+                            continuation.finish(throwing: LLMError.networkError(urlError))
+                        }
+                    } else {
+                        continuation.finish(throwing: error)
+                    }
+                }
+            }
+        }
     }
 }
 

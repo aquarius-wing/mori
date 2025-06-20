@@ -76,4 +76,37 @@ struct ChatMessage: Identifiable, Codable {
         self.isSystem = isSystem
         self.workflowSteps = workflowSteps
     }
+}
+
+// MARK: - Chat Item Union Type
+enum ChatItem: Identifiable, Codable {
+    case message(ChatMessage)
+    case workflowStep(WorkflowStep)
+    
+    var id: UUID {
+        switch self {
+        case .message(let chatMessage):
+            return chatMessage.id
+        case .workflowStep(let workflowStep):
+            return workflowStep.id
+        }
+    }
+    
+    var timestamp: Date {
+        switch self {
+        case .message(let chatMessage):
+            return chatMessage.timestamp
+        case .workflowStep(let workflowStep):
+            return workflowStep.timestamp
+        }
+    }
+    
+    // Convenience initializers
+    static func message(_ content: String, isUser: Bool, isSystem: Bool = false, workflowSteps: [WorkflowStep] = []) -> ChatItem {
+        return .message(ChatMessage(content: content, isUser: isUser, isSystem: isSystem, workflowSteps: workflowSteps))
+    }
+    
+    static func workflowStep(_ status: WorkflowStepStatus, toolName: String = "", details: [String: String] = [:]) -> ChatItem {
+        return .workflowStep(WorkflowStep(status: status, toolName: toolName, details: details))
+    }
 } 

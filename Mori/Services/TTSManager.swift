@@ -54,8 +54,8 @@ class TTSManager: ObservableObject {
     }
     
     func generateTTS(for text: String) {
-        guard isEnabled, let service = llmService, !service.getTTSAPIKey().isEmpty else {
-            print("⚠️ TTS disabled or TTS API key not available")
+        guard isEnabled, let service = llmService else {
+            print("⚠️ TTS disabled or LLM service not available")
             return
         }
         
@@ -79,7 +79,7 @@ class TTSManager: ObservableObject {
     }
     
     func processStreamingText(_ text: String) {
-        guard isEnabled, let service = llmService, !service.getTTSAPIKey().isEmpty else {
+        guard isEnabled, let service = llmService else {
             return
         }
         

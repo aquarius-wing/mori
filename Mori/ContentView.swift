@@ -51,14 +51,8 @@ class AppRouter: ObservableObject {
     }
     
     private var hasValidApiKey: Bool {
-        guard let providerType = LLMProviderType(rawValue: currentProvider) else { return false }
-        
-        switch providerType {
-        case .openai:
-            return !openaiApiKey.isEmpty
-        case .openRouter:
-            return !openrouterApiKey.isEmpty
-        }
+        // Since we use fixed endpoints without authentication, always return true
+        return true
     }
 }
 

@@ -10,12 +10,12 @@ class ChatHistoryManager: ObservableObject {
     }
     
     func loadChatHistories() {
-        chatHistories = ChatView.loadAllChatHistories()
+        chatHistories = ChatView2.loadAllChatHistories()
     }
     
     func deleteChatHistory(_ historyId: String) {
         if let history = chatHistories.first(where: { $0.id == historyId }) {
-            ChatView.deleteChatHistory(history)
+            ChatView2.deleteChatHistory(history)
             loadChatHistories()
             
             // If the deleted chat is current, clear current ID
@@ -27,7 +27,7 @@ class ChatHistoryManager: ObservableObject {
     
     func renameChatHistory(_ historyId: String, to newTitle: String) {
         if let history = chatHistories.first(where: { $0.id == historyId }) {
-            ChatView.renameChatHistory(history, newTitle: newTitle)
+            ChatView2.renameChatHistory(history, newTitle: newTitle)
             loadChatHistories()
         }
     }

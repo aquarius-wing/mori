@@ -17,16 +17,17 @@ struct MainView: View {
     @State private var showingFilesView = false
     
     // Chat reference
-    @State private var chatViewRef: ChatView?
+    @State private var chatViewRef: ChatView2?
     
     var body: some View {
         ZStack {
             NavigationView {
-                ChatView(onShowMenu: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showingMenu.toggle()
-                    }
-                })
+                //onShowMenu: {
+//                withAnimation(.easeInOut(duration: 0.3)) {
+//                    showingMenu.toggle()
+//                }
+//            }
+                ChatView()
             }
             .navigationBarHidden(true)
             .offset(x: showingMenu ? 280 : 0)

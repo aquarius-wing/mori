@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		202D162C2E05535400493124 /* ChatView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162B2E05535400493124 /* ChatView2.swift */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
 		20DE193D2E0049FD00CD902D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193C2E0049FD00CD902D /* MainView.swift */; };
@@ -35,6 +36,7 @@
 
 /* Begin PBXFileReference section */
 		202D16182E051A9E00493124 /* Mori.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mori.entitlements; sourceTree = "<group>"; };
+		202D162B2E05535400493124 /* ChatView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView2.swift; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -113,6 +115,7 @@
 		A1000025000000000000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				202D162B2E05535400493124 /* ChatView2.swift */,
 				20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */,
 				A1000006000000000000001 /* OnboardingView.swift */,
 				20DE190C2DF8578300CD902D /* FilesView.swift */,
@@ -261,6 +264,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				202D162C2E05535400493124 /* ChatView2.swift in Sources */,
 				A1000003000000000000001 /* ContentView.swift in Sources */,
 				20DE193D2E0049FD00CD902D /* MainView.swift in Sources */,
 				A1000005000000000000001 /* OnboardingView.swift in Sources */,

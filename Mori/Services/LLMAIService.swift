@@ -1,229 +1,15 @@
 import Foundation
 
-// MARK: - Provider Types
-enum ProviderType: String, CaseIterable, Codable {
-    case openai = "openai"
-    case openRouter = "openRouter"
-    
-    var displayName: String {
-        switch self {
-        case .openai:
-            return "OpenAI"
-        case .openRouter:
-            return "OpenRouter"
-        }
-    }
-}
-
-// MARK: - Text Completion Provider
-struct TextCompletionProvider: Codable {
-    let type: ProviderType
-    let apiKey: String
-    let baseURL: String
-    let model: String
-    
-    init(type: ProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil) {
-        self.type = type
-        self.apiKey = apiKey
-        
-        switch type {
-        case .openai:
-            self.baseURL = baseURL ?? "https://api.openai.com"
-            self.model = model ?? "gpt-4o-2024-11-20"
-        case .openRouter:
-            self.baseURL = baseURL ?? "https://openrouter.ai/api"
-            self.model = model ?? "deepseek/deepseek-chat-v3-0324"
-        }
-    }
-}
-
-// MARK: - STT Provider
-struct STTProvider: Codable {
-    let type: ProviderType
-    let apiKey: String
-    let baseURL: String
-    let model: String
-    
-    init(type: ProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil) {
-        self.type = type
-        self.apiKey = apiKey
-        
-        switch type {
-        case .openai:
-            self.baseURL = baseURL ?? "https://api.openai.com"
-            self.model = model ?? "whisper-1"
-        case .openRouter:
-            self.baseURL = baseURL ?? "https://openrouter.ai/api"
-            self.model = model ?? "whisper-1"
-        }
-    }
-}
-
-// MARK: - TTS Provider
-struct TTSProvider: Codable {
-    let type: ProviderType
-    let apiKey: String
-    let baseURL: String
-    let model: String
-    let voice: String
-    
-    init(type: ProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil, voice: String? = nil) {
-        self.type = type
-        self.apiKey = apiKey
-        
-        switch type {
-        case .openai:
-            self.baseURL = baseURL ?? "https://api.openai.com"
-            self.model = model ?? "tts-1"
-            self.voice = voice ?? "alloy"
-        case .openRouter:
-            self.baseURL = baseURL ?? "https://openrouter.ai/api"
-            self.model = model ?? "tts-1"
-            self.voice = voice ?? "alloy"
-        }
-    }
-}
-
-// MARK: - Provider Configuration
-struct ProviderConfiguration: Codable {
-    let textCompletionProvider: TextCompletionProvider
-    let sttProvider: STTProvider
-    let ttsProvider: TTSProvider
-    
-    // Current provider tracking
-    let currentTextProvider: String
-    let currentSTTProvider: String
-    let currentTTSProvider: String
-    
-    init(textCompletionProvider: TextCompletionProvider, 
-         sttProvider: STTProvider, 
-         ttsProvider: TTSProvider,
-         currentTextProvider: String? = nil,
-         currentSTTProvider: String? = nil,
-         currentTTSProvider: String? = nil) {
-        self.textCompletionProvider = textCompletionProvider
-        self.sttProvider = sttProvider
-        self.ttsProvider = ttsProvider
-        self.currentTextProvider = currentTextProvider ?? textCompletionProvider.type.rawValue
-        self.currentSTTProvider = currentSTTProvider ?? sttProvider.type.rawValue
-        self.currentTTSProvider = currentTTSProvider ?? ttsProvider.type.rawValue
-    }
-}
-
-// MARK: - Legacy Support
-enum LLMProviderType: String, CaseIterable {
-    case openRouter = "openRouter"
-    case openai = "openai"
-    
-    var displayName: String {
-        switch self {
-        case .openai:
-            return "OpenAI"
-        case .openRouter:
-            return "OpenRouter"
-        }
-    }
-}
-
-struct LLMProviderConfig {
-    let type: LLMProviderType
-    let apiKey: String
-    let baseURL: String
-    let model: String
-    
-    init(type: LLMProviderType, apiKey: String, baseURL: String? = nil, model: String? = nil) {
-        self.type = type
-        self.apiKey = apiKey
-        
-        switch type {
-        case .openai:
-            self.baseURL = baseURL ?? "https://api.openai.com"
-        case .openRouter:
-            self.baseURL = baseURL ?? "https://openrouter.ai/api"
-        }
-        
-        switch type {
-        case .openai:
-            self.model = model ?? "gpt-4o-2024-11-20"
-        case .openRouter:
-            self.model = model ?? "deepseek/deepseek-chat-v3-0324"
-        }
-    }
-}
-
+// MARK: - Simplified LLM Service
 class LLMAIService: ObservableObject {
-    private let config: LLMProviderConfig
-    private let providerConfig: ProviderConfiguration?
     private let calendarMCP = CalendarMCP()
     
-    // New initializer with multi-provider support
-    init(providerConfiguration: ProviderConfiguration) {
-        self.providerConfig = providerConfiguration
-        // Create legacy config for backward compatibility
-        let legacyType: LLMProviderType = providerConfiguration.textCompletionProvider.type == .openai ? .openai : .openRouter
-        self.config = LLMProviderConfig(
-            type: legacyType,
-            apiKey: providerConfiguration.textCompletionProvider.apiKey,
-            baseURL: providerConfiguration.textCompletionProvider.baseURL,
-            model: providerConfiguration.textCompletionProvider.model
-        )
-    }
+    // Fixed API endpoints
+    private let textCompletionURL = "https://mori-api-test.meogic.com/text"
+    private let speechToTextURL = "https://mori-api-test.meogic.com/stt"
     
-    // Legacy initializer for backward compatibility
-    init(config: LLMProviderConfig) {
-        self.config = config
-        self.providerConfig = nil
-    }
-    
-    // Convenience methods to access providers
-    var currentSTTProvider: STTProvider? {
-        return providerConfig?.sttProvider
-    }
-    
-    var currentTTSProvider: TTSProvider? {
-        return providerConfig?.ttsProvider
-    }
-    
-    // Legacy methods for STT using either new or old config
-    func getSTTAPIKey() -> String {
-        if let sttProvider = currentSTTProvider {
-            return sttProvider.apiKey
-        }
-        // Fallback to legacy config
-        return config.apiKey
-    }
-    
-    func getSTTBaseURL() -> String {
-        if let sttProvider = currentSTTProvider {
-            return sttProvider.baseURL
-        }
-        // Fallback to legacy config
-        return config.baseURL
-    }
-    
-    // Legacy methods for TTS using either new or old config
-    func getTTSAPIKey() -> String {
-        if let ttsProvider = currentTTSProvider {
-            return ttsProvider.apiKey
-        }
-        // Fallback to legacy config
-        return config.apiKey
-    }
-    
-    func getTTSBaseURL() -> String {
-        if let ttsProvider = currentTTSProvider {
-            return ttsProvider.baseURL
-        }
-        // Fallback to legacy config
-        return config.baseURL
-    }
-    
-    func getTTSVoice() -> String {
-        if let ttsProvider = currentTTSProvider {
-            return ttsProvider.voice
-        }
-        // Fallback to default
-        return "alloy"
+    init() {
+        // Simple initialization - no configuration needed
     }
     
     private func generateSystemMessage() -> String {
@@ -281,19 +67,6 @@ class LLMAIService: ObservableObject {
         return systemMessage
     }
     
-    // Convenience initializer for backward compatibility
-    init(apiKey: String, customBaseURL: String? = nil) {
-        // Default to OpenRouter for backward compatibility
-        let baseURL = customBaseURL?.isEmpty == false ? customBaseURL! : "https://openrouter.ai/api"
-        self.config = LLMProviderConfig(
-            type: .openRouter,
-            apiKey: apiKey,
-            baseURL: baseURL,
-            model: "deepseek/deepseek-chat-v3-0324"
-        )
-        self.providerConfig = nil
-    }
-    
     // MARK: - Generate Request Body
     func generateRequestBodyJSON(from conversationHistory: [ChatMessage]) -> [String: Any] {
         // Build message history
@@ -316,8 +89,8 @@ class LLMAIService: ObservableObject {
         }
         
         let requestBody: [String: Any] = [
-            "model": config.model,
             "messages": messages,
+            "model": "deepseek/deepseek-chat-v3-0324",
             "stream": true,
             "temperature": 0
         ]
@@ -331,19 +104,16 @@ class LLMAIService: ObservableObject {
             Task {
                 do {
                     print("💬 Starting chat message sending...")
-                    print("  Provider: \(config.type.displayName)")
-                    print("  Model: \(config.model)")
-                    print("  Target URL: \(config.baseURL)/v1/chat/completions")
+                    print("  Target URL: \(textCompletionURL)")
                     
-                    guard let chatURL = URL(string: "\(config.baseURL)/v1/chat/completions") else {
-                        print("❌ Invalid API URL: \(config.baseURL)/v1/chat/completions")
+                    guard let chatURL = URL(string: textCompletionURL) else {
+                        print("❌ Invalid API URL: \(textCompletionURL)")
                         continuation.finish(throwing: LLMError.invalidResponse)
                         return
                     }
                     
                     var request = URLRequest(url: chatURL)
                     request.httpMethod = "POST"
-                    request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.setValue("keep-alive", forHTTPHeaderField: "Connection")
@@ -392,7 +162,12 @@ class LLMAIService: ObservableObject {
                             print("❌ Error details: \(errorString)")
                         }
                         
-                        continuation.finish(throwing: LLMError.invalidResponse)
+                        // Throw specific error based on status code
+                        if httpResponse.statusCode >= 500 {
+                            continuation.finish(throwing: LLMError.serverUnavailable(httpResponse.statusCode))
+                        } else {
+                            continuation.finish(throwing: LLMError.invalidResponse)
+                        }
                         return
                     }
                     
@@ -437,27 +212,86 @@ class LLMAIService: ObservableObject {
                     
                 } catch {
                     print("❌ Chat request failed: \(error.localizedDescription)")
+                    
+                    // Handle specific network errors
                     if let urlError = error as? URLError {
                         print("  Error code: \(urlError.code.rawValue)")
                         print("  Error description: \(urlError.localizedDescription)")
                         
-                        // Provide specific error suggestions
+                        // Provide specific error suggestions and throw appropriate LLMError
                         switch urlError.code {
                         case .notConnectedToInternet:
                             print("💡 Suggestion: Check network connection")
+                            continuation.finish(throwing: LLMError.networkError(urlError))
                         case .timedOut:
                             print("💡 Suggestion: Request timed out, please retry")
-                        case .cannotFindHost:
-                            print("💡 Suggestion: Check if API endpoint URL is correct")
-                        case .cannotConnectToHost:
-                            print("💡 Suggestion: Check if API service is available")
+                            continuation.finish(throwing: LLMError.connectionTimeout)
+                        case .cannotFindHost, .cannotConnectToHost:
+                            print("💡 Suggestion: Check if API endpoint URL is correct and service is available")
+                            continuation.finish(throwing: LLMError.networkError(urlError))
                         default:
                             print("💡 Suggestion: Check network settings and API configuration")
+                            continuation.finish(throwing: LLMError.networkError(urlError))
                         }
+                    } else {
+                        // For other types of errors, pass them through
+                        continuation.finish(throwing: error)
                     }
-                    continuation.finish(throwing: error)
                 }
             }
+        }
+    }
+    
+    // MARK: - Speech to Text
+    func transcribeAudio(data: Data) async throws -> String {
+        print("🎤 Starting speech-to-text transcription...")
+        
+        guard let sttURL = URL(string: speechToTextURL) else {
+            print("❌ Invalid STT URL: \(speechToTextURL)")
+            throw LLMError.invalidResponse
+        }
+        
+        var request = URLRequest(url: sttURL)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30.0
+        
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        var body = Data()
+        
+        // Add file data
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: audio/mp4\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ Invalid HTTP response for STT")
+                throw LLMError.invalidResponse
+            }
+            
+            print("🎤 STT response status: \(httpResponse.statusCode)")
+            
+            guard httpResponse.statusCode == 200 else {
+                let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
+                print("❌ STT API error: \(errorString)")
+                throw LLMError.transcriptionFailed
+            }
+            
+            let transcriptionResponse = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
+            print("✅ STT transcription completed: \(transcriptionResponse.text)")
+            return transcriptionResponse.text
+            
+        } catch {
+            print("❌ STT request failed: \(error.localizedDescription)")
+            throw error
         }
     }
     
@@ -776,6 +610,9 @@ enum LLMError: Error, LocalizedError {
     case noAudioData
     case transcriptionFailed
     case htmlErrorResponse
+    case networkError(URLError)
+    case connectionTimeout
+    case serverUnavailable(Int) // HTTP status code
     case customError(String)
     
     var errorDescription: String? {
@@ -788,6 +625,12 @@ enum LLMError: Error, LocalizedError {
             return "Speech-to-text failed"
         case .htmlErrorResponse:
             return "HTML error response"
+        case .networkError(let urlError):
+            return "Network error: \(urlError.localizedDescription)"
+        case .connectionTimeout:
+            return "Connection timeout - please check your network"
+        case .serverUnavailable(let statusCode):
+            return "Server unavailable (HTTP \(statusCode))"
         case .customError(let message):
             return "Custom error: \(message)"
         }
