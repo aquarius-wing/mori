@@ -191,7 +191,7 @@ struct OnboardingView: View {
             ForEach(1...totalSteps, id: \.self) { step in
                 Circle()
                     .fill(
-                        step <= currentStepNumber
+                        step == currentStepNumber
                             ? Color.white : Color.gray.opacity(0.4)
                     )
                     .frame(width: 8, height: 8)
@@ -206,14 +206,15 @@ struct OnboardingView: View {
 
     private func getTotalStepsForCurrentPath() -> Int {
         if apiProviderChoice == "official" {
-            return 3  // welcome → permission → done
+            return 2  // permission → done (excluding welcome)
         } else {
-            return 4  // welcome → example → permission → done
+            return 3  // example → permission → done (excluding welcome)
         }
     }
 
     private func getCurrentStepNumberForPath() -> Int {
-        return currentStep.rawValue
+        // Subtract 1 to exclude welcome step from count
+        return max(1, currentStep.rawValue - 1)
     }
 
     @ViewBuilder
