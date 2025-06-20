@@ -7,7 +7,10 @@ struct CustomButtonStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(
+                .easeInOut(duration: 0.1),
+                value: configuration.isPressed
+            )
     }
 }
 
@@ -35,6 +38,12 @@ struct OnboardingView: View {
     @AppStorage("apiProviderChoice") private var apiProviderChoice: String = ""
 
     @State private var currentStep: OnboardingStep = .welcome
+
+    // Initializer for setting initial step (useful for previews)
+    init(initialStep: OnboardingStep = .welcome) {
+        self._currentStep = State(initialValue: initialStep)
+    }
+
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
@@ -64,69 +73,77 @@ struct OnboardingView: View {
     @State private var calendarPermissionGranted = false
     private let eventStore = EKEventStore()
 
+    // Example card expansion state
+    @State private var isExampleCardExpanded = false
+
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
                 ZStack {
                     // Background gradient
-                    currentStep == .welcome ? Rectangle()
-                        .foregroundColor(.clear)
-                        .frame(
-                            width: (geometry.size.width
-                                - geometry.safeAreaInsets.leading
+                    currentStep == .welcome
+                        ? Rectangle()
+                            .foregroundColor(.clear)
+                            .frame(
+                                width: (geometry.size.width
+                                    - geometry.safeAreaInsets.leading
                                     - geometry.safeAreaInsets.trailing) * 1,
-                            height: (geometry.size.height
-                                - geometry.safeAreaInsets.top
-                                - geometry.safeAreaInsets.bottom) * 0.7
-                        )
-                        .background(
-                            EllipticalGradient(
-                                stops: [
-                                    Gradient.Stop(
-                                        color: Color(
-                                            red: 0.24,
-                                            green: 0.1,
-                                            blue: 0.1
-                                        ),
-                                        location: 0.00
-                                    ),
-                                    Gradient.Stop(
-                                        color: .black,
-                                        location: 1.00
-                                    ),
-                                ],
-                                center: UnitPoint(x: 0.5, y: 0.5)
+                                height: (geometry.size.height
+                                    - geometry.safeAreaInsets.top
+                                    - geometry.safeAreaInsets.bottom) * 0.7
                             )
-                        )
-                        .rotationEffect(Angle(degrees: -30.38))
-                        .offset(
-                            x: -geometry.size.width / 2 / 4,
-                            y: -geometry.size.height / 2 / 5
-                        )
-                        .scaleEffect(5) : nil
-                    
+                            .background(
+                                EllipticalGradient(
+                                    stops: [
+                                        Gradient.Stop(
+                                            color: Color(
+                                                red: 0.24,
+                                                green: 0.1,
+                                                blue: 0.1
+                                            ),
+                                            location: 0.00
+                                        ),
+                                        Gradient.Stop(
+                                            color: .black,
+                                            location: 1.00
+                                        ),
+                                    ],
+                                    center: UnitPoint(x: 0.5, y: 0.5)
+                                )
+                            )
+                            .rotationEffect(Angle(degrees: -30.38))
+                            .offset(
+                                x: -geometry.size.width / 2 / 4,
+                                y: -geometry.size.height / 2 / 5
+                            )
+                            .scaleEffect(5) : nil
+
                     VStack(spacing: 0) {
                         // Progress bar (only show for non-welcome steps)
-                        if currentStep != .welcome {
-                            progressBar
-                                .padding(.horizontal)
-                                .padding(.top, 20)
-                        }
-                        
+
                         Spacer()
-                        
+
                         // Step content
+
                         stepContent
                             .padding(.horizontal)
-                            .padding(.top, 40)
-                            .padding(.bottom, 40)
-                        
+
                         Spacer()
-                        
+
+                        if currentStep != .welcome {
+                            HStack {
+                                Spacer()
+                                progressBar
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.bottom, 20)
+                        }
+
                         // Navigation button
                         navigationButton
                             .padding(.horizontal)
-                            .padding(.bottom, 40)
+                            .padding(.bottom, 20)
                             .cornerRadius(16)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -157,9 +174,7 @@ struct OnboardingView: View {
                 }
             }
         }
-        .navigationBarTitleDisplayMode(
-            currentStep == .welcome ? .large : .inline
-        )
+        .navigationBarTitleDisplayMode(.inline)
         .navigationBarHidden(currentStep == .welcome)
         .alert("Notice", isPresented: $showingAlert) {
             Button("OK") {}
@@ -168,24 +183,25 @@ struct OnboardingView: View {
         }
     }
 
-
-
     private var progressBar: some View {
-        VStack(spacing: 8) {
+        HStack(spacing: 8) {
             let totalSteps = getTotalStepsForCurrentPath()
             let currentStepNumber = getCurrentStepNumberForPath()
 
-            ProgressView(
-                value: Double(currentStepNumber),
-                total: Double(totalSteps)
-            )
-            .progressViewStyle(LinearProgressViewStyle())
-            .frame(height: 8)
-
-            Text("Step \(currentStepNumber) of \(totalSteps)")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            ForEach(1...totalSteps, id: \.self) { step in
+                Circle()
+                    .fill(
+                        step <= currentStepNumber
+                            ? Color.white : Color.gray.opacity(0.4)
+                    )
+                    .frame(width: 8, height: 8)
+                    .animation(
+                        .easeInOut(duration: 0.3),
+                        value: currentStepNumber
+                    )
+            }
         }
+        .padding(.top, 8)
     }
 
     private func getTotalStepsForCurrentPath() -> Int {
@@ -220,7 +236,7 @@ struct OnboardingView: View {
                 .resizable()
                 .frame(width: 120, height: 120)
                 .cornerRadius(24)
-            
+
             Spacer()
 
             VStack(spacing: 12) {
@@ -238,21 +254,307 @@ struct OnboardingView: View {
                     .lineSpacing(4)
             }
         }
+        .padding(.top, 40)
+        .padding(.bottom, 40)
     }
 
     private var exampleContent: some View {
-        VStack(spacing: 24) {
-            Text("Example")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-            
-            Text("This is an example of how Mori can help you organize your tasks and schedule.")
-                .font(.body)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
+        ScrollView {
+            ScrollViewReader { proxy in
+                VStack(spacing: 32) {
+                    VStack(spacing: 8) {
+                        VStack(spacing: 0) {
+                            Text("One word")
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+
+                            Text("to rule them all")
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                        }
+
+                        Text(
+                            "All your personal calendar events and reminders will be managed by Mori"
+                        )
+                        .font(.body)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.leading)
+                        .lineSpacing(4)
+                        .padding(.top, 8)
+                    }
+
+                    VStack(spacing: 16) {
+                        // Example card
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "lightbulb.fill")
+                                    .foregroundColor(.green)
+                                    .font(.system(size: 20))
+
+                                Text("Save events to calendar")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+
+                                Spacer()
+                            }
+
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 16))
+                                    .padding(2)
+
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(
+                                        "Move all my events today to tomorrow"
+                                    )
+                                    .font(.body)
+                                    .foregroundColor(.gray)
+                                    .lineSpacing(2)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(
+                                        horizontal: false,
+                                        vertical: true
+                                    )
+                                }
+                            }
+
+                            // Expandable section
+                            if isExampleCardExpanded {
+                                VStack(spacing: 12) {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Image(systemName: "calendar")
+                                            .foregroundColor(.gray)
+                                            .font(.system(size: 16))
+                                            .padding(2)
+
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            Text(
+                                                "I'll help you move all your events today to tomorrow:"
+                                            )
+                                            .font(.body)
+                                            .foregroundColor(.gray)
+                                            .lineSpacing(2)
+                                            .multilineTextAlignment(.leading)
+                                            .fixedSize(
+                                                horizontal: false,
+                                                vertical: true
+                                            )
+                                        }
+                                        
+                                        Spacer()
+                                    }
+
+                                    // Event Card 1 - Before and After
+                                    HStack(spacing: 8) {
+                                        // Original Event Card 1
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.yellow)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Kickoff Meeting")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.yellow)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/17")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+                                            
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+                                        
+                                        Image(systemName: "arrow.right")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 14))
+                                        
+                                        // Modified Event Card 1
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.green)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Kickoff Meeting")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.green)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/18")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+                                            
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                        .padding(.top, 8)
+
+                                    // Event Card 2 - Before and After
+                                    HStack(spacing: 8) {
+                                        // Original Event Card 2
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.yellow)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Prototype Walkthrough")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.yellow)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/17")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+                                            
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+                                        
+                                        Image(systemName: "arrow.right")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 14))
+                                        
+                                        // Modified Event Card 2
+                                        HStack(spacing: 8) {
+                                            Rectangle()
+                                                .fill(Color.green)
+                                                .frame(width: 3, height: 35)
+                                                .cornerRadius(1.5)
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Prototype Walkthrough")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.green)
+                                                    .lineLimit(1)
+
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "clock")
+                                                        .foregroundColor(.gray)
+                                                        .font(.system(size: 11))
+                                                    Text("06/18")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+                                            
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                }
+                                .transition(
+                                    .opacity.combined(with: .move(edge: .top))
+                                )
+                                .animation(
+                                    .easeInOut(duration: 0.3),
+                                    value: isExampleCardExpanded
+                                )
+                            }
+
+                            // Expand/Collapse button
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    isExampleCardExpanded.toggle()
+                                }
+                            }) {
+                                HStack {
+                                    Spacer()
+                                    Image(
+                                        systemName: "chevron.down"
+                                    )
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 16))
+                                    .rotationEffect(
+                                        .degrees(
+                                            isExampleCardExpanded ? 180 : 0
+                                        )
+                                    )
+                                    .animation(
+                                        .easeInOut(duration: 0.3),
+                                        value: isExampleCardExpanded
+                                    )
+                                    Spacer()
+                                }
+                                .padding(.top, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        .padding(20)
+                        .background(Color.gray.opacity(0.15))
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            // Allow tapping anywhere on the card to expand/collapse
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isExampleCardExpanded.toggle()
+                            }
+                        }
+                    }
+
+                    Spacer()
+
+                    // Invisible anchor for scrolling to bottom
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom")
+                }
+                .padding(.top, 40)
+                .padding(.bottom, 40)
+                .onChange(of: isExampleCardExpanded) { _, newValue in
+                    if newValue {
+                        // Scroll to bottom when expanded with a delay for smooth animation
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                proxy.scrollTo("bottom", anchor: .bottom)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -264,11 +566,13 @@ struct OnboardingView: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
 
-            Text("Mori needs access to your calendar to provide better scheduling assistance.")
-                .font(.body)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
+            Text(
+                "Mori needs access to your calendar to provide better scheduling assistance."
+            )
+            .font(.body)
+            .foregroundColor(.gray)
+            .multilineTextAlignment(.center)
+            .lineSpacing(4)
 
             Button("Request Calendar Permission") {
                 requestCalendarPermission()
@@ -304,42 +608,46 @@ struct OnboardingView: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
 
-            Text("You're all set up! Mori is ready to help you organize your life.")
-                .font(.body)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
+            Text(
+                "You're all set up! Mori is ready to help you organize your life."
+            )
+            .font(.body)
+            .foregroundColor(.gray)
+            .multilineTextAlignment(.center)
+            .lineSpacing(4)
 
-            Text("All API keys are stored securely on your device and never sent to third parties.")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+            Text(
+                "All API keys are stored securely on your device and never sent to third parties."
+            )
+            .font(.caption)
+            .foregroundColor(.gray)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
         }
     }
 
     private var navigationButton: some View {
         Button(action: {
-                if currentStep == .done {
+            if currentStep == .done {
                 hasCompletedOnboarding = true
                 router.completeOnboarding()
             } else {
                 nextStep()
             }
-            }) {
-                Text(getButtonTitle())
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(canProceed() ? .black : .white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(canProceed() ? Color.white : Color.gray)
-                    .cornerRadius(16)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(CustomButtonStyle())
-            .disabled(!canProceed())
-            .padding(.horizontal, 40)
+        }) {
+            Text(getButtonTitle())
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(canProceed() ? .black : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(canProceed() ? Color.white : Color.gray)
+                .cornerRadius(16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(CustomButtonStyle())
+        .disabled(!canProceed())
+        .padding(.horizontal, 40)
     }
 
     private func getButtonTitle() -> String {
@@ -456,5 +764,23 @@ struct OnboardingView: View {
 #Preview {
     NavigationStack {
         OnboardingView()
+    }
+}
+
+#Preview("Example Step") {
+    NavigationStack {
+        OnboardingView(initialStep: .example)
+    }
+}
+
+#Preview("Permission Step") {
+    NavigationStack {
+        OnboardingView(initialStep: .permission)
+    }
+}
+
+#Preview("Done Step") {
+    NavigationStack {
+        OnboardingView(initialStep: .done)
     }
 }
