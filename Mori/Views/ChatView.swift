@@ -14,7 +14,7 @@ struct ChatView: View {
     @State private var errorMessage = ""
     @State private var showingErrorDetail = false
     @State private var errorDetail = ""
-    
+
     // Chat History Management
     private let chatHistoryManager = ChatHistoryManager()
     @State private var currentChatId: String?
@@ -40,7 +40,10 @@ struct ChatView: View {
     var onShowMenu: (() -> Void)?
 
     // MARK: - Initializer
-    init(initialMessages: [MessageListItemType] = [], onShowMenu: (() -> Void)? = nil) {
+    init(
+        initialMessages: [MessageListItemType] = [],
+        onShowMenu: (() -> Void)? = nil
+    ) {
         self._messageList = State(initialValue: initialMessages)
         self.onShowMenu = onShowMenu
     }
@@ -180,41 +183,41 @@ struct ChatView: View {
                     }
                 }
             }
-        .navigationTitle("Mori")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: {
-                    onShowMenu?()
-                }) {
-                    Image(systemName: "sidebar.left")
-                        .font(.body)
-                        .foregroundColor(.white)
+            .navigationTitle("Mori")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        onShowMenu?()
+                    }) {
+                        Image(systemName: "sidebar.left")
+                            .font(.body)
+                            .foregroundColor(.white)
+                    }
+                    .disabled(isStreaming || isSending)
                 }
-                .disabled(isStreaming || isSending)
-            }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    createNewChat()
-                }) {
-                    Image(systemName: "message")
-                        .font(.body)
-                        .foregroundColor(.white)
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        createNewChat()
+                    }) {
+                        Image(systemName: "message")
+                            .font(.body)
+                            .foregroundColor(.white)
+                    }
+                    .disabled(isStreaming || isSending)
                 }
-                .disabled(isStreaming || isSending)
             }
-        }
-        .preferredColorScheme(.dark)
-        .onTapGesture {
-            // Dismiss keyboard when tapping anywhere outside input area
-            isTextFieldFocused = false
-        }
+            .preferredColorScheme(.dark)
+            .onTapGesture {
+                // Dismiss keyboard when tapping anywhere outside input area
+                isTextFieldFocused = false
+            }
         }
         .onAppear {
             setupLLMService()
             loadCurrentChatHistory()
-            
+
             // Listen for load chat history notification
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("LoadChatHistory"),
@@ -225,7 +228,7 @@ struct ChatView: View {
                     loadChatHistory(chatHistory)
                 }
             }
-            
+
             // Listen for clear chat notification
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("ClearChat"),
@@ -237,8 +240,16 @@ struct ChatView: View {
         }
         .onDisappear {
             // Remove notification observers
-            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("LoadChatHistory"), object: nil)
-            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearChat"), object: nil)
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("LoadChatHistory"),
+                object: nil
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("ClearChat"),
+                object: nil
+            )
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") {}
@@ -272,12 +283,14 @@ struct ChatView: View {
         // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
         messageList.append(.chatMessage(userMessage))
-        
+
         // Ensure we have a chat ID for this session
         if currentChatId == nil {
             currentChatId = chatHistoryManager.createNewChat()
             savedChatHistoryId = currentChatId
-            print("🆕 Created new chat for user message with ID: \(currentChatId ?? "unknown")")
+            print(
+                "🆕 Created new chat for user message with ID: \(currentChatId ?? "unknown")"
+            )
         }
 
         Task {
@@ -359,7 +372,9 @@ struct ChatView: View {
                             }
                             return false
                         }) {
-                            if case .workflowStep(let step) = messageList[lastIndex] {
+                            if case .workflowStep(let step) = messageList[
+                                lastIndex
+                            ] {
                                 let updatedStep = WorkflowStep(
                                     status: .scheduled,
                                     toolName: step.toolName,
@@ -368,7 +383,9 @@ struct ChatView: View {
                                             ?? "", "arguments": content,
                                     ]
                                 )
-                                messageList[lastIndex] = .workflowStep(updatedStep)
+                                messageList[lastIndex] = .workflowStep(
+                                    updatedStep
+                                )
                             }
                         }
                     case "tool_execution":
@@ -379,13 +396,17 @@ struct ChatView: View {
                             }
                             return false
                         }) {
-                            if case .workflowStep(let step) = messageList[lastIndex] {
+                            if case .workflowStep(let step) = messageList[
+                                lastIndex
+                            ] {
                                 let updatedStep = WorkflowStep(
                                     status: .executing,
                                     toolName: step.toolName,
                                     details: step.details
                                 )
-                                messageList[lastIndex] = .workflowStep(updatedStep)
+                                messageList[lastIndex] = .workflowStep(
+                                    updatedStep
+                                )
                             }
                         }
                         updateStatus(
@@ -400,13 +421,17 @@ struct ChatView: View {
                             }
                             return false
                         }) {
-                            if case .workflowStep(let step) = messageList[lastIndex] {
+                            if case .workflowStep(let step) = messageList[
+                                lastIndex
+                            ] {
                                 let updatedStep = WorkflowStep(
                                     status: .result,
                                     toolName: step.toolName,
                                     details: ["result": content]
                                 )
-                                messageList[lastIndex] = .workflowStep(updatedStep)
+                                messageList[lastIndex] = .workflowStep(
+                                    updatedStep
+                                )
                             }
                         }
                         updateStatus("📊 Processing results...", type: .result)
@@ -423,7 +448,9 @@ struct ChatView: View {
                                 timestamp: lastMessage.timestamp,
                                 isSystem: lastMessage.isSystem
                             )
-                            messageList[lastIndex] = .chatMessage(updatedMessage)
+                            messageList[lastIndex] = .chatMessage(
+                                updatedMessage
+                            )
                         } else {
                             // Create new assistant message
                             let newMessage = ChatMessage(
@@ -453,7 +480,9 @@ struct ChatView: View {
                                 isUser: false,
                                 timestamp: Date()
                             )
-                            messageList[lastIndex] = .chatMessage(replacementMessage)
+                            messageList[lastIndex] = .chatMessage(
+                                replacementMessage
+                            )
                             print(
                                 "✅ Replaced assistant message: \(String(content.prefix(50)))..."
                             )
@@ -495,7 +524,7 @@ struct ChatView: View {
                 print(
                     "🏁 Workflow completed. Final messageList count: \(messageList.count)"
                 )
-                
+
                 // Auto-save current chat history
                 saveCurrentChatHistory()
             }
@@ -552,15 +581,15 @@ struct ChatView: View {
         // Implement regenerate functionality
         print("🔄 Regenerating response")
     }
-    
+
     // MARK: - Chat History Management Methods
-    
+
     private func loadCurrentChatHistory() {
         guard let historyId = savedChatHistoryId else {
             print("🆕 No saved chat history ID - starting fresh")
             return
         }
-        
+
         if let loadedMessages = chatHistoryManager.loadChat(id: historyId) {
             currentChatId = historyId
             messageList = loadedMessages
@@ -570,61 +599,64 @@ struct ChatView: View {
             savedChatHistoryId = nil
         }
     }
-    
+
     private func saveCurrentChatHistory() {
         // Create new chat if needed
         if currentChatId == nil && !messageList.isEmpty {
             currentChatId = chatHistoryManager.createNewChat()
         }
-        
+
         // Save if we have messages
         if !messageList.isEmpty {
-            let savedId = chatHistoryManager.saveCurrentChat(messageList, existingId: currentChatId)
+            let savedId = chatHistoryManager.saveCurrentChat(
+                messageList,
+                existingId: currentChatId
+            )
             currentChatId = savedId
             savedChatHistoryId = savedId
             print("💾 Saved chat history with ID: \(savedId)")
         }
     }
-    
+
     private func loadChatHistory(_ chatHistory: ChatHistory) {
         // Save current chat if it has messages
         if !messageList.isEmpty {
             saveCurrentChatHistory()
         }
-        
+
         // Load new chat
         currentChatId = chatHistory.id
         savedChatHistoryId = chatHistory.id
         messageList = chatHistory.messageList
-        
+
         print("📚 Loaded chat history: \(chatHistory.title)")
     }
-    
+
     private func clearChat() {
         messageList.removeAll()
         currentStatus = "Ready"
         statusType = .finalStatus
         inputText = ""
-        
+
         print("🧹 Cleared current chat")
     }
-    
+
     private func createNewChat() {
         // Save current chat if it has messages
         if !messageList.isEmpty {
             saveCurrentChatHistory()
         }
-        
+
         // Create new chat
         currentChatId = chatHistoryManager.createNewChat()
         savedChatHistoryId = currentChatId
-        
+
         // Clear current chat
         messageList.removeAll()
         currentStatus = "Ready"
         statusType = .finalStatus
         inputText = ""
-        
+
         print("🆕 Created new chat with ID: \(currentChatId ?? "unknown")")
     }
 }
@@ -672,12 +704,12 @@ struct MessageItemView: View {
 
     // Check if this is an error message
     private var isErrorMessage: Bool {
-        return message.content.contains("Invalid API response") || 
-               message.content.contains("Error:") ||
-               message.content.contains("Failed") ||
-               message.content.lowercased().contains("error")
+        return message.content.contains("Invalid API response")
+            || message.content.contains("Error:")
+            || message.content.contains("Failed")
+            || message.content.lowercased().contains("error")
     }
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             if message.isUser {
@@ -719,7 +751,7 @@ struct MessageItemView: View {
                                 onShowErrorDetail()
                             }
                         }
-                    
+
                     if isErrorMessage {
                         Text("Tap for details")
                             .font(.caption)
@@ -775,11 +807,13 @@ struct MessageItemView: View {
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
-    
+
     // Truncate content before ```json and trim whitespace
     private func truncateContent(_ content: String) -> String {
         if let range = content.range(of: "```json") {
-            return String(content[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return String(content[..<range.lowerBound]).trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
         }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -823,14 +857,14 @@ struct WorkflowStepItemView: View {
                         .font(.body)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
-                    
+
                     Text("Tap for details")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
                 }
 
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.5))
@@ -875,9 +909,13 @@ struct WorkflowStepItemView: View {
                 .foregroundColor(updateResponse.success ? .green : .red)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(updateResponse.success ? "Calendar updated successfully" : "Calendar update failed")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                    Text(
+                        updateResponse.success
+                            ? "Calendar updated successfully"
+                            : "Calendar update failed"
+                    )
+                    .font(.headline)
+                    .foregroundColor(.white)
 
                     Text(updateResponse.message)
                         .font(.body)
@@ -927,7 +965,7 @@ struct WorkflowStepItemView: View {
                     }
 
                     Spacer()
-                    
+
                     // Add "Tap for details" hint for error status
                     if step.status == .error {
                         Text("Tap for details")
@@ -954,7 +992,10 @@ struct WorkflowStepItemView: View {
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(step.status == .error ? Color.red.opacity(0.2) : Color.white.opacity(0.1))
+                .fill(
+                    step.status == .error
+                        ? Color.red.opacity(0.2) : Color.white.opacity(0.1)
+                )
         )
         .padding(.horizontal, 20)
         .contentShape(Rectangle())
@@ -1081,7 +1122,7 @@ struct CalendarEventRow: View {
 struct ErrorDetailView: View {
     let errorDetail: String
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -1091,7 +1132,7 @@ struct ErrorDetailView: View {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.title2)
                             .foregroundColor(.red)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Error Details")
                                 .font(.headline)
@@ -1100,9 +1141,9 @@ struct ErrorDetailView: View {
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
                         }
-                        
+
                         Spacer()
-                        
+
                         Button("Close") {
                             dismiss()
                         }
@@ -1110,11 +1151,11 @@ struct ErrorDetailView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
-                    
+
                     Divider()
                         .background(Color.white.opacity(0.2))
                 }
-                
+
                 // Error content
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -1123,7 +1164,7 @@ struct ErrorDetailView: View {
                             Text("Error Information:")
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            
+
                             Text(errorDetail)
                                 .font(.system(.body, design: .monospaced))
                                 .foregroundColor(.white.opacity(0.9))
@@ -1134,7 +1175,7 @@ struct ErrorDetailView: View {
                                 )
                                 .multilineTextAlignment(.leading)
                         }
-                        
+
                         // Copy button
                         HStack {
                             Spacer()
@@ -1177,78 +1218,139 @@ struct ErrorDetailView: View {
 #Preview("Chat with Sample Data") {
     ChatView(initialMessages: [
         // User asks about calendar
-        .chatMessage(ChatMessage(content: "What's on my calendar today?", isUser: true)),
-        
+        .chatMessage(
+            ChatMessage(content: "What's on my calendar today?", isUser: true)
+        ),
+
         // Calendar workflow
-        .workflowStep(WorkflowStep(status: .scheduled, toolName: "read-calendar", details: [
-            "tool_name": "read-calendar", 
-            "arguments": "Searching today's events..."
-        ])),
-        .workflowStep(WorkflowStep(status: .executing, toolName: "read-calendar", details: [
-            "tool_name": "read-calendar"
-        ])),
-        .workflowStep(WorkflowStep(status: .result, toolName: "read-calendar", details: [
-            "result": """
-            {
-                "success": true,
-                "count": 2,
-                "date_range": {
-                    "startDate": "2024-01-15T00:00:00+08:00",
-                    "endDate": "2024-01-15T23:59:59+08:00"
-                },
-                "events": [
-                    {
-                        "id": "1",
-                        "title": "Team Meeting",
-                        "start_date": "2024-01-15T10:00:00+08:00",
-                        "end_date": "2024-01-15T11:00:00+08:00",
-                        "location": "Conference Room A",
-                        "notes": "Weekly sync meeting",
-                        "is_all_day": false
-                    },
-                    {
-                        "id": "2",
-                        "title": "Project Review",
-                        "start_date": "2024-01-15T15:00:00+08:00",
-                        "end_date": "2024-01-15T16:30:00+08:00",
-                        "location": "Online",
-                        "notes": "Q1 progress review",
-                        "is_all_day": false
-                    }
+        .workflowStep(
+            WorkflowStep(
+                status: .scheduled,
+                toolName: "read-calendar",
+                details: [
+                    "tool_name": "read-calendar",
+                    "arguments": "Searching today's events...",
                 ]
-            }
-            """
-        ])),
-        
+            )
+        ),
+        .workflowStep(
+            WorkflowStep(
+                status: .executing,
+                toolName: "read-calendar",
+                details: [
+                    "tool_name": "read-calendar"
+                ]
+            )
+        ),
+        .workflowStep(
+            WorkflowStep(
+                status: .result,
+                toolName: "read-calendar",
+                details: [
+                    "result": """
+                    {
+                        "success": true,
+                        "count": 2,
+                        "date_range": {
+                            "startDate": "2024-01-15T00:00:00+08:00",
+                            "endDate": "2024-01-15T23:59:59+08:00"
+                        },
+                        "events": [
+                            {
+                                "id": "1",
+                                "title": "Team Meeting",
+                                "start_date": "2024-01-15T10:00:00+08:00",
+                                "end_date": "2024-01-15T11:00:00+08:00",
+                                "location": "Conference Room A",
+                                "notes": "Weekly sync meeting",
+                                "is_all_day": false
+                            },
+                            {
+                                "id": "2",
+                                "title": "Project Review",
+                                "start_date": "2024-01-15T15:00:00+08:00",
+                                "end_date": "2024-01-15T16:30:00+08:00",
+                                "location": "Online",
+                                "notes": "Q1 progress review",
+                                "is_all_day": false
+                            }
+                        ]
+                    }
+                    """
+                ]
+            )
+        ),
+
         // AI response
-        .chatMessage(ChatMessage(content: "I found 2 events on your calendar today:\n\n• **Team Meeting** at 10:00 AM\n  📍 Conference Room A\n  Weekly sync meeting\n\n• **Project Review** at 3:00 PM\n  📍 Online\n  Q1 progress review\n\nWould you like me to help with anything else?", isUser: false)),
-        
+        .chatMessage(
+            ChatMessage(
+                content:
+                    "I found 2 events on your calendar today:\n\n• **Team Meeting** at 10:00 AM\n  📍 Conference Room A\n  Weekly sync meeting\n\n• **Project Review** at 3:00 PM\n  📍 Online\n  Q1 progress review\n\nWould you like me to help with anything else?",
+                isUser: false
+            )
+        ),
+
         // User asks to add reminder
-        .chatMessage(ChatMessage(content: "Add a 15-minute reminder for the team meeting", isUser: true)),
-        
+        .chatMessage(
+            ChatMessage(
+                content: "Add a 15-minute reminder for the team meeting",
+                isUser: true
+            )
+        ),
+
         // Update calendar workflow
-        .workflowStep(WorkflowStep(status: .result, toolName: "update-calendar", details: [
-            "result": """
-            {
-                "success": true,
-                "message": "Reminder added successfully",
-                "event": {
-                    "title": "Team Meeting",
-                    "reminder": "15 minutes before"
-                }
-            }
-            """
-        ])),
-        
-        .chatMessage(ChatMessage(content: "✅ Perfect! I've added a 15-minute reminder for your Team Meeting. You'll be notified at 9:45 AM.", isUser: false)),
-        
+        .workflowStep(
+            WorkflowStep(
+                status: .result,
+                toolName: "update-calendar",
+                details: [
+                    "result": """
+                    {
+                        "success": true,
+                        "message": "Reminder added successfully",
+                        "event": {
+                            "title": "Team Meeting",
+                            "reminder": "15 minutes before"
+                        }
+                    }
+                    """
+                ]
+            )
+        ),
+
+        .chatMessage(
+            ChatMessage(
+                content:
+                    "✅ Perfect! I've added a 15-minute reminder for your Team Meeting. You'll be notified at 9:45 AM.",
+                isUser: false
+            )
+        ),
+
         // Error example
-        .chatMessage(ChatMessage(content: "What's the weather like?", isUser: true)),
-        .workflowStep(WorkflowStep(status: .error, toolName: "Weather API Error: Service temporarily unavailable")),
-        .chatMessage(ChatMessage(content: "I'm sorry, but I can't get the weather information right now. The weather service is temporarily unavailable. Please try again later.", isUser: false)),
-        
+        .chatMessage(
+            ChatMessage(content: "What's the weather like?", isUser: true)
+        ),
+        .workflowStep(
+            WorkflowStep(
+                status: .error,
+                toolName: "Weather API Error: Service temporarily unavailable"
+            )
+        ),
+        .chatMessage(
+            ChatMessage(
+                content:
+                    "I'm sorry, but I can't get the weather information right now. The weather service is temporarily unavailable. Please try again later.",
+                isUser: false
+            )
+        ),
+
         // Final status
-        .workflowStep(WorkflowStep(status: .finalStatus, toolName: "Completed. Processed 2 tool calls."))
+        .workflowStep(
+            WorkflowStep(
+                status: .finalStatus,
+                toolName: "Completed. Processed 2 tool calls."
+            )
+        ),
     ])
     .preferredColorScheme(.dark)
 }
@@ -1257,7 +1359,7 @@ struct ErrorDetailView: View {
 struct CalendarEventsDetailView: View {
     let calendarResponse: CalendarReadResponse
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -1267,7 +1369,7 @@ struct CalendarEventsDetailView: View {
                         Image(systemName: "calendar")
                             .font(.title2)
                             .foregroundColor(.white)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Calendar events")
                                 .font(.headline)
@@ -1276,9 +1378,9 @@ struct CalendarEventsDetailView: View {
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
                         }
-                        
+
                         Spacer()
-                        
+
                         Button("Close") {
                             dismiss()
                         }
@@ -1286,16 +1388,17 @@ struct CalendarEventsDetailView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
-                    
+
                     Divider()
                         .background(Color.white.opacity(0.2))
                 }
-                
+
                 // Events list
                 if !calendarResponse.events.isEmpty {
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            ForEach(calendarResponse.events, id: \.id) { event in
+                            ForEach(calendarResponse.events, id: \.id) {
+                                event in
                                 CalendarEventDetailRow(event: event)
                             }
                         }
@@ -1326,7 +1429,7 @@ struct CalendarEventsDetailView: View {
 // MARK: - Calendar Event Detail Row Component
 struct CalendarEventDetailRow: View {
     let event: CalendarEvent
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Title and time
@@ -1337,48 +1440,50 @@ struct CalendarEventDetailRow: View {
                         .fontWeight(.medium)
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
-                    
+
                     HStack(spacing: 8) {
                         Image(systemName: "clock")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.7))
-                        
+
                         if event.isAllDay {
                             Text("All day")
                                 .font(.subheadline)
                                 .foregroundColor(.white.opacity(0.8))
                         } else {
-                            Text("\(formatDateTime(event.startDate)) - \(formatTime(event.endDate))")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
+                            Text(
+                                "\(formatDateTime(event.startDate)) - \(formatTime(event.endDate))"
+                            )
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
                         }
                     }
                 }
-                
+
                 Spacer()
             }
-            
+
             // Location (if available)
             if !event.location.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "location")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
-                    
+
                     Text(event.location)
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.leading)
                 }
             }
-            
+
             // Notes (if available)
             if !event.notes.isEmpty {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "note.text")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
-                    
+
                     Text(event.notes)
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
@@ -1392,58 +1497,58 @@ struct CalendarEventDetailRow: View {
                 .fill(Color.white.opacity(0.1))
         )
     }
-    
+
     private func formatDateTime(_ dateString: String) -> String {
         // Try ISO8601DateFormatter first
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.timeZone = TimeZone.current
-        
+
         if let date = isoFormatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
             displayFormatter.dateFormat = "MMM d, HH:mm"
             displayFormatter.timeZone = TimeZone.current
             return displayFormatter.string(from: date)
         }
-        
+
         // Fallback to manual DateFormatter
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
         formatter.timeZone = TimeZone.current
-        
+
         if let date = formatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
             displayFormatter.dateFormat = "MMM d, HH:mm"
             displayFormatter.timeZone = TimeZone.current
             return displayFormatter.string(from: date)
         }
-        
+
         return dateString
     }
-    
+
     private func formatTime(_ dateString: String) -> String {
         // Try ISO8601DateFormatter first
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.timeZone = TimeZone.current
-        
+
         if let date = isoFormatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
             displayFormatter.dateFormat = "HH:mm"
             displayFormatter.timeZone = TimeZone.current
             return displayFormatter.string(from: date)
         }
-        
+
         // Fallback to manual DateFormatter
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
         formatter.timeZone = TimeZone.current
-        
+
         if let date = formatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
             displayFormatter.dateFormat = "HH:mm"
             displayFormatter.timeZone = TimeZone.current
             return displayFormatter.string(from: date)
         }
-        
+
         return "Time"
     }
 }
