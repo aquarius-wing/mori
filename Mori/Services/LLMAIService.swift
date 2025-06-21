@@ -30,17 +30,19 @@ class LLMAIService: ObservableObject {
 
         ## Tool Usage Instructions:
         1. Analyze the user's request to determine if tools are needed
-        2. When using tools, respond with valid JSON format (no comments):
+        2. When using tools, first say something nicely, then respond with valid JSON format (no comments):
         
         Single tool:
+        ```json
         {
             "tool": "tool-name",
             "arguments": {
                 "param": "value"
             }
         }
-        
+
         Multiple tools:
+        ```json
         [{
             "tool": "tool-name-1",
             "arguments": {
@@ -53,7 +55,7 @@ class LLMAIService: ObservableObject {
                 "param": "value"
             }
         }]
-
+        ```
         ## Response Guidelines:
         - After tool execution, provide natural, conversational responses
         - Focus on the most relevant information from tool results

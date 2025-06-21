@@ -221,89 +221,89 @@ struct CalendarUpdateCardView: View {
 }
 
 // MARK: - Calendar Event Row
-struct CalendarEventRow: View {
-    let event: CalendarEvent
+// struct CalendarEventRow: View {
+//     let event: CalendarEvent
     
-    var body: some View {
-        HStack(spacing: 12) {
-            // Time indicator
-            VStack(spacing: 4) {
-                if event.isAllDay {
-                    Text("All Day")
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white.opacity(0.9))
-                } else {
-                    Text(formatTime(event.startDate))
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white.opacity(0.9))
-                    Text(formatTime(event.endDate))
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-            }
-            .frame(width: 45)
+//     var body: some View {
+//         HStack(spacing: 12) {
+//             // Time indicator
+//             VStack(spacing: 4) {
+//                 if event.isAllDay {
+//                     Text("All Day")
+//                         .font(.caption2)
+//                         .fontWeight(.medium)
+//                         .foregroundColor(.white.opacity(0.9))
+//                 } else {
+//                     Text(formatTime(event.startDate))
+//                         .font(.caption2)
+//                         .fontWeight(.medium)
+//                         .foregroundColor(.white.opacity(0.9))
+//                     Text(formatTime(event.endDate))
+//                         .font(.caption2)
+//                         .foregroundColor(.white.opacity(0.7))
+//                 }
+//             }
+//             .frame(width: 45)
             
-            // Event details
-            VStack(alignment: .leading, spacing: 2) {
-                Text(event.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+//             // Event details
+//             VStack(alignment: .leading, spacing: 2) {
+//                 Text(event.title)
+//                     .font(.subheadline)
+//                     .fontWeight(.medium)
+//                     .foregroundColor(.white)
+//                     .lineLimit(1)
                 
-                if !event.location.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: "location")
-                            .font(.caption2)
-                        Text(event.location)
-                            .font(.caption)
-                            .lineLimit(1)
-                    }
-                    .foregroundColor(.white.opacity(0.8))
-                }
-            }
+//                 if !event.location.isEmpty {
+//                     HStack(spacing: 4) {
+//                         Image(systemName: "location")
+//                             .font(.caption2)
+//                         Text(event.location)
+//                             .font(.caption)
+//                             .lineLimit(1)
+//                     }
+//                     .foregroundColor(.white.opacity(0.8))
+//                 }
+//             }
             
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.15))
-        )
-    }
+//             Spacer()
+//         }
+//         .padding(.horizontal, 16)
+//         .padding(.vertical, 12)
+//         .background(
+//             RoundedRectangle(cornerRadius: 12)
+//                 .fill(Color.white.opacity(0.15))
+//         )
+//     }
     
-    private func formatTime(_ dateString: String) -> String {
-        // Try ISO8601DateFormatter first (which is what CalendarMCP uses)
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.timeZone = TimeZone.current // Use current timezone to match CalendarMCP output
+//     private func formatTime(_ dateString: String) -> String {
+//         // Try ISO8601DateFormatter first (which is what CalendarMCP uses)
+//         let isoFormatter = ISO8601DateFormatter()
+//         isoFormatter.timeZone = TimeZone.current // Use current timezone to match CalendarMCP output
         
-        if let date = isoFormatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "HH:mm"
-            displayFormatter.timeZone = TimeZone.current
-            return displayFormatter.string(from: date)
-        }
+//         if let date = isoFormatter.date(from: dateString) {
+//             let displayFormatter = DateFormatter()
+//             displayFormatter.dateFormat = "HH:mm"
+//             displayFormatter.timeZone = TimeZone.current
+//             return displayFormatter.string(from: date)
+//         }
         
-        // Fallback to manual DateFormatter if ISO8601 fails
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX" // Support different timezone formats
-        formatter.timeZone = TimeZone.current
+//         // Fallback to manual DateFormatter if ISO8601 fails
+//         let formatter = DateFormatter()
+//         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX" // Support different timezone formats
+//         formatter.timeZone = TimeZone.current
         
-        if let date = formatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "HH:mm"
-            displayFormatter.timeZone = TimeZone.current
-            return displayFormatter.string(from: date)
-        }
+//         if let date = formatter.date(from: dateString) {
+//             let displayFormatter = DateFormatter()
+//             displayFormatter.dateFormat = "HH:mm"
+//             displayFormatter.timeZone = TimeZone.current
+//             return displayFormatter.string(from: date)
+//         }
         
-        // Debug: print the actual string format to help troubleshoot
-        print("⚠️ Failed to parse date: \(dateString)")
-        return "Time"
-    }
-}
+//         // Debug: print the actual string format to help troubleshoot
+//         print("⚠️ Failed to parse date: \(dateString)")
+//         return "Time"
+//     }
+// }
 
 // MARK: - Workflow View
 struct WorkflowView: View {
