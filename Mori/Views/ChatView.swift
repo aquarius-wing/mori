@@ -35,9 +35,13 @@ struct ChatView: View {
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isTextFieldFocused: Bool
 
+    // Navigation callbacks
+    var onShowMenu: (() -> Void)?
+
     // MARK: - Initializer
-    init(initialMessages: [any MessageListItem] = []) {
+    init(initialMessages: [any MessageListItem] = [], onShowMenu: (() -> Void)? = nil) {
         self._messageList = State(initialValue: initialMessages)
+        self.onShowMenu = onShowMenu
     }
 
     var body: some View {
@@ -175,15 +179,27 @@ struct ChatView: View {
                     }
                 }
             }
-                    .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Mori")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    onShowMenu?()
+                }) {
+                    Image(systemName: "sidebar.left")
+                        .font(.body)
+                        .foregroundColor(.white)
+                }
+                .disabled(isStreaming || isSending)
+            }
+            
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     createNewChat()
                 }) {
                     Image(systemName: "message")
-                        .font(.title2)
-                        .foregroundColor(.blue)
+                        .font(.body)
+                        .foregroundColor(.white)
                 }
                 .disabled(isStreaming || isSending)
             }

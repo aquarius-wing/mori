@@ -173,7 +173,7 @@ struct MenuView: View {
                 .background(Color.secondary.opacity(0.05))
             }
         }
-        .frame(width: 280)
+        .frame(maxWidth: .infinity)
         .background(Color(UIColor.systemBackground))
         .alert("Rename Chat", isPresented: $showingRenameAlert) {
             TextField("Chat Title", text: $renameText)
