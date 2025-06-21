@@ -41,8 +41,20 @@ struct ChatView: View {
                         ScrollView {
                             LazyVStack(spacing: 16) {
                                 ForEach(chatItems) { item in
-                                    ChatItemView(item: item)
-                                        .id(item.id)
+                                    ChatItemView(
+                                        item: item,
+                                        onCopy: {
+                                            if case .message(let message) = item {
+                                                copyMessage(message.content)
+                                            } else {
+                                                copyLastMessage()
+                                            }
+                                        },
+                                        onLike: likeMessage,
+                                        onDislike: dislikeMessage,
+                                        onRegenerate: regenerateResponse
+                                    )
+                                    .id(item.id)
                                 }
 
                                 if isProcessing {
@@ -54,7 +66,7 @@ struct ChatView: View {
                                                 )
                                             )
                                             .scaleEffect(0.8)
-                                        Text("正在处理...")
+                                        Text("Processing...")
                                             .font(.caption)
                                             .foregroundColor(
                                                 .white.opacity(0.7)
@@ -80,44 +92,8 @@ struct ChatView: View {
                         }
                     }
 
-                    // Input area with action buttons
+                    // Input area
                     VStack(spacing: 0) {
-                        // Action buttons
-                        if !chatItems.isEmpty {
-                            HStack(spacing: 20) {
-                                Button(action: copyLastMessage) {
-                                    Image(systemName: "doc.on.doc")
-                                        .font(.title3)
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
-
-                                Button(action: likeMessage) {
-                                    Image(systemName: "hand.thumbsup")
-                                        .font(.title3)
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
-
-                                Button(action: dislikeMessage) {
-                                    Image(systemName: "hand.thumbsdown")
-                                        .font(.title3)
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
-
-                                Button(action: regenerateResponse) {
-                                    Image(systemName: "arrow.clockwise")
-                                        .font(.title3)
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
-
-                                Spacer()
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .onTapGesture {
-                                // Dismiss keyboard when tapping on action buttons area
-                                isTextFieldFocused = false
-                            }
-                        }
 
                         // Input field
                         VStack(spacing: 16) {
@@ -164,7 +140,7 @@ struct ChatView: View {
                         )
                         .padding(.horizontal, 20)
                         .padding(.top, 20)
-                        .padding(.bottom, 12)  //max(keyboardHeight > 0 ? 16 : 40, geometry.safeAreaInsets.bottom + 16))
+                        .padding(.bottom, 12)
                         .background(
                             UnevenRoundedRectangle(
                                 topLeadingRadius: 20,
@@ -180,7 +156,6 @@ struct ChatView: View {
                 }
 
             }
-            .navigationTitle("聊天")
             .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
             .onTapGesture {
@@ -232,8 +207,12 @@ struct ChatView: View {
         }
     }
 
+    private func copyMessage(_ content: String) {
+        UIPasteboard.general.string = content
+    }
+    
     private func copyLastMessage() {
-        // Implement copy functionality
+        // Implement copy functionality - this is for backward compatibility
     }
 
     private func likeMessage() {
@@ -251,11 +230,21 @@ struct ChatView: View {
 
 struct ChatItemView: View {
     let item: ChatItem
+    let onCopy: () -> Void
+    let onLike: () -> Void
+    let onDislike: () -> Void
+    let onRegenerate: () -> Void
 
     var body: some View {
         switch item {
         case .message(let chatMessage):
-            MessageItemView(message: chatMessage)
+            MessageItemView(
+                message: chatMessage,
+                onCopy: onCopy,
+                onLike: onLike,
+                onDislike: onDislike,
+                onRegenerate: onRegenerate
+            )
         case .workflowStep(let workflowStep):
             WorkflowStepItemView(step: workflowStep)
         }
@@ -264,6 +253,10 @@ struct ChatItemView: View {
 
 struct MessageItemView: View {
     let message: ChatMessage
+    let onCopy: () -> Void
+    let onLike: () -> Void
+    let onDislike: () -> Void
+    let onRegenerate: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -299,6 +292,35 @@ struct MessageItemView: View {
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
                         .foregroundColor(.white.opacity(0.5))
+                    
+                    // Action buttons row
+                    HStack(spacing: 16) {
+                        Button(action: onCopy) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        
+                        Button(action: onLike) {
+                            Image(systemName: "hand.thumbsup")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        
+                        Button(action: onDislike) {
+                            Image(systemName: "hand.thumbsdown")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        
+                        Button(action: onRegenerate) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        
+                        Spacer()
+                    }
                 }
                 .frame(
                     maxWidth: UIScreen.main.bounds.width * 0.85,
