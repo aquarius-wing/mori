@@ -14,6 +14,11 @@ struct ChatView: View {
     @State private var errorMessage = ""
     @State private var showingErrorDetail = false
     @State private var errorDetail = ""
+    
+    // Chat History Management
+    private let chatHistoryManager = ChatHistoryManager()
+    @State private var currentChatId: String?
+    @AppStorage("currentChatHistoryId") private var savedChatHistoryId: String?
 
     // Legacy ChatItem support for UI compatibility
     private var chatItems: [ChatItem] {
@@ -212,6 +217,32 @@ struct ChatView: View {
         }
         .onAppear {
             setupLLMService()
+            loadCurrentChatHistory()
+            
+            // Listen for load chat history notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("LoadChatHistory"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let chatHistory = notification.object as? ChatHistory {
+                    loadChatHistory(chatHistory)
+                }
+            }
+            
+            // Listen for clear chat notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ClearChat"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                clearChat()
+            }
+        }
+        .onDisappear {
+            // Remove notification observers
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("LoadChatHistory"), object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearChat"), object: nil)
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") {}
@@ -245,6 +276,13 @@ struct ChatView: View {
         // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
         messageList.append(userMessage)
+        
+        // Ensure we have a chat ID for this session
+        if currentChatId == nil {
+            currentChatId = chatHistoryManager.createNewChat()
+            savedChatHistoryId = currentChatId
+            print("🆕 Created new chat for user message with ID: \(currentChatId ?? "unknown")")
+        }
 
         Task {
             do {
@@ -452,6 +490,9 @@ struct ChatView: View {
                 print(
                     "🏁 Workflow completed. Final messageList count: \(messageList.count)"
                 )
+                
+                // Auto-save current chat history
+                saveCurrentChatHistory()
             }
         } catch {
             await MainActor.run {
@@ -506,14 +547,79 @@ struct ChatView: View {
         print("🔄 Regenerating response")
     }
     
+    // MARK: - Chat History Management Methods
+    
+    private func loadCurrentChatHistory() {
+        guard let historyId = savedChatHistoryId else {
+            print("🆕 No saved chat history ID - starting fresh")
+            return
+        }
+        
+        if let loadedMessages = chatHistoryManager.loadChat(id: historyId) {
+            currentChatId = historyId
+            messageList = loadedMessages
+            print("📚 Loaded chat history with ID: \(historyId)")
+        } else {
+            print("⚠️ Chat history not found for ID: \(historyId)")
+            savedChatHistoryId = nil
+        }
+    }
+    
+    private func saveCurrentChatHistory() {
+        // Create new chat if needed
+        if currentChatId == nil && !messageList.isEmpty {
+            currentChatId = chatHistoryManager.createNewChat()
+        }
+        
+        // Save if we have messages
+        if !messageList.isEmpty {
+            let savedId = chatHistoryManager.saveCurrentChat(messageList, existingId: currentChatId)
+            currentChatId = savedId
+            savedChatHistoryId = savedId
+            print("💾 Saved chat history with ID: \(savedId)")
+        }
+    }
+    
+    private func loadChatHistory(_ chatHistory: ChatHistory) {
+        // Save current chat if it has messages
+        if !messageList.isEmpty {
+            saveCurrentChatHistory()
+        }
+        
+        // Load new chat
+        currentChatId = chatHistory.id
+        savedChatHistoryId = chatHistory.id
+        messageList = chatHistory.messageList.map { $0.messageListItem }
+        
+        print("📚 Loaded chat history: \(chatHistory.title)")
+    }
+    
+    private func clearChat() {
+        messageList.removeAll()
+        currentStatus = "Ready"
+        statusType = .finalStatus
+        inputText = ""
+        
+        print("🧹 Cleared current chat")
+    }
+    
     private func createNewChat() {
+        // Save current chat if it has messages
+        if !messageList.isEmpty {
+            saveCurrentChatHistory()
+        }
+        
+        // Create new chat
+        currentChatId = chatHistoryManager.createNewChat()
+        savedChatHistoryId = currentChatId
+        
         // Clear current chat
         messageList.removeAll()
         currentStatus = "Ready"
         statusType = .finalStatus
         inputText = ""
         
-        print("🆕 Created new chat - cleared all messages")
+        print("🆕 Created new chat with ID: \(currentChatId ?? "unknown")")
     }
 }
 

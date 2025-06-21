@@ -1,41 +1,38 @@
 import SwiftUI
 
-// MARK: - Chat History Manager
-class ChatHistoryManager: ObservableObject {
+// MARK: - Menu Chat History Manager
+class MenuChatHistoryManager: ObservableObject {
     @Published var chatHistories: [ChatHistory] = []
     @AppStorage("currentChatHistoryId") var currentChatHistoryId: String?
+    private let chatHistoryManager = ChatHistoryManager()
     
     init() {
         loadChatHistories()
     }
     
     func loadChatHistories() {
-        chatHistories = ChatView2.loadAllChatHistories()
+        chatHistories = chatHistoryManager.getAllChatHistories()
     }
     
     func deleteChatHistory(_ historyId: String) {
-        if let history = chatHistories.first(where: { $0.id == historyId }) {
-            ChatView2.deleteChatHistory(history)
-            loadChatHistories()
-            
-            // If the deleted chat is current, clear current ID
-            if currentChatHistoryId == historyId {
-                currentChatHistoryId = nil
-            }
+        chatHistoryManager.deleteChat(id: historyId)
+        loadChatHistories()
+        
+        // If the deleted chat is current, clear current ID
+        if currentChatHistoryId == historyId {
+            currentChatHistoryId = nil
         }
     }
     
     func renameChatHistory(_ historyId: String, to newTitle: String) {
-        if let history = chatHistories.first(where: { $0.id == historyId }) {
-            ChatView2.renameChatHistory(history, newTitle: newTitle)
-            loadChatHistories()
-        }
+        chatHistoryManager.renameChat(id: historyId, newTitle: newTitle)
+        loadChatHistories()
     }
 }
 
 struct MenuView: View {
     @EnvironmentObject var router: AppRouter
-    @StateObject private var chatHistoryManager = ChatHistoryManager()
+    @StateObject private var menuChatHistoryManager = MenuChatHistoryManager()
     @Binding var isPresented: Bool
     @State private var showingRenameAlert = false
     @State private var selectedHistoryId: String?
@@ -76,12 +73,12 @@ struct MenuView: View {
             // Chat History List
             ScrollView {
                 LazyVStack(spacing: 2) {
-                    ForEach(chatHistoryManager.chatHistories) { history in
+                    ForEach(menuChatHistoryManager.chatHistories) { history in
                         ChatHistoryItemView(
                             history: history,
-                            isSelected: chatHistoryManager.currentChatHistoryId == history.id,
+                            isSelected: menuChatHistoryManager.currentChatHistoryId == history.id,
                             onSelect: {
-                                chatHistoryManager.currentChatHistoryId = history.id
+                                menuChatHistoryManager.currentChatHistoryId = history.id
                                 onSelectChatHistory?(history)
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     isPresented = false
@@ -93,7 +90,7 @@ struct MenuView: View {
                                 showingRenameAlert = true
                             },
                             onDelete: {
-                                chatHistoryManager.deleteChatHistory(history.id)
+                                menuChatHistoryManager.deleteChatHistory(history.id)
                             }
                         )
                     }
@@ -180,7 +177,7 @@ struct MenuView: View {
             Button("Cancel", role: .cancel) { }
             Button("Rename") {
                 if let historyId = selectedHistoryId {
-                    chatHistoryManager.renameChatHistory(historyId, to: renameText)
+                    menuChatHistoryManager.renameChatHistory(historyId, to: renameText)
                 }
             }
         }
