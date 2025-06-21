@@ -37,12 +37,12 @@ struct WorkflowStepItemView: View {
                     .frame(width: 24, height: 24)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Founded \(calendarResponse.count) events in Calendar")
+                    Text("Found \(calendarResponse.count) events in Calendar")
                         .font(.body)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
 
-                    Text("Tap for details")
+                    Text("Tap to view details and time range")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
                 }

@@ -103,6 +103,12 @@ struct CalendarEventsDetailView: View {
                             Text("Found \(calendarResponse.count) events")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
+                            
+                            // Add date range display
+                            Text(formatDateRange())
+                                .font(.caption2)
+                                .foregroundColor(.blue.opacity(0.8))
+                                .padding(.top, 2)
                         }
 
                         Spacer()
@@ -149,6 +155,78 @@ struct CalendarEventsDetailView: View {
             .preferredColorScheme(.dark)
             .navigationBarHidden(true)
         }
+    }
+    
+    // Add helper function to format date range
+    private func formatDateRange() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+        formatter.timeZone = TimeZone.current
+        
+        // Try to parse start date
+        let startDate: Date?
+        let endDate: Date?
+        
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.timeZone = TimeZone.current
+        
+        // Try ISO format first, then fallback to manual format
+        if let date = isoFormatter.date(from: calendarResponse.dateRange.startDate) {
+            startDate = date
+        } else {
+            startDate = formatter.date(from: calendarResponse.dateRange.startDate)
+        }
+        
+        if let date = isoFormatter.date(from: calendarResponse.dateRange.endDate) {
+            endDate = date
+        } else {
+            endDate = formatter.date(from: calendarResponse.dateRange.endDate)
+        }
+        
+        let displayFormatter = DateFormatter()
+        displayFormatter.timeZone = TimeZone.current
+        
+        if let start = startDate, let end = endDate {
+            // Check if it's the same day
+            let calendar = Calendar.current
+            if calendar.isDate(start, inSameDayAs: end) {
+                displayFormatter.dateFormat = "MMM d, yyyy"
+                let dateStr = displayFormatter.string(from: start)
+                
+                // Add time range if not a full day
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "HH:mm"
+                timeFormatter.timeZone = TimeZone.current
+                
+                let startTime = timeFormatter.string(from: start)
+                let endTime = timeFormatter.string(from: end)
+                
+                // Check if it's likely a full day (00:00-23:59 or similar)
+                if startTime == "00:00" && (endTime == "23:59" || endTime == "00:00") {
+                    return dateStr
+                } else {
+                    return "\(dateStr) \(startTime)-\(endTime)"
+                }
+            } else {
+                displayFormatter.dateFormat = "MMM d"
+                let startStr = displayFormatter.string(from: start)
+                let endStr = displayFormatter.string(from: end)
+                
+                // Add year if different
+                let yearFormatter = DateFormatter()
+                yearFormatter.dateFormat = "yyyy"
+                let startYear = yearFormatter.string(from: start)
+                let endYear = yearFormatter.string(from: end)
+                
+                if startYear == endYear {
+                    return "\(startStr) - \(endStr), \(startYear)"
+                } else {
+                    return "\(startStr), \(startYear) - \(endStr), \(endYear)"
+                }
+            }
+        }
+        
+        return "Date range: \(calendarResponse.dateRange.startDate) - \(calendarResponse.dateRange.endDate)"
     }
 }
 

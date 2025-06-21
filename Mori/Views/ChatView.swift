@@ -14,6 +14,8 @@ struct ChatView: View {
     @State private var errorMessage = ""
     @State private var showingErrorDetail = false
     @State private var errorDetail = ""
+    @State private var showingFilesView = false
+    @State private var debugActionSheet = false
 
     // Chat History Management
     private let chatHistoryManager = ChatHistoryManager()
@@ -210,6 +212,15 @@ struct ChatView: View {
                     .disabled(isStreaming || isSending)
                 }
 
+#if DEBUG
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Debug") {
+                        debugActionSheet = true
+                    }
+                    .disabled(isStreaming || isSending)
+                }
+#endif
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         createNewChat()
@@ -268,9 +279,69 @@ struct ChatView: View {
         .sheet(isPresented: $showingErrorDetail) {
             ErrorDetailView(errorDetail: errorDetail)
         }
+        .sheet(isPresented: $showingFilesView) {
+            FilesView()
+        }
+        .confirmationDialog("Debug Options", isPresented: $debugActionSheet) {
+            Button("Print Messages in View") {
+                printMessagesInView()
+            }
+            
+            Button("Print Request Body") {
+                printRequestBody()
+            }
+            
+            Button("View Recording Files") {
+                showingFilesView = true
+            }
+            
+            Button("Cancel", role: .cancel) { }
+        }
     }
 
     // MARK: - Private Methods
+
+    private func printMessagesInView() {
+        let chatMessages = messageList
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            
+            let jsonData = try encoder.encode(chatMessages)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("📋 ChatMessages in View JSON:")
+                print(jsonString)
+            }
+        } catch {
+            print("❌ Failed to serialize messages to JSON: \(error)")
+        }
+    }
+    
+    private func printRequestBody() {
+        guard let service = llmService else {
+            print("❌ LLM service not available")
+            return
+        }
+        
+        let chatMessages = messageList.compactMap { 
+            if case .chatMessage(let message) = $0 {
+                return message
+            }
+            return nil
+        }
+        let requestBody = service.generateRequestBodyJSON(from: chatMessages)
+        
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("📤 Request Body JSON:")
+                print(jsonString)
+            }
+        } catch {
+            print("❌ Failed to serialize request body to JSON: \(error)")
+        }
+    }
 
     private func setupLLMService() {
         // Simple initialization - no configuration needed
