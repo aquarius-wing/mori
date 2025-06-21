@@ -19,7 +19,7 @@ class ChatHistoryManager: ObservableObject {
     // MARK: - Public Methods
     
     /// Save current chat and return the chat ID
-    func saveCurrentChat(_ messages: [any MessageListItem], existingId: String? = nil) -> String {
+    func saveCurrentChat(_ messages: [MessageListItemType], existingId: String? = nil) -> String {
         let chatHistory: ChatHistory
         
         if let id = existingId {
@@ -44,11 +44,11 @@ class ChatHistoryManager: ObservableObject {
     }
     
     /// Load chat messages by ID
-    func loadChat(id: String) -> [any MessageListItem]? {
+    func loadChat(id: String) -> [MessageListItemType]? {
         guard let chatHistory = loadChatHistory(id: id) else {
             return nil
         }
-        return chatHistory.messageList.map { $0.messageListItem }
+        return chatHistory.messageList
     }
     
     /// Get all chat histories sorted by update date

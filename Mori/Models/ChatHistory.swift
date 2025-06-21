@@ -23,14 +23,7 @@ enum MessageListItemType: Codable, Identifiable {
         }
     }
     
-    var messageListItem: any MessageListItem {
-        switch self {
-        case .chatMessage(let message):
-            return message
-        case .workflowStep(let step):
-            return step
-        }
-    }
+    // MessageListItemType now directly represents the message items
     
     // Codable support
     enum CodingKeys: String, CodingKey {
@@ -77,35 +70,19 @@ struct ChatHistory: Codable, Identifiable {
     let createDate: Date
     var updateDate: Date
     
-    init(title: String? = nil, messageList: [any MessageListItem] = []) {
+    init(title: String? = nil, messageList: [MessageListItemType] = []) {
         self.id = UUID().uuidString
         self.title = title ?? "New Chat at \(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short))"
-        self.messageList = messageList.map { item in
-            if let chatMessage = item as? ChatMessage {
-                return .chatMessage(chatMessage)
-            } else if let workflowStep = item as? WorkflowStep {
-                return .workflowStep(workflowStep)
-            } else {
-                fatalError("Unsupported MessageListItem type")
-            }
-        }
+        self.messageList = messageList
         self.createDate = Date()
         self.updateDate = Date()
     }
     
     // Additional initializer to preserve existing ID and creation date
-    init(id: String, title: String, messageList: [any MessageListItem], createDate: Date) {
+    init(id: String, title: String, messageList: [MessageListItemType], createDate: Date) {
         self.id = id
         self.title = title
-        self.messageList = messageList.map { item in
-            if let chatMessage = item as? ChatMessage {
-                return .chatMessage(chatMessage)
-            } else if let workflowStep = item as? WorkflowStep {
-                return .workflowStep(workflowStep)
-            } else {
-                fatalError("Unsupported MessageListItem type")
-            }
-        }
+        self.messageList = messageList
         self.createDate = createDate
         self.updateDate = Date()
     }

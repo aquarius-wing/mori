@@ -5,7 +5,7 @@ import SwiftUI
 struct ChatView: View {
     // LLM Service and chat management
     @State private var llmService: LLMAIService?
-    @State private var messageList: [any MessageListItem]
+    @State private var messageList: [MessageListItemType]
     @State private var currentStatus = "Ready"
     @State private var statusType: WorkflowStepStatus = .finalStatus
     @State private var isStreaming = false
@@ -23,15 +23,11 @@ struct ChatView: View {
     // Legacy ChatItem support for UI compatibility
     private var chatItems: [ChatItem] {
         return messageList.map { item in
-            if let chatMessage = item as? ChatMessage {
+            switch item {
+            case .chatMessage(let chatMessage):
                 return .message(chatMessage)
-            } else if let workflowStep = item as? WorkflowStep {
+            case .workflowStep(let workflowStep):
                 return .workflowStep(workflowStep)
-            } else {
-                // Fallback - should not happen
-                return .message(
-                    ChatMessage(content: "Unknown item type", isUser: false)
-                )
             }
         }
     }
@@ -44,7 +40,7 @@ struct ChatView: View {
     var onShowMenu: (() -> Void)?
 
     // MARK: - Initializer
-    init(initialMessages: [any MessageListItem] = [], onShowMenu: (() -> Void)? = nil) {
+    init(initialMessages: [MessageListItemType] = [], onShowMenu: (() -> Void)? = nil) {
         self._messageList = State(initialValue: initialMessages)
         self.onShowMenu = onShowMenu
     }
@@ -275,7 +271,7 @@ struct ChatView: View {
 
         // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
-        messageList.append(userMessage)
+        messageList.append(.chatMessage(userMessage))
         
         // Ensure we have a chat ID for this session
         if currentChatId == nil {
@@ -304,7 +300,7 @@ struct ChatView: View {
                         status: .error,
                         toolName: "Send failed: \(error.localizedDescription)"
                     )
-                    messageList.append(errorStep)
+                    messageList.append(.workflowStep(errorStep))
                     updateStatus(
                         "Error: \(error.localizedDescription)",
                         type: .error
@@ -345,7 +341,7 @@ struct ChatView: View {
                                 "tool_name": content, "arguments": "Pending...",
                             ]
                         )
-                        messageList.append(toolCallStep)
+                        messageList.append(.workflowStep(toolCallStep))
                         updateStatus(
                             "⏰ Scheduling tool: \(content)",
                             type: .scheduled
@@ -353,11 +349,12 @@ struct ChatView: View {
                     case "tool_arguments":
                         // Update the most recent scheduled step with arguments
                         if let lastIndex = messageList.lastIndex(where: {
-                            ($0 as? WorkflowStep)?.status == .scheduled
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .scheduled
+                            }
+                            return false
                         }) {
-                            if let step = messageList[lastIndex]
-                                as? WorkflowStep
-                            {
+                            if case .workflowStep(let step) = messageList[lastIndex] {
                                 let updatedStep = WorkflowStep(
                                     status: .scheduled,
                                     toolName: step.toolName,
@@ -366,23 +363,24 @@ struct ChatView: View {
                                             ?? "", "arguments": content,
                                     ]
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(updatedStep)
                             }
                         }
                     case "tool_execution":
                         // Update the most recent scheduled step to executing
                         if let lastIndex = messageList.lastIndex(where: {
-                            ($0 as? WorkflowStep)?.status == .scheduled
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .scheduled
+                            }
+                            return false
                         }) {
-                            if let step = messageList[lastIndex]
-                                as? WorkflowStep
-                            {
+                            if case .workflowStep(let step) = messageList[lastIndex] {
                                 let updatedStep = WorkflowStep(
                                     status: .executing,
                                     toolName: step.toolName,
                                     details: step.details
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(updatedStep)
                             }
                         }
                         updateStatus(
@@ -392,23 +390,24 @@ struct ChatView: View {
                     case "tool_results":
                         // Update the most recent executing step to result
                         if let lastIndex = messageList.lastIndex(where: {
-                            ($0 as? WorkflowStep)?.status == .executing
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .executing
+                            }
+                            return false
                         }) {
-                            if let step = messageList[lastIndex]
-                                as? WorkflowStep
-                            {
+                            if case .workflowStep(let step) = messageList[lastIndex] {
                                 let updatedStep = WorkflowStep(
                                     status: .result,
                                     toolName: step.toolName,
                                     details: ["result": content]
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(updatedStep)
                             }
                         }
                         updateStatus("📊 Processing results...", type: .result)
                     case "response":
                         // If last message is ChatMessage, append content to it; otherwise create new ChatMessage
-                        if let lastMessage = messageList.last as? ChatMessage,
+                        if case .chatMessage(let lastMessage) = messageList.last,
                             !lastMessage.isUser
                         {
                             // Append content to existing assistant message
@@ -419,7 +418,7 @@ struct ChatView: View {
                                 timestamp: lastMessage.timestamp,
                                 isSystem: lastMessage.isSystem
                             )
-                            messageList[lastIndex] = updatedMessage
+                            messageList[lastIndex] = .chatMessage(updatedMessage)
                         } else {
                             // Create new assistant message
                             let newMessage = ChatMessage(
@@ -427,28 +426,29 @@ struct ChatView: View {
                                 isUser: false,
                                 timestamp: Date()
                             )
-                            messageList.append(newMessage)
+                            messageList.append(.chatMessage(newMessage))
                         }
                     case "error":
                         let errorStep = WorkflowStep(
                             status: .error,
                             toolName: content
                         )
-                        messageList.append(errorStep)
+                        messageList.append(.workflowStep(errorStep))
                         updateStatus("❌ Error: \(content)", type: .error)
                         // Save error detail for sheet display
                         errorDetail = content
                     case "replace_response":
                         // Replace the last ChatMessage in messageList
                         if let lastIndex = messageList.lastIndex(where: {
-                            $0 is ChatMessage
+                            if case .chatMessage(_) = $0 { return true }
+                            return false
                         }) {
                             let replacementMessage = ChatMessage(
                                 content: content,
                                 isUser: false,
                                 timestamp: Date()
                             )
-                            messageList[lastIndex] = replacementMessage
+                            messageList[lastIndex] = .chatMessage(replacementMessage)
                             print(
                                 "✅ Replaced assistant message: \(String(content.prefix(50)))..."
                             )
@@ -459,7 +459,7 @@ struct ChatView: View {
                                 isUser: false,
                                 timestamp: Date()
                             )
-                            messageList.append(assistantMessage)
+                            messageList.append(.chatMessage(assistantMessage))
                             print(
                                 "✅ Added assistant message: \(String(content.prefix(50)))..."
                             )
@@ -480,7 +480,7 @@ struct ChatView: View {
                     status: .finalStatus,
                     toolName: finalStatusMessage
                 )
-                messageList.append(finalStep)
+                messageList.append(.workflowStep(finalStep))
 
                 updateStatus("✅ \(finalStatusMessage)", type: .finalStatus)
 
@@ -500,7 +500,7 @@ struct ChatView: View {
                     status: .error,
                     toolName: "Error: \(error.localizedDescription)"
                 )
-                messageList.append(errorStep)
+                messageList.append(.workflowStep(errorStep))
                 updateStatus(
                     "❌ Error: \(error.localizedDescription)",
                     type: .error
@@ -525,10 +525,11 @@ struct ChatView: View {
 
     private func copyLastMessage() {
         // Find the last assistant message and copy it
-        if let lastMessage = messageList.compactMap({ $0 as? ChatMessage })
-            .last(where: { !$0.isUser })
-        {
-            copyMessage(lastMessage.content)
+        for item in messageList.reversed() {
+            if case .chatMessage(let message) = item, !message.isUser {
+                copyMessage(message.content)
+                break
+            }
         }
     }
 
@@ -589,7 +590,7 @@ struct ChatView: View {
         // Load new chat
         currentChatId = chatHistory.id
         savedChatHistoryId = chatHistory.id
-        messageList = chatHistory.messageList.map { $0.messageListItem }
+        messageList = chatHistory.messageList
         
         print("📚 Loaded chat history: \(chatHistory.title)")
     }
@@ -1171,17 +1172,17 @@ struct ErrorDetailView: View {
 #Preview("Chat with Sample Data") {
     ChatView(initialMessages: [
         // User asks about calendar
-        ChatMessage(content: "What's on my calendar today?", isUser: true),
+        .chatMessage(ChatMessage(content: "What's on my calendar today?", isUser: true)),
         
         // Calendar workflow
-        WorkflowStep(status: .scheduled, toolName: "read-calendar", details: [
+        .workflowStep(WorkflowStep(status: .scheduled, toolName: "read-calendar", details: [
             "tool_name": "read-calendar", 
             "arguments": "Searching today's events..."
-        ]),
-        WorkflowStep(status: .executing, toolName: "read-calendar", details: [
+        ])),
+        .workflowStep(WorkflowStep(status: .executing, toolName: "read-calendar", details: [
             "tool_name": "read-calendar"
-        ]),
-        WorkflowStep(status: .result, toolName: "read-calendar", details: [
+        ])),
+        .workflowStep(WorkflowStep(status: .result, toolName: "read-calendar", details: [
             "result": """
             {
                 "success": true,
@@ -1212,16 +1213,16 @@ struct ErrorDetailView: View {
                 ]
             }
             """
-        ]),
+        ])),
         
         // AI response
-        ChatMessage(content: "I found 2 events on your calendar today:\n\n• **Team Meeting** at 10:00 AM\n  📍 Conference Room A\n  Weekly sync meeting\n\n• **Project Review** at 3:00 PM\n  📍 Online\n  Q1 progress review\n\nWould you like me to help with anything else?", isUser: false),
+        .chatMessage(ChatMessage(content: "I found 2 events on your calendar today:\n\n• **Team Meeting** at 10:00 AM\n  📍 Conference Room A\n  Weekly sync meeting\n\n• **Project Review** at 3:00 PM\n  📍 Online\n  Q1 progress review\n\nWould you like me to help with anything else?", isUser: false)),
         
         // User asks to add reminder
-        ChatMessage(content: "Add a 15-minute reminder for the team meeting", isUser: true),
+        .chatMessage(ChatMessage(content: "Add a 15-minute reminder for the team meeting", isUser: true)),
         
         // Update calendar workflow
-        WorkflowStep(status: .result, toolName: "update-calendar", details: [
+        .workflowStep(WorkflowStep(status: .result, toolName: "update-calendar", details: [
             "result": """
             {
                 "success": true,
@@ -1232,17 +1233,17 @@ struct ErrorDetailView: View {
                 }
             }
             """
-        ]),
+        ])),
         
-        ChatMessage(content: "✅ Perfect! I've added a 15-minute reminder for your Team Meeting. You'll be notified at 9:45 AM.", isUser: false),
+        .chatMessage(ChatMessage(content: "✅ Perfect! I've added a 15-minute reminder for your Team Meeting. You'll be notified at 9:45 AM.", isUser: false)),
         
         // Error example
-        ChatMessage(content: "What's the weather like?", isUser: true),
-        WorkflowStep(status: .error, toolName: "Weather API Error: Service temporarily unavailable"),
-        ChatMessage(content: "I'm sorry, but I can't get the weather information right now. The weather service is temporarily unavailable. Please try again later.", isUser: false),
+        .chatMessage(ChatMessage(content: "What's the weather like?", isUser: true)),
+        .workflowStep(WorkflowStep(status: .error, toolName: "Weather API Error: Service temporarily unavailable")),
+        .chatMessage(ChatMessage(content: "I'm sorry, but I can't get the weather information right now. The weather service is temporarily unavailable. Please try again later.", isUser: false)),
         
         // Final status
-        WorkflowStep(status: .finalStatus, toolName: "Completed. Processed 2 tool calls.")
+        .workflowStep(WorkflowStep(status: .finalStatus, toolName: "Completed. Processed 2 tool calls."))
     ])
     .preferredColorScheme(.dark)
 }

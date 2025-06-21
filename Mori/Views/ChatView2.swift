@@ -27,7 +27,7 @@ struct ChatView2: View {
     
     @State private var llmService: LLMAIService?
     
-    @State private var messageList: [any MessageListItem] = []
+    @State private var messageList: [MessageListItemType] = []
     @State private var currentStatus = "Ready"
     @State private var statusType: WorkflowStepStatus = .finalStatus
     @State private var isStreaming = false
@@ -58,10 +58,11 @@ struct ChatView2: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(Array(messageList.enumerated()), id: \.element.id) { index, item in
-                            if let chatMessage = item as? ChatMessage {
+                            switch item {
+                            case .chatMessage(let chatMessage):
                                 MessageView(message: chatMessage)
                                     .id(chatMessage.id)
-                            } else if let workflowStep = item as? WorkflowStep {
+                            case .workflowStep(let workflowStep):
                                 WorkflowStepView(step: workflowStep)
                                     .id(workflowStep.id)
                             }
@@ -177,7 +178,12 @@ struct ChatView2: View {
                 .contextMenu {
                     Button(action: {
                         // Print messages in view with all properties using JSONEncoder
-                        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
+                        let chatMessages = messageList.compactMap { 
+                            if case .chatMessage(let message) = $0 {
+                                return message
+                            }
+                            return nil
+                        }
                         do {
                             let encoder = JSONEncoder()
                             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -202,7 +208,12 @@ struct ChatView2: View {
                             return
                         }
                         
-                        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
+                        let chatMessages = messageList.compactMap { 
+                            if case .chatMessage(let message) = $0 {
+                                return message
+                            }
+                            return nil
+                        }
                         let requestBody = service.generateRequestBodyJSON(from: chatMessages)
                         
                         do {
@@ -305,7 +316,7 @@ struct ChatView2: View {
         // Load new chat
         currentChatHistory = chatHistory
         currentChatHistoryId = chatHistory.id
-        messageList = chatHistory.messageList.map { $0.messageListItem }
+        messageList = chatHistory.messageList
         shouldAutoSave = true
         
         print("📚 Loaded chat history: \(chatHistory.title)")
@@ -324,7 +335,7 @@ struct ChatView2: View {
         
         // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
-        messageList.append(userMessage)
+        messageList.append(.chatMessage(userMessage))
         
         // Ensure we have a current chat history
         if currentChatHistory == nil {
@@ -346,7 +357,7 @@ struct ChatView2: View {
             } catch {
                 await MainActor.run {
                     let errorStep = WorkflowStep(status: .error, toolName: "Send failed: \(error.localizedDescription)")
-                    messageList.append(errorStep)
+                    messageList.append(.workflowStep(errorStep))
                     updateStatus("Error: \(error.localizedDescription)", type: .error)
                     isSending = false
                     isStreaming = false
@@ -359,7 +370,12 @@ struct ChatView2: View {
         var toolCallCount = 0
         
         do {
-            let chatMessages = messageList.compactMap { $0 as? ChatMessage }
+            let chatMessages = messageList.compactMap { 
+                if case .chatMessage(let message) = $0 {
+                    return message
+                }
+                return nil
+            }
             let stream = service.sendChatMessageWithTools(conversationHistory: chatMessages)
             
             for try await result in stream {
@@ -375,49 +391,64 @@ struct ChatView2: View {
                             toolName: content,
                             details: ["tool_name": content, "arguments": "Pending..."]
                         )
-                        messageList.append(toolCallStep)
+                        messageList.append(.workflowStep(toolCallStep))
                         updateStatus("⏰ Scheduling tool: \(content)", type: .scheduled)
                     case "tool_arguments":
                         // Update the most recent scheduled step with arguments
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .scheduled }) {
-                            if let step = messageList[lastIndex] as? WorkflowStep {
+                        if let lastIndex = messageList.lastIndex(where: { 
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .scheduled
+                            }
+                            return false
+                        }) {
+                            if case .workflowStep(let step) = messageList[lastIndex] {
                                 let updatedStep = WorkflowStep(
                                     status: .scheduled,
                                     toolName: step.toolName,
                                     details: ["tool_name": step.details["tool_name"] ?? "", "arguments": content]
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(updatedStep)
                             }
                         }
                     case "tool_execution":
                         // Update the most recent scheduled step to executing
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .scheduled }) {
-                            if let step = messageList[lastIndex] as? WorkflowStep {
+                        if let lastIndex = messageList.lastIndex(where: { 
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .scheduled
+                            }
+                            return false
+                        }) {
+                            if case .workflowStep(let step) = messageList[lastIndex] {
                                 let updatedStep = WorkflowStep(
                                     status: .executing,
                                     toolName: step.toolName,
                                     details: step.details
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(updatedStep)
                             }
                         }
                         updateStatus("⚡ Executing: \(content)", type: .executing)
                     case "tool_results":
                         // Update the most recent executing step to result
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .executing }) {
-                            if let step = messageList[lastIndex] as? WorkflowStep {
+                        if let lastIndex = messageList.lastIndex(where: { 
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .executing
+                            }
+                            return false
+                        }) {
+                            if case .workflowStep(let step) = messageList[lastIndex] {
                                 let updatedStep = WorkflowStep(
                                     status: .result,
                                     toolName: step.toolName,
                                     details: ["result": content]
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(updatedStep)
                             }
                         }
                         updateStatus("📊 Processing results...", type: .result)
                     case "response":
                         // If last message is ChatMessage, append content to it; otherwise create new ChatMessage
-                        if let lastMessage = messageList.last as? ChatMessage,
+                        if case .chatMessage(let lastMessage) = messageList.last,
                            !lastMessage.isUser {
                             // Append content to existing assistant message
                             let lastIndex = messageList.count - 1
@@ -427,26 +458,29 @@ struct ChatView2: View {
                                 timestamp: lastMessage.timestamp,
                                 isSystem: lastMessage.isSystem
                             )
-                            messageList[lastIndex] = updatedMessage
+                            messageList[lastIndex] = .chatMessage(updatedMessage)
                         } else {
                             // Create new assistant message
                             let newMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
-                            messageList.append(newMessage)
+                            messageList.append(.chatMessage(newMessage))
                         }
                     case "error":
                         let errorStep = WorkflowStep(status: .error, toolName: content)
-                        messageList.append(errorStep)
+                        messageList.append(.workflowStep(errorStep))
                         updateStatus("❌ Error: \(content)", type: .error)
                     case "replace_response":
                         // Replace the last ChatMessage in messageList
-                        if let lastIndex = messageList.lastIndex(where: { $0 is ChatMessage }) {
+                        if let lastIndex = messageList.lastIndex(where: { 
+                            if case .chatMessage(_) = $0 { return true }
+                            return false
+                        }) {
                             let replacementMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
-                            messageList[lastIndex] = replacementMessage
+                            messageList[lastIndex] = .chatMessage(replacementMessage)
                             print("✅ Replaced assistant message: \(String(content.prefix(50)))...")
                         } else {
                             // If no ChatMessage found, add new one
                             let assistantMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
-                            messageList.append(assistantMessage)
+                            messageList.append(.chatMessage(assistantMessage))
                             print("✅ Added assistant message: \(String(content.prefix(50)))...")
                         }
                     default:
@@ -460,7 +494,7 @@ struct ChatView2: View {
                 let finalStatusMessage = toolCallCount > 0 ? 
                     "Completed. Processed \(toolCallCount) tool call(s)." : "Completed."
                 let finalStep = WorkflowStep(status: .finalStatus, toolName: finalStatusMessage)
-                messageList.append(finalStep)
+                messageList.append(.workflowStep(finalStep))
                 
                 updateStatus("✅ \(finalStatusMessage)", type: .finalStatus)
                 
@@ -477,7 +511,7 @@ struct ChatView2: View {
         } catch {
             await MainActor.run {
                 let errorStep = WorkflowStep(status: .error, toolName: "Error: \(error.localizedDescription)")
-                messageList.append(errorStep)
+                messageList.append(.workflowStep(errorStep))
                 updateStatus("❌ Error: \(error.localizedDescription)", type: .error)
                 isStreaming = false
             }
@@ -651,7 +685,7 @@ struct ChatView2: View {
             decoder.dateDecodingStrategy = .iso8601
             let chatHistory = try decoder.decode(ChatHistory.self, from: data)
             currentChatHistory = chatHistory
-            messageList = chatHistory.messageList.map { $0.messageListItem }
+            messageList = chatHistory.messageList
             shouldAutoSave = true
             print("📚 Loaded chat history: \(chatHistory.title)")
         } catch {
@@ -667,15 +701,7 @@ struct ChatView2: View {
         
         do {
             var updatedChatHistory = chatHistory
-            updatedChatHistory.messageList = messageList.map { item in
-                if let chatMessage = item as? ChatMessage {
-                    return .chatMessage(chatMessage)
-                } else if let workflowStep = item as? WorkflowStep {
-                    return .workflowStep(workflowStep)
-                } else {
-                    fatalError("Unsupported MessageListItem type")
-                }
-            }
+            updatedChatHistory.messageList = messageList
             updatedChatHistory.updateDate = Date()
             
             let encoder = JSONEncoder()

@@ -1,13 +1,6 @@
 import SwiftUI
 
-// Protocol to allow mixed ChatMessage and WorkflowStep in array
-protocol MessageListItem: Identifiable, Codable {
-    var id: UUID { get }
-    var timestamp: Date { get }
-}
-
-extension ChatMessage: MessageListItem {}
-extension WorkflowStep: MessageListItem {}
+// Note: MessageListItem functionality moved to MessageListItemType enum in ChatHistory.swift
 
 struct MainView: View {
     @EnvironmentObject var router: AppRouter
