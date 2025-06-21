@@ -57,27 +57,31 @@ struct ChatView: View {
                         ScrollView {
                             LazyVStack(spacing: 16) {
                                 ForEach(chatItems) { item in
+                                    let copyAction = {
+                                        if case .message(let message) = item {
+                                            copyMessage(message.content)
+                                        } else {
+                                            copyLastMessage()
+                                        }
+                                    }
+                                    
+                                    let retryAction = {
+                                        if case .message(let message) = item {
+                                            retryFromMessage(message)
+                                        }
+                                    }
+                                    
+                                    let showErrorAction = {
+                                        showingErrorDetail = true
+                                    }
+                                    
                                     ChatItemView(
                                         item: item,
-                                        onCopy: {
-                                            if case .message(let message) = item
-                                            {
-                                                copyMessage(message.content)
-                                            } else {
-                                                copyLastMessage()
-                                            }
-                                        },
+                                        onCopy: copyAction,
                                         onLike: likeMessage,
                                         onDislike: dislikeMessage,
-                                        onRegenerate: regenerateResponse,
-                                        onRetry: {
-                                            if case .message(let message) = item {
-                                                retryFromMessage(message)
-                                            }
-                                        },
-                                        onShowErrorDetail: {
-                                            showingErrorDetail = true
-                                        },
+                                        onRetry: retryAction,
+                                        onShowErrorDetail: showErrorAction,
                                         errorDetail: errorDetail
                                     )
                                     .id(item.id)
@@ -572,6 +576,7 @@ struct ChatView: View {
                 errorMessage = shortErrorMessage
                 // Save complete error detail
                 errorDetail = fullErrorDetail
+                saveCurrentChatHistory()
             }
         }
     }
@@ -603,11 +608,6 @@ struct ChatView: View {
     private func dislikeMessage() {
         // Implement dislike functionality
         print("👎 Message disliked")
-    }
-
-    private func regenerateResponse() {
-        // Implement regenerate functionality
-        print("🔄 Regenerating response")
     }
 
     // MARK: - Chat History Management Methods
@@ -726,7 +726,6 @@ struct ChatItemView: View {
     let onCopy: () -> Void
     let onLike: () -> Void
     let onDislike: () -> Void
-    let onRegenerate: () -> Void
     let onRetry: () -> Void
     let onShowErrorDetail: () -> Void
     let errorDetail: String
@@ -742,7 +741,6 @@ struct ChatItemView: View {
                 },
                 onLike: onLike,
                 onDislike: onDislike,
-                onRegenerate: onRegenerate,
                 onRetry: onRetry,
                 onShowErrorDetail: onShowErrorDetail,
                 errorDetail: errorDetail
@@ -758,7 +756,6 @@ struct MessageItemView: View {
     let onCopy: () -> Void
     let onLike: () -> Void
     let onDislike: () -> Void
-    let onRegenerate: () -> Void
     let onRetry: () -> Void
     let onShowErrorDetail: () -> Void
     let errorDetail: String
@@ -844,12 +841,6 @@ struct MessageItemView: View {
 
                         Button(action: onDislike) {
                             Image(systemName: "hand.thumbsdown")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-
-                        Button(action: onRegenerate) {
-                            Image(systemName: "arrow.clockwise")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
                         }
@@ -965,7 +956,7 @@ struct WorkflowStepItemView: View {
                 from: jsonData
             )
         {
-
+            // Simplified view showing only summary
             HStack(spacing: 16) {
                 Image(
                     systemName: updateResponse.success
@@ -973,22 +964,16 @@ struct WorkflowStepItemView: View {
                 )
                 .font(.title2)
                 .foregroundColor(updateResponse.success ? .green : .red)
+                .frame(width: 24, height: 24)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(
-                        updateResponse.success
-                            ? "Calendar updated successfully"
-                            : "Calendar update failed"
-                    )
-                    .font(.headline)
-                    .foregroundColor(.white)
-
                     Text(updateResponse.message)
                         .font(.body)
-                        .foregroundColor(.white.opacity(0.8))
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
 
                     if !updateResponse.event.title.isEmpty {
-                        Text("Events: \(updateResponse.event.title)")
+                        Text("Event: \(updateResponse.event.title)")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.7))
                     }
@@ -996,7 +981,8 @@ struct WorkflowStepItemView: View {
 
                 Spacer()
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(
@@ -1010,6 +996,7 @@ struct WorkflowStepItemView: View {
             renderDefaultWorkflowStep()
         }
     }
+
 
     // MARK: - Default Workflow Step
     @ViewBuilder
@@ -1390,10 +1377,15 @@ struct ErrorDetailView: View {
                     "result": """
                     {
                         "success": true,
-                        "message": "Reminder added successfully",
+                        "message": "Event updated successfully",
                         "event": {
+                            "id": "1",
                             "title": "Team Meeting",
-                            "reminder": "15 minutes before"
+                            "start_date": "2024-01-15T10:00:00+08:00",
+                            "end_date": "2024-01-15T11:00:00+08:00",
+                            "location": "Conference Room A",
+                            "notes": "Weekly sync meeting",
+                            "is_all_day": false
                         }
                     }
                     """
