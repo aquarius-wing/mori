@@ -83,7 +83,9 @@ struct CalendarEventRow: View {
 
 // MARK: - Calendar Events Detail View
 struct CalendarEventsDetailView: View {
-    let calendarResponse: CalendarReadResponse
+    let title: String
+    let subtitle: String 
+    let events: [CalendarEvent]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -97,15 +99,15 @@ struct CalendarEventsDetailView: View {
                             .foregroundColor(.white)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Calendar events")
+                            Text(title)
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            Text("Found \(calendarResponse.count) events")
+                            Text("Found \(events.count) events")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
                             
-                            // Add date range display
-                            Text(formatDateRange())
+                            // Add subtitle display
+                            Text(subtitle)
                                 .font(.caption2)
                                 .foregroundColor(.blue.opacity(0.8))
                                 .padding(.top, 2)
@@ -126,10 +128,10 @@ struct CalendarEventsDetailView: View {
                 }
 
                 // Events list
-                if !calendarResponse.events.isEmpty {
+                if !events.isEmpty {
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            ForEach(calendarResponse.events, id: \.id) {
+                            ForEach(events, id: \.id) {
                                 event in
                                 CalendarEventDetailRow(event: event)
                             }
@@ -155,78 +157,6 @@ struct CalendarEventsDetailView: View {
             .preferredColorScheme(.dark)
             .navigationBarHidden(true)
         }
-    }
-    
-    // Add helper function to format date range
-    private func formatDateRange() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
-        formatter.timeZone = TimeZone.current
-        
-        // Try to parse start date
-        let startDate: Date?
-        let endDate: Date?
-        
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.timeZone = TimeZone.current
-        
-        // Try ISO format first, then fallback to manual format
-        if let date = isoFormatter.date(from: calendarResponse.dateRange.startDate) {
-            startDate = date
-        } else {
-            startDate = formatter.date(from: calendarResponse.dateRange.startDate)
-        }
-        
-        if let date = isoFormatter.date(from: calendarResponse.dateRange.endDate) {
-            endDate = date
-        } else {
-            endDate = formatter.date(from: calendarResponse.dateRange.endDate)
-        }
-        
-        let displayFormatter = DateFormatter()
-        displayFormatter.timeZone = TimeZone.current
-        
-        if let start = startDate, let end = endDate {
-            // Check if it's the same day
-            let calendar = Calendar.current
-            if calendar.isDate(start, inSameDayAs: end) {
-                displayFormatter.dateFormat = "MMM d, yyyy"
-                let dateStr = displayFormatter.string(from: start)
-                
-                // Add time range if not a full day
-                let timeFormatter = DateFormatter()
-                timeFormatter.dateFormat = "HH:mm"
-                timeFormatter.timeZone = TimeZone.current
-                
-                let startTime = timeFormatter.string(from: start)
-                let endTime = timeFormatter.string(from: end)
-                
-                // Check if it's likely a full day (00:00-23:59 or similar)
-                if startTime == "00:00" && (endTime == "23:59" || endTime == "00:00") {
-                    return dateStr
-                } else {
-                    return "\(dateStr) \(startTime)-\(endTime)"
-                }
-            } else {
-                displayFormatter.dateFormat = "MMM d"
-                let startStr = displayFormatter.string(from: start)
-                let endStr = displayFormatter.string(from: end)
-                
-                // Add year if different
-                let yearFormatter = DateFormatter()
-                yearFormatter.dateFormat = "yyyy"
-                let startYear = yearFormatter.string(from: start)
-                let endYear = yearFormatter.string(from: end)
-                
-                if startYear == endYear {
-                    return "\(startStr) - \(endStr), \(startYear)"
-                } else {
-                    return "\(startStr), \(startYear) - \(endStr), \(endYear)"
-                }
-            }
-        }
-        
-        return "Date range: \(calendarResponse.dateRange.startDate) - \(calendarResponse.dateRange.endDate)"
     }
 }
 

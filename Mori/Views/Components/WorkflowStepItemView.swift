@@ -36,16 +36,11 @@ struct WorkflowStepItemView: View {
                     .foregroundColor(.white)
                     .frame(width: 24, height: 24)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Found \(calendarResponse.count) events in Calendar")
+                Text("Found \(calendarResponse.count) events in Calendar")
                         .font(.body)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
-
-                    Text("Tap to view details and time range")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
+                        .lineLimit(1)
 
                 Spacer()
 
@@ -65,7 +60,11 @@ struct WorkflowStepItemView: View {
                 showingCalendarDetail = true
             }
             .sheet(isPresented: $showingCalendarDetail) {
-                CalendarEventsDetailView(calendarResponse: calendarResponse)
+                CalendarEventsDetailView(
+                    title: "Read Calendar",
+                    subtitle: formatDateRange(from: calendarResponse.dateRange),
+                    events: calendarResponse.events
+                )
             }
 
         } else {
@@ -93,20 +92,17 @@ struct WorkflowStepItemView: View {
                 .foregroundColor(updateResponse.success ? .green : .red)
                 .frame(width: 24, height: 24)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(updateResponse.message)
+                Text(updateResponse.message)
                         .font(.body)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
-
-                    if !updateResponse.event.title.isEmpty {
-                        Text("Event: \(updateResponse.event.title)")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                }
+                        .lineLimit(1)
 
                 Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.5))
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -118,6 +114,17 @@ struct WorkflowStepItemView: View {
                     )
             )
             .padding(.horizontal, 20)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                showingCalendarDetail = true
+            }
+            .sheet(isPresented: $showingCalendarDetail) {
+                CalendarEventsDetailView(
+                    title: updateResponse.success ? "Update Calendar" : "Calendar Update Failed",
+                    subtitle: updateResponse.event.title.isEmpty ? "Event details" : "Event: \(updateResponse.event.title)",
+                    events: [updateResponse.event]
+                )
+            }
 
         } else {
             renderDefaultWorkflowStep()
@@ -232,5 +239,77 @@ struct WorkflowStepItemView: View {
         case .llmThinking:
             return "brain"
         }
+    }
+    
+    // MARK: - Date Range Formatting
+    private func formatDateRange(from dateRange: DateRange) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+        formatter.timeZone = TimeZone.current
+        
+        // Try to parse start date
+        let startDate: Date?
+        let endDate: Date?
+        
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.timeZone = TimeZone.current
+        
+        // Try ISO format first, then fallback to manual format
+        if let date = isoFormatter.date(from: dateRange.startDate) {
+            startDate = date
+        } else {
+            startDate = formatter.date(from: dateRange.startDate)
+        }
+        
+        if let date = isoFormatter.date(from: dateRange.endDate) {
+            endDate = date
+        } else {
+            endDate = formatter.date(from: dateRange.endDate)
+        }
+        
+        let displayFormatter = DateFormatter()
+        displayFormatter.timeZone = TimeZone.current
+        
+        if let start = startDate, let end = endDate {
+            // Check if it's the same day
+            let calendar = Calendar.current
+            if calendar.isDate(start, inSameDayAs: end) {
+                displayFormatter.dateFormat = "MMM d, yyyy"
+                let dateStr = displayFormatter.string(from: start)
+                
+                // Add time range if not a full day
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "HH:mm"
+                timeFormatter.timeZone = TimeZone.current
+                
+                let startTime = timeFormatter.string(from: start)
+                let endTime = timeFormatter.string(from: end)
+                
+                // Check if it's likely a full day (00:00-23:59 or similar)
+                if startTime == "00:00" && (endTime == "23:59" || endTime == "00:00") {
+                    return dateStr
+                } else {
+                    return "\(dateStr) \(startTime)-\(endTime)"
+                }
+            } else {
+                displayFormatter.dateFormat = "MMM d"
+                let startStr = displayFormatter.string(from: start)
+                let endStr = displayFormatter.string(from: end)
+                
+                // Add year if different
+                let yearFormatter = DateFormatter()
+                yearFormatter.dateFormat = "yyyy"
+                let startYear = yearFormatter.string(from: start)
+                let endYear = yearFormatter.string(from: end)
+                
+                if startYear == endYear {
+                    return "\(startStr) - \(endStr), \(startYear)"
+                } else {
+                    return "\(startStr), \(startYear) - \(endStr), \(endYear)"
+                }
+            }
+        }
+        
+        return "Date range: \(dateRange.startDate) - \(dateRange.endDate)"
     }
 } 
