@@ -302,13 +302,13 @@ struct ChatView: View {
     // MARK: - Private Methods
 
     private func printMessagesInView() {
-        let chatMessages = messageList
+        let messageListCloned = messageList
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
             
-            let jsonData = try encoder.encode(chatMessages)
+            let jsonData = try encoder.encode(messageListCloned)
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 print("📋 ChatMessages in View JSON:")
                 print(jsonString)
@@ -323,14 +323,9 @@ struct ChatView: View {
             print("❌ LLM service not available")
             return
         }
+        let messageListCloned = messageList
         
-        let chatMessages = messageList.compactMap { 
-            if case .chatMessage(let message) = $0 {
-                return message
-            }
-            return nil
-        }
-        let requestBody = service.generateRequestBodyJSON(from: chatMessages)
+        let requestBody = service.generateRequestBodyJSON(from: messageListCloned)
         
         do {
             let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
@@ -423,14 +418,10 @@ struct ChatView: View {
         var toolCallCount = 0
 
         do {
-            let chatMessages = messageList.compactMap { item in
-                if case .chatMessage(let chatMessage) = item {
-                    return chatMessage
-                }
-                return nil
-            }
+            // Simple shallow clone of the message list
+            let messageListCloned = messageList
             let stream = service.sendChatMessageWithTools(
-                conversationHistory: chatMessages
+                conversationHistory: messageListCloned
             )
 
             for try await result in stream {

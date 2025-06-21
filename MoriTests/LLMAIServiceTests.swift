@@ -68,7 +68,13 @@ class LLMAIServiceTests: XCTestCase {
             workflowSteps: []
         )
         
-        let conversationHistory = [userMessage, assistantResponse, toolSystemMessage, llmResponse, userFollowUp]
+        let conversationHistory: [MessageListItemType] = [
+            .chatMessage(userMessage), 
+            .chatMessage(assistantResponse), 
+            .chatMessage(toolSystemMessage), 
+            .chatMessage(llmResponse), 
+            .chatMessage(userFollowUp)
+        ]
         
         print("🧪 Starting meeting rescheduling scenario test")
         print("📝 Conversation history prepared with \(conversationHistory.count) messages")
@@ -76,10 +82,34 @@ class LLMAIServiceTests: XCTestCase {
         // Since we can't actually test the full streaming without network calls,
         // we'll test the conversation setup and verify the structure
         XCTAssertEqual(conversationHistory.count, 5, "Should have 5 conversation messages")
-        XCTAssertTrue(conversationHistory[0].isUser, "First message should be from user")
-        XCTAssertFalse(conversationHistory[1].isUser, "Second message should be from assistant")
-        XCTAssertTrue(conversationHistory[2].isSystem, "Third message should be system message")
-        XCTAssertEqual(conversationHistory[4].content, "Two of them.", "Last message should be user follow-up")
+        
+        // Verify first message is from user
+        if case .chatMessage(let firstMessage) = conversationHistory[0] {
+            XCTAssertTrue(firstMessage.isUser, "First message should be from user")
+        } else {
+            XCTFail("First item should be a chat message")
+        }
+        
+        // Verify second message is from assistant
+        if case .chatMessage(let secondMessage) = conversationHistory[1] {
+            XCTAssertFalse(secondMessage.isUser, "Second message should be from assistant")
+        } else {
+            XCTFail("Second item should be a chat message")
+        }
+        
+        // Verify third message is system message
+        if case .chatMessage(let thirdMessage) = conversationHistory[2] {
+            XCTAssertTrue(thirdMessage.isSystem, "Third message should be system message")
+        } else {
+            XCTFail("Third item should be a chat message")
+        }
+        
+        // Verify last message content
+        if case .chatMessage(let lastMessage) = conversationHistory[4] {
+            XCTAssertEqual(lastMessage.content, "Two of them.", "Last message should be user follow-up")
+        } else {
+            XCTFail("Last item should be a chat message")
+        }
         
         print("✅ Conversation structure validation passed")
     }
@@ -110,6 +140,36 @@ class LLMAIServiceTests: XCTestCase {
         XCTAssertEqual(toolCalls.first?.arguments["startDate"] as? String, "2025/06/07", "Should extract correct start date")
         XCTAssertEqual(toolCalls.first?.arguments["endDate"] as? String, "2025/06/14", "Should extract correct end date")
         XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you check your calendar for this week.", "Should return cleaned text without JSON")
+    }
+    
+    // Test tool call extraction with code block format
+    func testToolCallExtractionWithCodeBlock() {
+        // Given: A response with tool call in code block format
+        let responseWithCodeBlock = """
+        I'll help you check your calendar for this week.
+        
+        ```json
+        {
+            "tool": "read-calendar",
+            "arguments": {
+                "startDate": "2025/06/07",
+                "endDate": "2025/06/14"
+            }
+        }
+        ```
+        """
+        
+        // When: Extract tool calls using our simulation
+        let result = extractToolCallsSimulated(from: responseWithCodeBlock)
+        let toolCalls = result.0
+        let cleanedText = result.1
+        
+        // Then: Verify extraction
+        XCTAssertEqual(toolCalls.count, 1, "Should extract one tool call from code block")
+        XCTAssertEqual(toolCalls.first?.tool, "read-calendar", "Should extract read-calendar tool")
+        XCTAssertEqual(toolCalls.first?.arguments["startDate"] as? String, "2025/06/07", "Should extract correct start date")
+        XCTAssertEqual(toolCalls.first?.arguments["endDate"] as? String, "2025/06/14", "Should extract correct end date")
+        XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you check your calendar for this week.", "Should return cleaned text without code block")
     }
     
     // Test tool call extraction with multiple tools
@@ -147,6 +207,45 @@ class LLMAIServiceTests: XCTestCase {
         XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you reschedule both events.", "Should return cleaned text without JSON")
     }
     
+    // Test tool call extraction with multiple code blocks
+    func testMultipleCodeBlockToolCallExtraction() {
+        // Given: A response with multiple tool calls in code blocks
+        let responseWithMultipleCodeBlocks = """
+        I'll help you reschedule both events.
+        
+        ```json
+        {
+            "tool": "update-calendar",
+            "arguments": {
+                "eventId": "event1",
+                "newStartTime": "2025-06-08T09:00:00Z"
+            }
+        }
+        ```
+        
+        ```json
+        {
+            "tool": "update-calendar", 
+            "arguments": {
+                "eventId": "event2",
+                "newStartTime": "2025-06-08T12:00:00Z"
+            }
+        }
+        ```
+        """
+        
+        // When: Extract tool calls
+        let result = extractToolCallsSimulated(from: responseWithMultipleCodeBlocks)
+        let toolCalls = result.0
+        let cleanedText = result.1
+        
+        // Then: Verify extraction
+        XCTAssertEqual(toolCalls.count, 2, "Should extract two tool calls from code blocks")
+        XCTAssertEqual(toolCalls[0].tool, "update-calendar", "First tool should be update-calendar")
+        XCTAssertEqual(toolCalls[1].tool, "update-calendar", "Second tool should be update-calendar")
+        XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you reschedule both events.", "Should return cleaned text without code blocks")
+    }
+    
     // Test tool call extraction with no tools
     func testNoToolCallExtraction() {
         // Given: A response without tool calls
@@ -176,14 +275,14 @@ class LLMAIServiceTests: XCTestCase {
     // Test sendChatMessage basic functionality
     func testSendChatMessage() async throws {
         // Given: A simple conversation history
-        let conversationHistory = [
-           ChatMessage(
+        let conversationHistory: [MessageListItemType] = [
+           .chatMessage(ChatMessage(
                content: "Hello, how are you?",
                isUser: true,
                timestamp: Date(),
                isSystem: false,
                workflowSteps: []
-           )
+           ))
        ]
         
         print("🧪 Starting sendChatMessage test")
@@ -244,60 +343,65 @@ class LLMAIServiceTests: XCTestCase {
         var cleanedText = response
         var extractedRanges: [Range<String.Index>] = []
         
-        // Find potential JSON objects by looking for balanced braces
-        let characters = Array(response)
-        var i = 0
-        
-        while i < characters.count {
-            if characters[i] == "{" {
-                // Found opening brace, try to find the matching closing brace
-                var braceCount = 1
-                var j = i + 1
-                
-                while j < characters.count && braceCount > 0 {
-                    if characters[j] == "{" {
-                        braceCount += 1
-                    } else if characters[j] == "}" {
-                        braceCount -= 1
-                    }
-                    j += 1
-                }
-                
-                if braceCount == 0 {
-                    // Found balanced braces, extract the JSON string
-                    let startIndex = response.index(response.startIndex, offsetBy: i)
-                    let endIndex = response.index(response.startIndex, offsetBy: j)
-                    let jsonString = String(response[startIndex..<endIndex])
+        // Extract JSON code blocks (```json...```)
+        let codeBlockPattern = "```json\\s*([\\s\\S]*?)```"
+        if let regex = try? NSRegularExpression(pattern: codeBlockPattern, options: [.caseInsensitive]) {
+            let nsRange = NSRange(location: 0, length: response.utf16.count)
+            let matches = regex.matches(in: response, options: [], range: nsRange)
+            
+            for match in matches.reversed() { // Process in reverse to maintain string indices
+                if match.numberOfRanges >= 2 {
+                    let jsonRange = match.range(at: 1)
+                    let fullRange = match.range(at: 0)
                     
-                    // Check if this JSON contains "tool" field
-                    if jsonString.contains("\"tool\"") {
+                    if let jsonSwiftRange = Range(jsonRange, in: response),
+                       let fullSwiftRange = Range(fullRange, in: response) {
+                        let jsonString = String(response[jsonSwiftRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        
+                        // Try to parse the JSON
                         if let jsonData = jsonString.data(using: .utf8) {
                             do {
-                                let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
-                                if let tool = json?["tool"] as? String,
-                                   let arguments = json?["arguments"] as? [String: Any] {
-                                    let toolCall = ToolCall(tool: tool, arguments: arguments)
-                                    toolCalls.append(toolCall)
+                                let data = try JSONSerialization.jsonObject(with: jsonData)
+                                
+                                // Handle single tool call object
+                                if let objectData = data as? [String: Any] {
+                                    if let tool = objectData["tool"] as? String,
+                                       let arguments = objectData["arguments"] as? [String: Any] {
+                                        let toolCall = ToolCall(tool: tool, arguments: arguments)
+                                        toolCalls.append(toolCall)
+                                        extractedRanges.append(fullSwiftRange)
+                                    }
+                                }
+                                // Handle array of tool calls
+                                else if let arrayData = data as? [[String: Any]] {
+                                    var validTools = true
+                                    var tempToolCalls: [ToolCall] = []
                                     
-                                    // Record the range for removal
-                                    extractedRanges.append(startIndex..<endIndex)
+                                    for item in arrayData {
+                                        if let tool = item["tool"] as? String,
+                                           let arguments = item["arguments"] as? [String: Any] {
+                                            tempToolCalls.append(ToolCall(tool: tool, arguments: arguments))
+                                        } else {
+                                            validTools = false
+                                            break
+                                        }
+                                    }
+                                    
+                                    if validTools {
+                                        toolCalls.append(contentsOf: tempToolCalls)
+                                        extractedRanges.append(fullSwiftRange)
+                                    }
                                 }
                             } catch {
                                 // Continue on JSON parse error
                             }
                         }
                     }
-                    
-                    i = j
-                } else {
-                    i += 1
                 }
-            } else {
-                i += 1
             }
         }
         
-        // Build the cleaned text by removing the extracted JSON parts
+        // Build the cleaned text by removing the extracted JSON code blocks
         if !extractedRanges.isEmpty {
             var cleanedParts: [String] = []
             var lastEndIndex = response.startIndex
@@ -306,12 +410,12 @@ class LLMAIServiceTests: XCTestCase {
             let sortedRanges = extractedRanges.sorted { $0.lowerBound < $1.lowerBound }
             
             for range in sortedRanges {
-                // Add text before this JSON range
+                // Add text before this JSON code block
                 cleanedParts.append(String(response[lastEndIndex..<range.lowerBound]))
                 lastEndIndex = range.upperBound
             }
             
-            // Add remaining text after the last JSON range
+            // Add remaining text after the last JSON code block
             cleanedParts.append(String(response[lastEndIndex..<response.endIndex]))
             
             cleanedText = cleanedParts.joined().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -324,7 +428,7 @@ class LLMAIServiceTests: XCTestCase {
 // MARK: - Test Helper Classes
 class TestLLMAIService: LLMAIService {
     // Override with invalid URL to trigger network error
-    override func sendChatMessage(conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
+    override func sendChatMessage(conversationHistory: [MessageListItemType]) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {

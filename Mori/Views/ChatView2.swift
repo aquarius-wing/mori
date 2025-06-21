@@ -207,14 +207,7 @@ struct ChatView2: View {
                             print("❌ LLM service not available")
                             return
                         }
-                        
-                        let chatMessages = messageList.compactMap { 
-                            if case .chatMessage(let message) = $0 {
-                                return message
-                            }
-                            return nil
-                        }
-                        let requestBody = service.generateRequestBodyJSON(from: chatMessages)
+                        let requestBody = service.generateRequestBodyJSON(from: messageList)
                         
                         do {
                             let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
@@ -370,13 +363,7 @@ struct ChatView2: View {
         var toolCallCount = 0
         
         do {
-            let chatMessages = messageList.compactMap { 
-                if case .chatMessage(let message) = $0 {
-                    return message
-                }
-                return nil
-            }
-            let stream = service.sendChatMessageWithTools(conversationHistory: chatMessages)
+            let stream = service.sendChatMessageWithTools(conversationHistory: messageList)
             
             for try await result in stream {
                 let (status, content) = result

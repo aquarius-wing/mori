@@ -7,6 +7,8 @@ class LLMAIService: ObservableObject {
     // Fixed API endpoints
     private let textCompletionURL = "https://mori-api-test.meogic.com/text"
     private let speechToTextURL = "https://mori-api-test.meogic.com/stt"
+
+    private let model = "deepseek-chat"
     
     init() {
         // Simple initialization - no configuration needed
@@ -70,7 +72,7 @@ class LLMAIService: ObservableObject {
     }
     
     // MARK: - Generate Request Body
-    func generateRequestBodyJSON(from conversationHistory: [ChatMessage]) -> [String: Any] {
+    func generateRequestBodyJSON(from conversationHistory: [MessageListItemType]) -> [String: Any] {
         // Build message history
         var messages: [[String: Any]] = []
         
@@ -82,17 +84,30 @@ class LLMAIService: ObservableObject {
         
         // Add history messages (keep only recent 10 messages to control token count)
         let recentHistory = Array(conversationHistory.suffix(10))
-        for msg in recentHistory {
-            let role = msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant")
-            messages.append([
-                "role": role,
-                "content": msg.content
-            ])
+        for item in recentHistory {
+            switch item {
+            case .chatMessage(let msg):
+                // Determine role based on message properties
+                let role: String = msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant")
+                
+                messages.append([
+                    "role": role,
+                    "content": msg.content
+                ])
+                
+            case .workflowStep(let step):
+                // Convert workflow step to system message for LLM context
+                let stepContent = "Tool \(step.toolName) executed successfully: \(step.details)"
+                messages.append([
+                    "role": "user",
+                    "content": stepContent
+                ])
+            }
         }
         
         let requestBody: [String: Any] = [
             "messages": messages,
-            "model": "google/gemini-2.0-flash-001",
+            "model": model,
             "stream": true,
             "temperature": 0
         ]
@@ -101,7 +116,7 @@ class LLMAIService: ObservableObject {
     }
     
     // MARK: - Chat Completion with Streaming
-    func sendChatMessage(conversationHistory: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
+    func sendChatMessage(conversationHistory: [MessageListItemType]) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -154,22 +169,25 @@ class LLMAIService: ObservableObject {
                     guard httpResponse.statusCode == 200 else {
                         print("❌ API error status code: \(httpResponse.statusCode)")
                         
-                        // Try to read error information
-                        var errorData = Data()
-                        for try await byte in asyncBytes {
-                            errorData.append(byte)
-                        }
-                        
-                        if let errorString = String(data: errorData, encoding: .utf8) {
-                            print("❌ Error details: \(errorString)")
-                        }
-                        
-                        // Throw specific error based on status code
-                        if httpResponse.statusCode >= 500 {
-                            continuation.finish(throwing: LLMError.serverUnavailable(httpResponse.statusCode))
-                        } else {
-                            continuation.finish(throwing: LLMError.invalidResponse)
-                        }
+                                            // Try to read error information
+                    var errorData = Data()
+                    for try await byte in asyncBytes {
+                        errorData.append(byte)
+                    }
+                    
+                    let errorString = String(data: errorData, encoding: .utf8)
+                    if let errorString = errorString {
+                        print("❌ Error details: \(errorString)")
+                    }
+                    
+                    // Throw specific error based on status code with error details
+                    if httpResponse.statusCode >= 500 {
+                        continuation.finish(throwing: LLMError.serverUnavailable(httpResponse.statusCode, errorString))
+                    } else if httpResponse.statusCode >= 400 {
+                        continuation.finish(throwing: LLMError.clientError(httpResponse.statusCode, errorString))
+                    } else {
+                        continuation.finish(throwing: LLMError.invalidResponse)
+                    }
                         return
                     }
                     
@@ -305,111 +323,69 @@ class LLMAIService: ObservableObject {
         var cleanedText = response
         var extractedRanges: [Range<String.Index>] = []
         
-        // First try to parse the entire text as a single JSON array or object
-        let trimmedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let jsonData = trimmedResponse.data(using: .utf8) {
-            do {
-                let data = try JSONSerialization.jsonObject(with: jsonData)
-                var isValidToolCall = false
-                
-                if let arrayData = data as? [[String: Any]] {
-                    // Check if it's a list of tool calls
-                    var validTools = true
-                    for item in arrayData {
-                        if !(item["tool"] is String && item["arguments"] is [String: Any]) {
-                            validTools = false
-                            break
-                        }
-                    }
-                    if validTools {
-                        for item in arrayData {
-                            if let tool = item["tool"] as? String,
-                               let arguments = item["arguments"] as? [String: Any] {
-                                let toolCall = ToolCall(tool: tool, arguments: arguments)
-                                toolCalls.append(toolCall)
-                            }
-                        }
-                        isValidToolCall = true
-                    }
-                } else if let objectData = data as? [String: Any] {
-                    // Check if it's a single tool call
-                    if let tool = objectData["tool"] as? String,
-                       let arguments = objectData["arguments"] as? [String: Any] {
-                        let toolCall = ToolCall(tool: tool, arguments: arguments)
-                        toolCalls.append(toolCall)
-                        isValidToolCall = true
-                    }
-                }
-                
-                if isValidToolCall {
-                    print("🔧 Successfully parsed entire response as tool call(s)")
-                    return (toolCalls, "") // Return empty string as cleaned text
-                }
-            } catch {
-                // Continue to regex matching if direct parsing fails
-                print("🔍 Direct JSON parsing failed, trying regex approach: \(error)")
-            }
-        }
-        
-        // Find potential JSON objects by looking for balanced braces
-        let characters = Array(response)
-        var i = 0
-        
-        while i < characters.count {
-            if characters[i] == "{" {
-                // Found opening brace, try to find the matching closing brace
-                var braceCount = 1
-                var j = i + 1
-                
-                while j < characters.count && braceCount > 0 {
-                    if characters[j] == "{" {
-                        braceCount += 1
-                    } else if characters[j] == "}" {
-                        braceCount -= 1
-                    }
-                    j += 1
-                }
-                
-                if braceCount == 0 {
-                    // Found balanced braces, extract the JSON string
-                    let startIndex = response.index(response.startIndex, offsetBy: i)
-                    let endIndex = response.index(response.startIndex, offsetBy: j)
-                    let jsonString = String(response[startIndex..<endIndex])
+        // Extract JSON code blocks (```json...```)
+        let codeBlockPattern = "```json\\s*([\\s\\S]*?)```"
+        if let regex = try? NSRegularExpression(pattern: codeBlockPattern, options: [.caseInsensitive]) {
+            let nsRange = NSRange(location: 0, length: response.utf16.count)
+            let matches = regex.matches(in: response, options: [], range: nsRange)
+            
+            for match in matches.reversed() { // Process in reverse to maintain string indices
+                if match.numberOfRanges >= 2 {
+                    let jsonRange = match.range(at: 1)
+                    let fullRange = match.range(at: 0)
                     
-                    print("🔍 Found potential JSON: \(jsonString)")
-                    
-                    // Check if this JSON contains "tool" field
-                    if jsonString.contains("\"tool\"") {
+                    if let jsonSwiftRange = Range(jsonRange, in: response),
+                       let fullSwiftRange = Range(fullRange, in: response) {
+                        let jsonString = String(response[jsonSwiftRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        
+                        print("🔍 Found JSON code block: \(jsonString.prefix(100))...")
+                        
+                        // Try to parse the JSON
                         if let jsonData = jsonString.data(using: .utf8) {
                             do {
-                                let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
-                                if let tool = json?["tool"] as? String,
-                                   let arguments = json?["arguments"] as? [String: Any] {
-                                    let toolCall = ToolCall(tool: tool, arguments: arguments)
-                                    toolCalls.append(toolCall)
-                                    print("🔧 Found tool call: \(tool) with arguments: \(arguments)")
+                                let data = try JSONSerialization.jsonObject(with: jsonData)
+                                
+                                // Handle single tool call object
+                                if let objectData = data as? [String: Any] {
+                                    if let tool = objectData["tool"] as? String,
+                                       let arguments = objectData["arguments"] as? [String: Any] {
+                                        let toolCall = ToolCall(tool: tool, arguments: arguments)
+                                        toolCalls.append(toolCall)
+                                        extractedRanges.append(fullSwiftRange)
+                                        print("🔧 Found tool call from code block: \(tool)")
+                                    }
+                                }
+                                // Handle array of tool calls
+                                else if let arrayData = data as? [[String: Any]] {
+                                    var validTools = true
+                                    var tempToolCalls: [ToolCall] = []
                                     
-                                    // Record the range for removal
-                                    extractedRanges.append(startIndex..<endIndex)
-                                } else {
-                                    print("⚠️ JSON doesn't have required tool/arguments fields: \(json ?? [:])")
+                                    for item in arrayData {
+                                        if let tool = item["tool"] as? String,
+                                           let arguments = item["arguments"] as? [String: Any] {
+                                            tempToolCalls.append(ToolCall(tool: tool, arguments: arguments))
+                                        } else {
+                                            validTools = false
+                                            break
+                                        }
+                                    }
+                                    
+                                    if validTools {
+                                        toolCalls.append(contentsOf: tempToolCalls)
+                                        extractedRanges.append(fullSwiftRange)
+                                        print("🔧 Found \(tempToolCalls.count) tool calls from code block array")
+                                    }
                                 }
                             } catch {
-                                print("⚠️ Failed to parse JSON: \(jsonString), error: \(error)")
+                                print("⚠️ Failed to parse JSON from code block: \(error)")
                             }
                         }
                     }
-                    
-                    i = j
-                } else {
-                    i += 1
                 }
-            } else {
-                i += 1
             }
         }
         
-        // Build the cleaned text by removing the extracted JSON parts
+        // Build the cleaned text by removing the extracted JSON code blocks
         if !extractedRanges.isEmpty {
             var cleanedParts: [String] = []
             var lastEndIndex = response.startIndex
@@ -418,24 +394,22 @@ class LLMAIService: ObservableObject {
             let sortedRanges = extractedRanges.sorted { $0.lowerBound < $1.lowerBound }
             
             for range in sortedRanges {
-                // Add text before this JSON range
+                // Add text before this JSON code block
                 cleanedParts.append(String(response[lastEndIndex..<range.lowerBound]))
                 lastEndIndex = range.upperBound
             }
             
-            // Add remaining text after the last JSON range
+            // Add remaining text after the last JSON code block
             cleanedParts.append(String(response[lastEndIndex..<response.endIndex]))
             
             cleanedText = cleanedParts.joined().trimmingCharacters(in: .whitespacesAndNewlines)
-            print("🧹 Cleaned text after removing JSON: \(cleanedText)")
+            print("🧹 Cleaned text after removing JSON code blocks: \(cleanedText)")
         }
         
         return (toolCalls, cleanedText)
     }
     
     private func executeTool(_ toolCall: ToolCall) async throws -> [String: Any] {
-        print("🔧 Executing tool: \(toolCall.tool)")
-        
         switch toolCall.tool {
         case "read-calendar":
             return try await calendarMCP.readCalendar(arguments: toolCall.arguments)
@@ -447,7 +421,7 @@ class LLMAIService: ObservableObject {
     }
     
     // MARK: - Enhanced Chat with Tools
-    func sendChatMessageWithTools(conversationHistory: [ChatMessage]) -> AsyncThrowingStream<(String, String), Error> {
+    func sendChatMessageWithTools(conversationHistory: [MessageListItemType]) -> AsyncThrowingStream<(String, String), Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -476,7 +450,7 @@ class LLMAIService: ObservableObject {
                         }
                         
                         accumulatedResponse += llmResponse
-                        print("🤖 LLM Response: \(llmResponse.prefix(50))...")
+                        print("🤖 LLM Response: \(llmResponse)")
                         
                         // Extract tool calls and get cleaned text
                         let (toolCalls, cleanedResponse) = extractToolCalls(from: llmResponse)
@@ -548,11 +522,13 @@ class LLMAIService: ObservableObject {
                         // Update local currentMessages for next iteration
                         let assistantContent = cleanedResponse.isEmpty ? llmResponse : cleanedResponse
                         let assistantMessage = ChatMessage(content: assistantContent, isUser: false, timestamp: Date())
-                        currentMessages.append(assistantMessage)
+                        currentMessages.append(.chatMessage(assistantMessage))
                         
                         for toolResponse in toolResponses {
+                            // This must be role as system, otherwise assistant will return tool call next time!
                             let systemMessage = ChatMessage(content: toolResponse, isUser: true, timestamp: Date(), isSystem: false)
-                            currentMessages.append(systemMessage)
+                            currentMessages.append(.chatMessage(systemMessage))
+                            print("📦 Added tool result to message history: \(toolResponse.prefix(50))...")
                         }
                         
                         toolExecutionCount += 1
@@ -614,7 +590,8 @@ enum LLMError: Error, LocalizedError {
     case htmlErrorResponse
     case networkError(URLError)
     case connectionTimeout
-    case serverUnavailable(Int) // HTTP status code
+    case serverUnavailable(Int, String?) // HTTP status code and error details
+    case clientError(Int, String?) // HTTP 4xx errors with details
     case customError(String)
     
     var errorDescription: String? {
@@ -631,8 +608,18 @@ enum LLMError: Error, LocalizedError {
             return "Network error: \(urlError.localizedDescription)"
         case .connectionTimeout:
             return "Connection timeout - please check your network"
-        case .serverUnavailable(let statusCode):
-            return "Server unavailable (HTTP \(statusCode))"
+        case .serverUnavailable(let statusCode, let details):
+            if let details = details, !details.isEmpty {
+                return "Server unavailable (HTTP \(statusCode)): \(details)"
+            } else {
+                return "Server unavailable (HTTP \(statusCode))"
+            }
+        case .clientError(let statusCode, let details):
+            if let details = details, !details.isEmpty {
+                return "Client error (HTTP \(statusCode)): \(details)"
+            } else {
+                return "Client error (HTTP \(statusCode))"
+            }
         case .customError(let message):
             return "Custom error: \(message)"
         }
