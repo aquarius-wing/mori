@@ -1,355 +1,243 @@
-import SwiftUI
 import Combine
-import AVFoundation
 import Foundation
-
-// MARK: - Chat History Models
-
-// MARK: - MessageListItemType enum for Codable support
-enum MessageListItemType: Codable, Identifiable {
-    case chatMessage(ChatMessage)
-    case workflowStep(WorkflowStep)
-    
-    var id: UUID {
-        switch self {
-        case .chatMessage(let message):
-            return message.id
-        case .workflowStep(let step):
-            return step.id
-        }
-    }
-    
-    var timestamp: Date {
-        switch self {
-        case .chatMessage(let message):
-            return message.timestamp
-        case .workflowStep(let step):
-            return step.timestamp
-        }
-    }
-    
-    var messageListItem: any MessageListItem {
-        switch self {
-        case .chatMessage(let message):
-            return message
-        case .workflowStep(let step):
-            return step
-        }
-    }
-    
-    // Codable support
-    enum CodingKeys: String, CodingKey {
-        case type, chatMessage, workflowStep
-    }
-    
-    enum TypeKey: String, Codable {
-        case chatMessage, workflowStep
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(TypeKey.self, forKey: .type)
-        
-        switch type {
-        case .chatMessage:
-            let message = try container.decode(ChatMessage.self, forKey: .chatMessage)
-            self = .chatMessage(message)
-        case .workflowStep:
-            let step = try container.decode(WorkflowStep.self, forKey: .workflowStep)
-            self = .workflowStep(step)
-        }
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        switch self {
-        case .chatMessage(let message):
-            try container.encode(TypeKey.chatMessage, forKey: .type)
-            try container.encode(message, forKey: .chatMessage)
-        case .workflowStep(let step):
-            try container.encode(TypeKey.workflowStep, forKey: .type)
-            try container.encode(step, forKey: .workflowStep)
-        }
-    }
-}
-
-struct ChatHistory: Codable, Identifiable {
-    let id: String
-    var title: String
-    var messageList: [MessageListItemType]
-    let createDate: Date
-    var updateDate: Date
-    
-    init(title: String? = nil, messageList: [any MessageListItem] = []) {
-        self.id = UUID().uuidString
-        self.title = title ?? "New Chat at \(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short))"
-        self.messageList = messageList.map { item in
-            if let chatMessage = item as? ChatMessage {
-                return .chatMessage(chatMessage)
-            } else if let workflowStep = item as? WorkflowStep {
-                return .workflowStep(workflowStep)
-            } else {
-                fatalError("Unsupported MessageListItem type")
-            }
-        }
-        self.createDate = Date()
-        self.updateDate = Date()
-    }
-}
+import SwiftUI
 
 struct ChatView: View {
-    @EnvironmentObject var router: AppRouter
-    @AppStorage("providerConfiguration") private var providerConfigData = Data()
-    
-    // Chat History Management
-    @AppStorage("currentChatHistoryId") private var currentChatHistoryId: String?
-    @State private var currentChatHistory: ChatHistory?
-    @State private var shouldAutoSave = false
-    
-    // Legacy support
-    @AppStorage("currentProvider") private var currentProvider = LLMProviderType.openRouter.rawValue
-    @AppStorage("openaiApiKey") private var openaiApiKey = ""
-    @AppStorage("openaiBaseUrl") private var openaiBaseUrl = ""
-    @AppStorage("openaiModel") private var openaiModel = ""
-    @AppStorage("openrouterApiKey") private var openrouterApiKey = ""
-    @AppStorage("openrouterBaseUrl") private var openrouterBaseUrl = ""
-    @AppStorage("openrouterModel") private var openrouterModel = ""
-    
+    // LLM Service and chat management
     @State private var llmService: LLMAIService?
-    
-    @State private var messageList: [any MessageListItem] = []
+    @State private var messageList: [MessageListItemType]
     @State private var currentStatus = "Ready"
     @State private var statusType: WorkflowStepStatus = .finalStatus
     @State private var isStreaming = false
+    @State private var isSending = false
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var showingShareSheet = false
-    @State private var shareItems: [Any] = []
-    
-    // Text input related state
-    @State private var inputText = ""
-    @State private var isSending = false
-    
-    // Voice recording related state
-    @State private var audioRecorder: AVAudioRecorder?
-    @State private var isRecording = false
-    @State private var isTranscribing = false
-    @State private var recordingURL: URL?
-    @State private var recordingPermissionGranted = false
+    @State private var showingErrorDetail = false
+    @State private var errorDetail = ""
     @State private var showingFilesView = false
-    
+    @State private var debugActionSheet = false
+
+    // Chat History Management
+    private let chatHistoryManager = ChatHistoryManager()
+    @State private var currentChatId: String?
+    @AppStorage("currentChatHistoryId") private var savedChatHistoryId: String?
+
+    // Legacy ChatItem support for UI compatibility
+    private var chatItems: [ChatItem] {
+        return messageList.map { item in
+            switch item {
+            case .chatMessage(let chatMessage):
+                return .message(chatMessage)
+            case .workflowStep(let workflowStep):
+                return .workflowStep(workflowStep)
+            }
+        }
+    }
+
+    @State private var inputText = ""
+    @State private var keyboardHeight: CGFloat = 0
+    @FocusState private var isTextFieldFocused: Bool
+
     // Navigation callbacks
     var onShowMenu: (() -> Void)?
-    
+
+    // MARK: - Initializer
+    init(
+        initialMessages: [MessageListItemType] = [],
+        onShowMenu: (() -> Void)? = nil
+    ) {
+        self._messageList = State(initialValue: initialMessages)
+        self.onShowMenu = onShowMenu
+    }
+
     var body: some View {
-        VStack {
-            // Message list display
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(Array(messageList.enumerated()), id: \.element.id) { index, item in
-                            if let chatMessage = item as? ChatMessage {
-                                MessageView(message: chatMessage)
-                                    .id(chatMessage.id)
-                            } else if let workflowStep = item as? WorkflowStep {
-                                WorkflowStepView(step: workflowStep)
-                                    .id(workflowStep.id)
+        NavigationStack {
+            GeometryReader { geometry in
+                VStack(spacing: 0) {
+                    // Chat messages area
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 16) {
+                                ForEach(chatItems) { item in
+                                    let copyAction = {
+                                        if case .message(let message) = item {
+                                            copyMessage(message.content)
+                                        } else {
+                                            copyLastMessage()
+                                        }
+                                    }
+                                    
+                                    let retryAction = {
+                                        if case .message(let message) = item {
+                                            retryFromMessage(message)
+                                        }
+                                    }
+                                    
+                                    let showErrorAction = {
+                                        showingErrorDetail = true
+                                    }
+                                    
+                                    ChatItemView(
+                                        item: item,
+                                        onCopy: copyAction,
+                                        onLike: likeMessage,
+                                        onDislike: dislikeMessage,
+                                        onRetry: retryAction,
+                                        onShowErrorDetail: showErrorAction,
+                                        errorDetail: errorDetail
+                                    )
+                                    .id(item.id)
+                                }
+
+                                if isStreaming || isSending {
+                                    HStack {
+                                        ProgressView()
+                                            .progressViewStyle(
+                                                CircularProgressViewStyle(
+                                                    tint: .white
+                                                )
+                                            )
+                                            .scaleEffect(0.8)
+                                        Text(currentStatus)
+                                            .font(.caption)
+                                            .foregroundColor(
+                                                .white.opacity(0.7)
+                                            )
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 20)
+                                }
+                            }
+                            .padding(.vertical, 20)
+                            .padding(.bottom, 0)
+                        }
+                        .onChange(of: chatItems.count) { _, _ in
+                            if let lastItem = chatItems.last {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    proxy.scrollTo(lastItem.id, anchor: .bottom)
+                                }
                             }
                         }
-                        
-                        // Display current streaming message
-                        if isStreaming || isSending {
-                            VStack(alignment: .leading, spacing: 12) {
-                                // Status indicator
-                                StatusIndicator(status: currentStatus, stepStatus: statusType)
-                            }
-                            .id("streaming")
-                        }
+                        .simultaneousGesture(
+                            TapGesture()
+                                .onEnded { _ in
+                                    // Dismiss keyboard when tapping on chat area
+                                    isTextFieldFocused = false
+                                }
+                        )
                     }
-                    .padding()
-                }
-                .onChange(of: messageList.count) { _ in
-                    withAnimation {
-                        if let lastItem = messageList.last {
-                            proxy.scrollTo(lastItem.id, anchor: .bottom)
+
+                    // Input area
+                    VStack(spacing: 0) {
+                        // Input field
+                        VStack(spacing: 16) {
+                            TextField(
+                                "Input message...",
+                                text: $inputText,
+                                axis: .vertical
+                            )
+                            .textFieldStyle(.plain)
+                            .lineLimit(1...5)
+                            .foregroundColor(.white)
+                            .accentColor(.white)
+                            .focused($isTextFieldFocused)
+                            .disabled(isSending || isStreaming)
+
+                            HStack(spacing: 12) {
+                                Spacer()
+                                Button(action: sendMessage) {
+                                    Image(
+                                        systemName: isSending
+                                            ? "hourglass" : "arrow.up"
+                                    )
+                                    .foregroundColor(.white)
+                                }
+                                .frame(width: 32, height: 32)
+                                .background(
+                                    inputText.trimmingCharacters(
+                                        in: .whitespacesAndNewlines
+                                    ).isEmpty || isSending || isStreaming
+                                        ? Color.gray : Color.blue
+                                )
+                                .cornerRadius(16)
+                                .contentShape(Rectangle())
+                                .disabled(
+                                    inputText.trimmingCharacters(
+                                        in: .whitespacesAndNewlines
+                                    ).isEmpty || isSending || isStreaming
+                                )
+                            }
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            // Focus on TextField when tapping on the VStack area
+                            isTextFieldFocused = true
+                        }
+                        .overlay(
+                            // Floating gray rectangle
+                            Rectangle()
+                                .fill(Color.white.opacity(0.1))
+                                .frame(height: geometry.safeAreaInsets.bottom)
+                                .frame(width: geometry.size.width)
+                                .offset(y: geometry.safeAreaInsets.bottom + 12),
+                            alignment: .bottom
+                        )
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 12)
+                        .background(
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: 20,
+                                bottomLeadingRadius: 0,
+                                bottomTrailingRadius: 0,
+                                topTrailingRadius: 20
+                            )
+                            .fill(Color.white.opacity(0.1))
+                        )
                     }
                 }
             }
-            
-            Divider()
-            
-            // Text input area
-            VStack(spacing: 12) {
-                // Text input field
-                HStack(spacing: 12) {
-                    TextField("Ask something... (e.g., 'What files are in the root directory?')", text: $inputText, axis: .vertical)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .lineLimit(1...6)
-                        .disabled(isSending || isStreaming)
-                    
-                    // Voice recording button
-                    Button(action: {}) {
-                        Image(systemName: isRecording ? "mic.fill" : "mic")
-                            .foregroundColor(isRecording ? .red : (recordingPermissionGranted ? .blue : .gray))
-                            .font(.title2)
-                            .scaleEffect(isRecording ? 1.2 : 1.0)
-                            .animation(.easeInOut(duration: 0.1), value: isRecording)
-                    }
-                    .disabled(isSending || isStreaming || isTranscribing)
-                    .onLongPressGesture(
-                        minimumDuration: 0.1,
-                        maximumDistance: 50,
-                        perform: {
-                            // Long press ended - stop recording
-                            stopRecording()
-                        },
-                        onPressingChanged: { pressing in
-                            if pressing {
-                                // Long press started - start recording
-                                startRecording()
-                            } else {
-                                // Long press ended - stop recording
-                                stopRecording()
-                            }
-                        }
-                    )
-                    
-                    // Send button
-                    Button(action: sendMessage) {
-                        Image(systemName: isSending ? "hourglass" : "paperplane.fill")
-                            .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming ? .gray : .blue)
-                            .font(.title2)
-                    }
-                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending || isStreaming)
-                }
-                .padding(.horizontal)
-                
-                // Current status display
-                if isSending || isStreaming || isRecording || isTranscribing {
-                    HStack {
-                        Image(systemName: statusType == .error ? "exclamationmark.triangle" : 
-                              isRecording ? "waveform" : 
-                              isTranscribing ? "doc.text" : "gear")
-                            .foregroundColor(statusType == .error ? .red : 
-                                           isRecording ? .red :
-                                           isTranscribing ? .orange : .blue)
-                        Text(isRecording ? "Recording..." : 
-                             isTranscribing ? "Transcribing..." : currentStatus)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(.bottom)
-        }
-        .navigationTitle("Chat")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // Menu button
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: {
-                    onShowMenu?()
-                }) {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.title2)
-                        .foregroundColor(.blue)
-                }
-                .disabled(isStreaming || isSending)
-            }
-            
-            #if DEBUG
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("Debug") {
-                    // Single tap action (optional)
-                }                
-                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 10)) // Customize context menu preview
-                .contextMenu {
+            .navigationTitle("Mori")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
-                        // Print messages in view with all properties using JSONEncoder
-                        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
-                        do {
-                            let encoder = JSONEncoder()
-                            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                            encoder.dateEncodingStrategy = .iso8601
-                            
-                            let jsonData = try encoder.encode(chatMessages)
-                            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                                print("📋 ChatMessages in View JSON:")
-                                print(jsonString)
-                            }
-                        } catch {
-                            print("❌ Failed to serialize messages to JSON: \(error)")
-                        }
+                        isTextFieldFocused = false
+                        onShowMenu?()
                     }) {
-                        Label("Print Messages in View", systemImage: "doc.text")
+                        Image(systemName: "sidebar.left")
+                            .font(.body)
+                            .foregroundColor(.white)
                     }
-                    
+                    .disabled(isStreaming || isSending)
+                }
+
+#if DEBUG
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Debug") {
+                        debugActionSheet = true
+                    }
+                    .disabled(isStreaming || isSending)
+                }
+#endif
+
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        // Print request body
-                        guard let service = llmService else {
-                            print("❌ LLM service not available")
-                            return
-                        }
-                        
-                        let chatMessages = messageList.compactMap { $0 as? ChatMessage }
-                        let requestBody = service.generateRequestBodyJSON(from: chatMessages)
-                        
-                        do {
-                            let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
-                            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                                print("📤 Request Body JSON:")
-                                print(jsonString)
-                            }
-                        } catch {
-                            print("❌ Failed to serialize request body to JSON: \(error)")
-                        }
+                        createNewChat()
                     }) {
-                        Label("Print Request Body", systemImage: "network")
+                        Image(systemName: "message")
+                            .font(.body)
+                            .foregroundColor(.white)
                     }
-                    
-                    Button(action: {
-                        showingFilesView = true
-                    }) {
-                        Label("View Recording Files", systemImage: "folder")
-                    }
-                    
-                    Button(action: {
-                        router.navigateToOnboarding()
-                    }) {
-                        Label("Go to Settings", systemImage: "gearshape")
-                    }
+                    .disabled(isStreaming || isSending)
                 }
             }
-            #endif
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    createNewChatHistory()
-                }) {
-                    Image(systemName: "plus")
-                        .font(.title2)
-                        .foregroundColor(.blue)
-                }
-                .disabled(isStreaming || isSending)
-            }
-            
+            .preferredColorScheme(.dark)
         }
         .onAppear {
             setupLLMService()
-            checkRecordingPermission()
             loadCurrentChatHistory()
-            
-            // Listen for clear chat notification
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("ClearChat"),
-                object: nil,
-                queue: .main
-            ) { _ in
-                clearChat()
-            }
-            
+
             // Listen for load chat history notification
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("LoadChatHistory"),
@@ -360,99 +248,182 @@ struct ChatView: View {
                     loadChatHistory(chatHistory)
                 }
             }
+
+            // Listen for clear chat notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ClearChat"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                clearChat()
+            }
         }
         .onDisappear {
             // Remove notification observers
-            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("ClearChat"), object: nil)
-            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("LoadChatHistory"), object: nil)
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("LoadChatHistory"),
+                object: nil
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("ClearChat"),
+                object: nil
+            )
         }
         .alert("Error", isPresented: $showingError) {
-            Button("OK") { }
+            Button("OK") {}
         } message: {
             Text(errorMessage)
         }
-        .sheet(isPresented: $showingShareSheet) {
-            ShareSheet(activityItems: shareItems)
+        .sheet(isPresented: $showingErrorDetail) {
+            ErrorDetailView(errorDetail: errorDetail)
         }
         .sheet(isPresented: $showingFilesView) {
             FilesView()
         }
-    }
-    
-    // MARK: - Public Methods
-    
-    func clearChat() {
-        messageList.removeAll()
-        currentStatus = "Ready"
-        statusType = .finalStatus
-    }
-    
-    func loadChatHistory(_ chatHistory: ChatHistory) {
-        // Save current chat if it has messages
-        if !messageList.isEmpty, let currentChat = currentChatHistory {
-            saveChatHistory(currentChat)
+        .confirmationDialog("Debug Options", isPresented: $debugActionSheet) {
+            Button("Print Messages in View") {
+                printMessagesInView()
+            }
+            
+            Button("Print Request Body") {
+                printRequestBody()
+            }
+            
+            Button("View Recording Files") {
+                showingFilesView = true
+            }
+            
+            Button("Cancel", role: .cancel) { }
         }
-        
-        // Load new chat
-        currentChatHistory = chatHistory
-        currentChatHistoryId = chatHistory.id
-        messageList = chatHistory.messageList.map { $0.messageListItem }
-        shouldAutoSave = true
-        
-        print("📚 Loaded chat history: \(chatHistory.title)")
+    }
+
+    // MARK: - Private Methods
+
+    private func printMessagesInView() {
+        let messageListCloned = messageList
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            
+            let jsonData = try encoder.encode(messageListCloned)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("📋 ChatMessages in View JSON:")
+                print(jsonString)
+            }
+        } catch {
+            print("❌ Failed to serialize messages to JSON: \(error)")
+        }
     }
     
-    // MARK: - Private Methods
-    
-    private func sendMessage() {
-        let messageText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !messageText.isEmpty, let service = llmService else { return }
+    private func printRequestBody() {
+        guard let service = llmService else {
+            print("❌ LLM service not available")
+            return
+        }
+        let messageListCloned = messageList
         
+        let requestBody = service.generateRequestBodyJSON(from: messageListCloned)
+        
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [.prettyPrinted, .sortedKeys])
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("📤 Request Body JSON:")
+                print(jsonString)
+            }
+        } catch {
+            print("❌ Failed to serialize request body to JSON: \(error)")
+        }
+    }
+
+    private func setupLLMService() {
+        // Simple initialization - no configuration needed
+        llmService = LLMAIService()
+        print("✅ LLM Service initialized")
+    }
+
+    private func sendMessage() {
+        let messageText = inputText.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !messageText.isEmpty, let service = llmService else { return }
+
         // Clear input field and reset state
         inputText = ""
         isSending = true
         updateStatus("Processing request...", type: .llmThinking)
-        
+
         // Add user message
         let userMessage = ChatMessage(content: messageText, isUser: true)
-        messageList.append(userMessage)
-        
-        // Ensure we have a current chat history
-        if currentChatHistory == nil {
-            createNewChatHistoryFromCurrentMessages()
+        messageList.append(.chatMessage(userMessage))
+
+        // Ensure we have a chat ID for this session
+        if currentChatId == nil {
+            currentChatId = chatHistoryManager.createNewChat()
+            savedChatHistoryId = currentChatId
+            print(
+                "🆕 Created new chat for user message with ID: \(currentChatId ?? "unknown")"
+            )
         }
-        
+
         Task {
             do {
                 await MainActor.run {
                     isSending = false
                     isStreaming = true
                 }
-                
-                print("📨 Starting workflow with \(messageList.count) items in messageList")
-                
+
+                print(
+                    "📨 Starting workflow with \(messageList.count) items in messageList"
+                )
+
                 // Process real tool calling workflow
                 await processRealToolWorkflow(for: messageText, using: service)
-                
+
             } catch {
                 await MainActor.run {
-                    let errorStep = WorkflowStep(status: .error, toolName: "Send failed: \(error.localizedDescription)")
-                    messageList.append(errorStep)
-                    updateStatus("Error: \(error.localizedDescription)", type: .error)
+                    // Create detailed error information
+                    let fullErrorDetail = "\(error)"
+                    let shortErrorMessage = error.localizedDescription
+                    
+                    let errorStep = WorkflowStep(
+                        status: .error,
+                        toolName: "API Error",
+                        details: [
+                            "error_type": "API Request Failed",
+                            "short_message": shortErrorMessage,
+                            "full_details": fullErrorDetail
+                        ]
+                    )
+                    messageList.append(.workflowStep(errorStep))
+                    updateStatus(
+                        "Error: \(shortErrorMessage)",
+                        type: .error
+                    )
                     isSending = false
                     isStreaming = false
+                    // Save complete error detail
+                    errorDetail = fullErrorDetail
                 }
             }
         }
     }
-    
-    private func processRealToolWorkflow(for messageText: String, using service: LLMAIService) async {
+
+    private func processRealToolWorkflow(
+        for messageText: String,
+        using service: LLMAIService
+    ) async {
         var toolCallCount = 0
-        
+
         do {
-            let chatMessages = messageList.compactMap { $0 as? ChatMessage }
-            let stream = service.sendChatMessageWithTools(conversationHistory: chatMessages)
-            
+            // Simple shallow clone of the message list
+            let messageListCloned = messageList
+            let stream = service.sendChatMessageWithTools(
+                conversationHistory: messageListCloned
+            )
+
             for try await result in stream {
                 let (status, content) = result
                 await MainActor.run {
@@ -464,52 +435,91 @@ struct ChatView: View {
                         let toolCallStep = WorkflowStep(
                             status: .scheduled,
                             toolName: content,
-                            details: ["tool_name": content, "arguments": "Pending..."]
+                            details: [
+                                "tool_name": content, "arguments": "Pending...",
+                            ]
                         )
-                        messageList.append(toolCallStep)
-                        updateStatus("⏰ Scheduling tool: \(content)", type: .scheduled)
+                        messageList.append(.workflowStep(toolCallStep))
+                        updateStatus(
+                            "⏰ Scheduling tool: \(content)",
+                            type: .scheduled
+                        )
                     case "tool_arguments":
                         // Update the most recent scheduled step with arguments
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .scheduled }) {
-                            if let step = messageList[lastIndex] as? WorkflowStep {
+                        if let lastIndex = messageList.lastIndex(where: {
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .scheduled
+                            }
+                            return false
+                        }) {
+                            if case .workflowStep(let step) = messageList[
+                                lastIndex
+                            ] {
                                 let updatedStep = WorkflowStep(
                                     status: .scheduled,
                                     toolName: step.toolName,
-                                    details: ["tool_name": step.details["tool_name"] ?? "", "arguments": content]
+                                    details: [
+                                        "tool_name": step.details["tool_name"]
+                                            ?? "", "arguments": content,
+                                    ]
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(
+                                    updatedStep
+                                )
                             }
                         }
                     case "tool_execution":
                         // Update the most recent scheduled step to executing
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .scheduled }) {
-                            if let step = messageList[lastIndex] as? WorkflowStep {
+                        if let lastIndex = messageList.lastIndex(where: {
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .scheduled
+                            }
+                            return false
+                        }) {
+                            if case .workflowStep(let step) = messageList[
+                                lastIndex
+                            ] {
                                 let updatedStep = WorkflowStep(
                                     status: .executing,
                                     toolName: step.toolName,
                                     details: step.details
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(
+                                    updatedStep
+                                )
                             }
                         }
-                        updateStatus("⚡ Executing: \(content)", type: .executing)
+                        updateStatus(
+                            "⚡ Executing: \(content)",
+                            type: .executing
+                        )
                     case "tool_results":
                         // Update the most recent executing step to result
-                        if let lastIndex = messageList.lastIndex(where: { ($0 as? WorkflowStep)?.status == .executing }) {
-                            if let step = messageList[lastIndex] as? WorkflowStep {
+                        if let lastIndex = messageList.lastIndex(where: {
+                            if case .workflowStep(let step) = $0 {
+                                return step.status == .executing
+                            }
+                            return false
+                        }) {
+                            if case .workflowStep(let step) = messageList[
+                                lastIndex
+                            ] {
                                 let updatedStep = WorkflowStep(
                                     status: .result,
                                     toolName: step.toolName,
                                     details: ["result": content]
                                 )
-                                messageList[lastIndex] = updatedStep
+                                messageList[lastIndex] = .workflowStep(
+                                    updatedStep
+                                )
                             }
                         }
                         updateStatus("📊 Processing results...", type: .result)
                     case "response":
                         // If last message is ChatMessage, append content to it; otherwise create new ChatMessage
-                        if let lastMessage = messageList.last as? ChatMessage,
-                           !lastMessage.isUser {
+                        if case .chatMessage(let lastMessage) = messageList.last,
+                            !lastMessage.isUser
+                        {
                             // Append content to existing assistant message
                             let lastIndex = messageList.count - 1
                             let updatedMessage = ChatMessage(
@@ -518,520 +528,403 @@ struct ChatView: View {
                                 timestamp: lastMessage.timestamp,
                                 isSystem: lastMessage.isSystem
                             )
-                            messageList[lastIndex] = updatedMessage
+                            messageList[lastIndex] = .chatMessage(
+                                updatedMessage
+                            )
                         } else {
                             // Create new assistant message
-                            let newMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
-                            messageList.append(newMessage)
+                            let newMessage = ChatMessage(
+                                content: content,
+                                isUser: false,
+                                timestamp: Date()
+                            )
+                            messageList.append(.chatMessage(newMessage))
                         }
                     case "error":
-                        let errorStep = WorkflowStep(status: .error, toolName: content)
-                        messageList.append(errorStep)
+                        let errorStep = WorkflowStep(
+                            status: .error,
+                            toolName: "Stream Error",
+                            details: [
+                                "error_type": "Streaming Error",
+                                "short_message": content,
+                                "full_details": content
+                            ]
+                        )
+                        messageList.append(.workflowStep(errorStep))
                         updateStatus("❌ Error: \(content)", type: .error)
+                        // Save error detail for sheet display
+                        errorDetail = content
                     case "replace_response":
                         // Replace the last ChatMessage in messageList
-                        if let lastIndex = messageList.lastIndex(where: { $0 is ChatMessage }) {
-                            let replacementMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
-                            messageList[lastIndex] = replacementMessage
-                            print("✅ Replaced assistant message: \(String(content.prefix(50)))...")
+                        if let lastIndex = messageList.lastIndex(where: {
+                            if case .chatMessage(_) = $0 { return true }
+                            return false
+                        }) {
+                            let replacementMessage = ChatMessage(
+                                content: content,
+                                isUser: false,
+                                timestamp: Date()
+                            )
+                            messageList[lastIndex] = .chatMessage(
+                                replacementMessage
+                            )
+                            print(
+                                "✅ Replaced assistant message: \(String(content.prefix(50)))..."
+                            )
                         } else {
                             // If no ChatMessage found, add new one
-                            let assistantMessage = ChatMessage(content: content, isUser: false, timestamp: Date())
-                            messageList.append(assistantMessage)
-                            print("✅ Added assistant message: \(String(content.prefix(50)))...")
+                            let assistantMessage = ChatMessage(
+                                content: content,
+                                isUser: false,
+                                timestamp: Date()
+                            )
+                            messageList.append(.chatMessage(assistantMessage))
+                            print(
+                                "✅ Added assistant message: \(String(content.prefix(50)))..."
+                            )
                         }
                     default:
                         print("Unknown status: \(status)")
                     }
                 }
             }
-            
+
             await MainActor.run {
                 // Add final status
-                let finalStatusMessage = toolCallCount > 0 ? 
-                    "Completed. Processed \(toolCallCount) tool call(s)." : "Completed."
-                let finalStep = WorkflowStep(status: .finalStatus, toolName: finalStatusMessage)
-                messageList.append(finalStep)
-                
+                let finalStatusMessage =
+                    toolCallCount > 0
+                    ? "Completed. Processed \(toolCallCount) tool call(s)."
+                    : "Completed."
+                // let finalStep = WorkflowStep(
+                //     status: .finalStatus,
+                //     toolName: finalStatusMessage
+                // )
+                // messageList.append(.workflowStep(finalStep))
+
                 updateStatus("✅ \(finalStatusMessage)", type: .finalStatus)
-                
+
                 // Reset streaming state
                 isStreaming = false
-                
-                print("🏁 Workflow completed. Final messageList count: \(messageList.count)")
-                
+
+                print(
+                    "🏁 Workflow completed. Final messageList count: \(messageList.count)"
+                )
+
                 // Auto-save current chat history
-                if shouldAutoSave, let currentChat = currentChatHistory {
-                    saveChatHistoryAsync(currentChat)
-                }
+                saveCurrentChatHistory()
             }
         } catch {
             await MainActor.run {
-                let errorStep = WorkflowStep(status: .error, toolName: "Error: \(error.localizedDescription)")
-                messageList.append(errorStep)
-                updateStatus("❌ Error: \(error.localizedDescription)", type: .error)
+                // Create detailed error information
+                let fullErrorDetail = "\(error)"
+                let shortErrorMessage = error.localizedDescription
+                
+                let errorStep = WorkflowStep(
+                    status: .error,
+                    toolName: "Workflow Error",
+                    details: [
+                        "error_type": "Workflow Execution Failed",
+                        "short_message": shortErrorMessage,
+                        "full_details": fullErrorDetail
+                    ]
+                )
+                messageList.append(.workflowStep(errorStep))
+                updateStatus(
+                    "❌ Error: \(shortErrorMessage)",
+                    type: .error
+                )
                 isStreaming = false
+                showingError = true
+                errorMessage = shortErrorMessage
+                // Save complete error detail
+                errorDetail = fullErrorDetail
+                saveCurrentChatHistory()
             }
         }
     }
-    
+
     private func updateStatus(_ status: String, type: WorkflowStepStatus) {
         currentStatus = status
         statusType = type
     }
-    
-    private func setupLLMService() {
-        // Try to load new provider configuration first
-        if !providerConfigData.isEmpty {
-            do {
-                let providerConfig = try JSONDecoder().decode(ProviderConfiguration.self, from: providerConfigData)
-                llmService = LLMAIService(providerConfiguration: providerConfig)
-                print("✅ LLM Service initialized with new provider configuration")
-                print("  Text Completion: \(providerConfig.textCompletionProvider.type.displayName)")
-                print("  STT: \(providerConfig.sttProvider.type.displayName)")
-                
-                return
-            } catch {
-                print("❌ Failed to decode provider configuration: \(error)")
-                print("⚠️ Falling back to legacy configuration")
-            }
-        }
-        
-        // Fallback to legacy configuration
-        setupLegacyLLMService()
+
+    private func copyMessage(_ content: String) {
+        UIPasteboard.general.string = content
     }
-    
-    private func setupLegacyLLMService() {
-        guard let providerType = LLMProviderType(rawValue: currentProvider) else {
-            print("❌ Invalid provider type: \(currentProvider)")
-            return
-        }
-        
-        let config: LLMProviderConfig
-        
-        switch providerType {
-        case .openai:
-            config = LLMProviderConfig(
-                type: .openai,
-                apiKey: openaiApiKey,
-                baseURL: openaiBaseUrl.isEmpty ? nil : openaiBaseUrl,
-                model: openaiModel.isEmpty ? nil : openaiModel
-            )
-            print("🔧 OpenAI Configuration (Legacy):")
-            print("  API Key: \(openaiApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openaiApiKey.count))")")
-            print("  Base URL: \(openaiBaseUrl.isEmpty ? "✅ Using default (https://api.openai.com)" : "🔧 Custom: \(openaiBaseUrl)")")
-            print("  Model: \(openaiModel.isEmpty ? "✅ Using default (gpt-4o-2024-11-20)" : "🔧 Custom: \(openaiModel)")")
-            
-        case .openRouter:
-            config = LLMProviderConfig(
-                type: .openRouter,
-                apiKey: openrouterApiKey,
-                baseURL: openrouterBaseUrl.isEmpty ? nil : openrouterBaseUrl,
-                model: openrouterModel.isEmpty ? nil : openrouterModel
-            )
-            print("🔧 OpenRouter Configuration (Legacy):")
-            print("  API Key: \(openrouterApiKey.isEmpty ? "❌ Not set" : "✅ Set (length: \(openrouterApiKey.count))")")
-            print("  Base URL: \(openrouterBaseUrl.isEmpty ? "✅ Using default (https://openrouter.ai/api)" : "🔧 Custom: \(openrouterBaseUrl)")")
-            print("  Model: \(openrouterModel.isEmpty ? "✅ Using default (deepseek/deepseek-chat-v3-0324)" : "🔧 Custom: \(openrouterModel)")")
-        }
-        
-        llmService = LLMAIService(config: config)
-        print("✅ LLM Service initialized with legacy provider: \(providerType.displayName)")
-    }
-    
-    // MARK: - Voice Recording Methods
-    
-    private func checkRecordingPermission() {
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            DispatchQueue.main.async {
-                self.recordingPermissionGranted = granted
-                if granted {
-                    print("✅ Recording permission granted")
-                } else {
-                    print("❌ Recording permission denied")
-                }
+
+    private func copyLastMessage() {
+        // Find the last assistant message and copy it
+        for item in messageList.reversed() {
+            if case .chatMessage(let message) = item, !message.isUser {
+                copyMessage(message.content)
+                break
             }
         }
     }
-    
-    private func startRecording() {
-        guard recordingPermissionGranted else {
-            print("❌ Recording permission not granted")
-            return
-        }
-        
-        guard !isRecording else { return }
-        
-        // Setup audio session
-        let audioSession = AVAudioSession.sharedInstance()
-        
-        do {
-            try audioSession.setCategory(.playAndRecord, mode: .default)
-            try audioSession.setActive(true)
-            
-            // Create recording URL in /recordings directory
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let recordingsPath = documentsPath.appendingPathComponent("recordings")
-            
-            // Create recordings directory if it doesn't exist
-            try FileManager.default.createDirectory(at: recordingsPath, withIntermediateDirectories: true, attributes: nil)
-            
-            let audioFilename = recordingsPath.appendingPathComponent("\(UUID().uuidString).m4a")
-            recordingURL = audioFilename
-            
-            // Setup recorder settings
-            let settings = [
-                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                AVSampleRateKey: 44100,
-                AVNumberOfChannelsKey: 1,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-            ]
-            
-            // Create and start recorder
-            audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
-            audioRecorder?.record()
-            
-            isRecording = true
-            print("🎤 Started recording to: \(audioFilename)")
-            
-        } catch {
-            print("❌ Failed to start recording: \(error)")
-            errorMessage = "Failed to start recording: \(error.localizedDescription)"
-            showingError = true
-        }
+
+    private func likeMessage() {
+        // Implement like functionality
+        print("👍 Message liked")
     }
-    
-    private func stopRecording() {
-        guard isRecording else { return }
-        
-        audioRecorder?.stop()
-        isRecording = false
-        
-        print("⏹️ Stopped recording")
-        
-        // Start transcription
-        if let url = recordingURL {
-            transcribeAudio(url: url)
-        }
-        
-        // Deactivate audio session
-        try? AVAudioSession.sharedInstance().setActive(false)
+
+    private func dislikeMessage() {
+        // Implement dislike functionality
+        print("👎 Message disliked")
     }
-    
-    private func transcribeAudio(url: URL) {
-        guard let service = llmService, !service.getSTTAPIKey().isEmpty else {
-            errorMessage = "STT API key is required for transcription"
-            showingError = true
-            return
-        }
-        
-        isTranscribing = true
-        
-        Task {
-            do {
-                let transcribedText = try await performWhisperTranscription(audioURL: url)
-                
-                await MainActor.run {
-                    isTranscribing = false
-                    
-                    // Set the transcribed text in input field and send
-                    if !transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        inputText = transcribedText
-                        sendMessage()
-                    }
-                    
-                    // Keep the recording file in /recordings directory for later playback
-                    print("✅ Recording saved to: \(url)")
-                }
-                
-            } catch {
-                await MainActor.run {
-                    isTranscribing = false
-                    errorMessage = "Transcription failed: \(error.localizedDescription)"
-                    showingError = true
-                    
-                    // Keep the recording file even if transcription fails
-                    print("⚠️ Transcription failed but recording saved to: \(url)")
-                }
-            }
-        }
-    }
-    
-    private func performWhisperTranscription(audioURL: URL) async throws -> String {
-        guard let service = llmService else {
-            throw NSError(domain: "ServiceError", code: 0, userInfo: [NSLocalizedDescriptionKey: "LLM service not available"])
-        }
-        
-        // Prepare the request
-        let baseURL = service.getSTTBaseURL()
-        guard let url = URL(string: "\(baseURL)/v1/audio/transcriptions") else {
-            throw NSError(domain: "InvalidURL", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid STT API URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(service.getSTTAPIKey())", forHTTPHeaderField: "Authorization")
-        
-        // Create multipart form data
-        let boundary = UUID().uuidString
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        
-        var body = Data()
-        
-        // Add model parameter
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
-        body.append("whisper-1\r\n".data(using: .utf8)!)
-        
-        // Add audio file
-        let audioData = try Data(contentsOf: audioURL)
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: audio/mp4\r\n\r\n".data(using: .utf8)!)
-        body.append(audioData)
-        body.append("\r\n".data(using: .utf8)!)
-        
-        // Add response format
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n".data(using: .utf8)!)
-        body.append("json\r\n".data(using: .utf8)!)
-        
-        // Close boundary
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
-        
-        request.httpBody = body
-        
-        // Perform request
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "InvalidResponse", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "API Error (\(httpResponse.statusCode)): \(errorString)"])
-        }
-        
-        // Parse response
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let text = json["text"] as? String {
-            print("✅ Transcription successful: \(String(text.prefix(50)))...")
-            return text
-        } else {
-            throw NSError(domain: "ParseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to parse transcription response"])
-        }
-    }
-    
+
     // MARK: - Chat History Management Methods
-    
-    private func getChatHistoryDirectory() -> URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documentsPath.appendingPathComponent("chatHistorys")
-    }
-    
-    private func ensureChatHistoryDirectoryExists() {
-        let chatHistoryDir = getChatHistoryDirectory()
-        if !FileManager.default.fileExists(atPath: chatHistoryDir.path) {
-            try? FileManager.default.createDirectory(at: chatHistoryDir, withIntermediateDirectories: true, attributes: nil)
-        }
-    }
-    
+
     private func loadCurrentChatHistory() {
-        guard let historyId = currentChatHistoryId else {
-            print("🆕 No current chat history ID - starting fresh")
+        guard let historyId = savedChatHistoryId else {
+            print("🆕 No saved chat history ID - starting fresh")
             return
         }
-        
-        ensureChatHistoryDirectoryExists()
-        let chatHistoryDir = getChatHistoryDirectory()
-        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(historyId).json")
-        
-        guard FileManager.default.fileExists(atPath: filePath.path) else {
-            print("⚠️ Chat history file not found for ID: \(historyId)")
-            currentChatHistoryId = nil
-            return
-        }
-        
-        do {
-            let data = try Data(contentsOf: filePath)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let chatHistory = try decoder.decode(ChatHistory.self, from: data)
-            currentChatHistory = chatHistory
-            messageList = chatHistory.messageList.map { $0.messageListItem }
-            shouldAutoSave = true
-            print("📚 Loaded chat history: \(chatHistory.title)")
-        } catch {
-            print("❌ Failed to load chat history: \(error)")
-            currentChatHistoryId = nil
+
+        if let loadedMessages = chatHistoryManager.loadChat(id: historyId) {
+            currentChatId = historyId
+            messageList = loadedMessages
+            print("📚 Loaded chat history with ID: \(historyId)")
+        } else {
+            print("⚠️ Chat history not found for ID: \(historyId)")
+            savedChatHistoryId = nil
         }
     }
-    
-    private func saveChatHistory(_ chatHistory: ChatHistory) {
-        ensureChatHistoryDirectoryExists()
-        let chatHistoryDir = getChatHistoryDirectory()
-        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
-        
-        do {
-            var updatedChatHistory = chatHistory
-            updatedChatHistory.messageList = messageList.map { item in
-                if let chatMessage = item as? ChatMessage {
-                    return .chatMessage(chatMessage)
-                } else if let workflowStep = item as? WorkflowStep {
-                    return .workflowStep(workflowStep)
-                } else {
-                    fatalError("Unsupported MessageListItem type")
-                }
-            }
-            updatedChatHistory.updateDate = Date()
-            
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(updatedChatHistory)
-            try data.write(to: filePath)
-            
-            // Update current chat history
-            currentChatHistory = updatedChatHistory
-            
-            print("💾 Saved chat history: \(updatedChatHistory.title)")
-        } catch {
-            print("❌ Failed to save chat history: \(error)")
+
+    private func saveCurrentChatHistory() {
+        // Create new chat if needed
+        if currentChatId == nil && !messageList.isEmpty {
+            currentChatId = chatHistoryManager.createNewChat()
+        }
+
+        // Save if we have messages
+        if !messageList.isEmpty {
+            let savedId = chatHistoryManager.saveCurrentChat(
+                messageList,
+                existingId: currentChatId
+            )
+            currentChatId = savedId
+            savedChatHistoryId = savedId
+            print("💾 Saved chat history with ID: \(savedId)")
         }
     }
-    
-    private func saveChatHistoryAsync(_ chatHistory: ChatHistory) {
-        Task.detached {
-            await MainActor.run { [chatHistory] in
-                // We need to call static method since we can't capture self in struct
-                ChatView.saveChatHistoryStatic(chatHistory)
-            }
-        }
+
+    private func loadChatHistory(_ chatHistory: ChatHistory) {
+        // No need saveCurrentChatHistory here
+        // because already saved after response
+
+        // Load new chat
+        currentChatId = chatHistory.id
+        savedChatHistoryId = chatHistory.id
+        messageList = chatHistory.messageList
+
+        print("📚 Loaded chat history: \(chatHistory.title)")
     }
-    
-    private static func saveChatHistoryStatic(_ chatHistory: ChatHistory) {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
-        
-        // Ensure directory exists
-        if !FileManager.default.fileExists(atPath: chatHistoryDir.path) {
-            try? FileManager.default.createDirectory(at: chatHistoryDir, withIntermediateDirectories: true, attributes: nil)
-        }
-        
-        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
-        
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(chatHistory)
-            try data.write(to: filePath)
-            
-            print("💾 Saved chat history: \(chatHistory.title)")
-        } catch {
-            print("❌ Failed to save chat history: \(error)")
-        }
-    }
-    
-    private func createNewChatHistory() {
-        // Save current chat if it has messages
-        if !messageList.isEmpty, let currentChat = currentChatHistory {
-            saveChatHistory(currentChat)
-        }
-        
-        // Create new chat
-        let newChatHistory = ChatHistory()
-        currentChatHistory = newChatHistory
-        currentChatHistoryId = newChatHistory.id
+
+    private func clearChat() {
         messageList.removeAll()
         currentStatus = "Ready"
         statusType = .finalStatus
-        shouldAutoSave = true
-        
-        print("🆕 Created new chat history: \(newChatHistory.title)")
+        inputText = ""
+
+        print("🧹 Cleared current chat")
     }
-    
-    private func createNewChatHistoryFromCurrentMessages() {
-        let newChatHistory = ChatHistory(messageList: messageList)
-        currentChatHistory = newChatHistory
-        currentChatHistoryId = newChatHistory.id
-        shouldAutoSave = true
-        
-        print("🆕 Created new chat history from current messages: \(newChatHistory.title)")
-    }
-    
-    static func loadAllChatHistories() -> [ChatHistory] {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
-        
-        guard FileManager.default.fileExists(atPath: chatHistoryDir.path) else {
-            return []
+
+    private func createNewChat() {
+        // Save current chat if it has messages
+        if !messageList.isEmpty {
+            saveCurrentChatHistory()
         }
-        
-        do {
-            let fileURLs = try FileManager.default.contentsOfDirectory(at: chatHistoryDir, includingPropertiesForKeys: nil)
-            let jsonFiles = fileURLs.filter { $0.pathExtension == "json" && $0.lastPathComponent.hasPrefix("chatHistory_") }
-            
-            var chatHistories: [ChatHistory] = []
-            
-            for fileURL in jsonFiles {
-                do {
-                    let data = try Data(contentsOf: fileURL)
-                    let decoder = JSONDecoder()
-                    decoder.dateDecodingStrategy = .iso8601
-                    let chatHistory = try decoder.decode(ChatHistory.self, from: data)
-                    chatHistories.append(chatHistory)
-                } catch {
-                    print("❌ Failed to load chat history from \(fileURL.lastPathComponent): \(error)")
-                }
+
+        // Create new chat
+        currentChatId = chatHistoryManager.createNewChat()
+        savedChatHistoryId = currentChatId
+
+        // Clear current chat
+        messageList.removeAll()
+        currentStatus = "Ready"
+        statusType = .finalStatus
+        inputText = ""
+
+        print("🆕 Created new chat with ID: \(currentChatId ?? "unknown")")
+    }
+
+    private func retryFromMessage(_ message: ChatMessage) {
+        // Find the index of the message to retry from
+        guard let messageIndex = messageList.firstIndex(where: { item in
+            if case .chatMessage(let chatMessage) = item {
+                return chatMessage.id == message.id
             }
-            
-            // Sort by update date descending
-            return chatHistories.sorted { $0.updateDate > $1.updateDate }
-        } catch {
-            print("❌ Failed to read chat history directory: \(error)")
-            return []
+            return false
+        }) else {
+            print("⚠️ Message not found for retry")
+            return
         }
-    }
-    
-    static func deleteChatHistory(_ chatHistory: ChatHistory) {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
-        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
-        
-        do {
-            try FileManager.default.removeItem(at: filePath)
-            print("🗑️ Deleted chat history: \(chatHistory.title)")
-        } catch {
-            print("❌ Failed to delete chat history: \(error)")
-        }
-    }
-    
-    static func renameChatHistory(_ chatHistory: ChatHistory, newTitle: String) {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let chatHistoryDir = documentsPath.appendingPathComponent("chatHistorys")
-        let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(chatHistory.id).json")
-        
-        do {
-            let data = try Data(contentsOf: filePath)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            var updatedChatHistory = try decoder.decode(ChatHistory.self, from: data)
-            updatedChatHistory.title = newTitle
-            updatedChatHistory.updateDate = Date()
-            
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let updatedData = try encoder.encode(updatedChatHistory)
-            try updatedData.write(to: filePath)
-            
-            print("✏️ Renamed chat history to: \(newTitle)")
-        } catch {
-            print("❌ Failed to rename chat history: \(error)")
-        }
+
+        // Store the message content before removal
+        let messageContent = message.content
+
+        // Remove the message and all messages after it
+        messageList.removeSubrange(messageIndex...)
+        print("🔄 Removed \(messageList.count - messageIndex) messages for retry")
+
+        // Reset state
+        currentStatus = "Ready"
+        statusType = .finalStatus
+        isStreaming = false
+        isSending = false
+
+        // Set the input text and trigger send
+        inputText = messageContent
+        sendMessage()
     }
 }
 
 #Preview {
     ChatView()
-        .environmentObject(AppRouter())
-} 
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Chat with Sample Data") {
+    ChatView(initialMessages: [
+        // User asks about calendar
+        .chatMessage(
+            ChatMessage(content: "What's on my calendar today?", isUser: true)
+        ),
+
+        // Calendar workflow
+        .workflowStep(
+            WorkflowStep(
+                status: .scheduled,
+                toolName: "read-calendar",
+                details: [
+                    "tool_name": "read-calendar",
+                    "arguments": "Searching today's events...",
+                ]
+            )
+        ),
+        .workflowStep(
+            WorkflowStep(
+                status: .executing,
+                toolName: "read-calendar",
+                details: [
+                    "tool_name": "read-calendar"
+                ]
+            )
+        ),
+        .workflowStep(
+            WorkflowStep(
+                status: .result,
+                toolName: "read-calendar",
+                details: [
+                    "result": """
+                    {
+                        "success": true,
+                        "count": 2,
+                        "date_range": {
+                            "startDate": "2024-01-15T00:00:00+08:00",
+                            "endDate": "2024-01-15T23:59:59+08:00"
+                        },
+                        "events": [
+                            {
+                                "id": "1",
+                                "title": "Team Meeting",
+                                "start_date": "2024-01-15T10:00:00+08:00",
+                                "end_date": "2024-01-15T11:00:00+08:00",
+                                "location": "Conference Room A",
+                                "notes": "Weekly sync meeting",
+                                "is_all_day": false
+                            },
+                            {
+                                "id": "2",
+                                "title": "Project Review",
+                                "start_date": "2024-01-15T15:00:00+08:00",
+                                "end_date": "2024-01-15T16:30:00+08:00",
+                                "location": "Online",
+                                "notes": "Q1 progress review",
+                                "is_all_day": false
+                            }
+                        ]
+                    }
+                    """
+                ]
+            )
+        ),
+
+        // AI response
+        .chatMessage(
+            ChatMessage(
+                content:
+                    "I found 2 events on your calendar today:\n\n• **Team Meeting** at 10:00 AM\n  📍 Conference Room A\n  Weekly sync meeting\n\n• **Project Review** at 3:00 PM\n  📍 Online\n  Q1 progress review\n\nWould you like me to help with anything else?",
+                isUser: false
+            )
+        ),
+
+        // User asks to add reminder
+        .chatMessage(
+            ChatMessage(
+                content: "Add a 15-minute reminder for the team meeting",
+                isUser: true
+            )
+        ),
+
+        // Update calendar workflow
+        .workflowStep(
+            WorkflowStep(
+                status: .result,
+                toolName: "update-calendar",
+                details: [
+                    "result": """
+                    {
+                        "success": true,
+                        "message": "Event updated successfully",
+                        "event": {
+                            "id": "1",
+                            "title": "Team Meeting",
+                            "start_date": "2024-01-15T10:00:00+08:00",
+                            "end_date": "2024-01-15T11:00:00+08:00",
+                            "location": "Conference Room A",
+                            "notes": "Weekly sync meeting",
+                            "is_all_day": false
+                        }
+                    }
+                    """
+                ]
+            )
+        ),
+
+        .chatMessage(
+            ChatMessage(
+                content:
+                    "✅ Perfect! I've added a 15-minute reminder for your Team Meeting. You'll be notified at 9:45 AM.",
+                isUser: false
+            )
+        ),
+
+        // Error example
+        .chatMessage(
+            ChatMessage(content: "What's the weather like?", isUser: true)
+        ),
+        .workflowStep(
+            WorkflowStep(
+                status: .error,
+                toolName: "Weather API Error: Service temporarily unavailable"
+            )
+        ),
+        .chatMessage(
+            ChatMessage(
+                content:
+                    "I'm sorry, but I can't get the weather information right now. The weather service is temporarily unavailable. Please try again later.",
+                isUser: false
+            )
+        ),
+
+        // Final status
+        .workflowStep(
+            WorkflowStep(
+                status: .finalStatus,
+                toolName: "Completed. Processed 2 tool calls."
+            )
+        ),
+    ])
+    .preferredColorScheme(.dark)
+}

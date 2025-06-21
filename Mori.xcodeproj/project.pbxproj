@@ -7,12 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		202D162C2E05535400493124 /* ChatView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162B2E05535400493124 /* ChatView2.swift */; };
+		202D162E2E06648800493124 /* ChatHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162D2E06648800493124 /* ChatHistoryManager.swift */; };
+		202D162F2E06648900493124 /* ChatHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D16302E06648900493124 /* ChatHistory.swift */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
 		20DE193D2E0049FD00CD902D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193C2E0049FD00CD902D /* MainView.swift */; };
 		20DE193F2E004C5600CD902D /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193E2E004C5600CD902D /* ChatView.swift */; };
 		20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */; };
 		20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */; };
+		30F224202E0665A000493124 /* ChatItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224212E0665A000493124 /* ChatItemView.swift */; };
+		30F224222E0665B000493124 /* WorkflowStepItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224232E0665B000493124 /* WorkflowStepItemView.swift */; };
+		30F224242E0665C000493124 /* CalendarEventComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224252E0665C000493124 /* CalendarEventComponents.swift */; };
+		30F224262E0665D000493124 /* ErrorDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224272E0665D000493124 /* ErrorDetailView.swift */; };
 		A1000001000000000000001 /* MoriApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* MoriApp.swift */; };
 		A1000003000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* ContentView.swift */; };
 		A1000005000000000000001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* OnboardingView.swift */; };
@@ -35,6 +42,9 @@
 
 /* Begin PBXFileReference section */
 		202D16182E051A9E00493124 /* Mori.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mori.entitlements; sourceTree = "<group>"; };
+		202D162B2E05535400493124 /* ChatView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView2.swift; sourceTree = "<group>"; };
+		202D162D2E06648800493124 /* ChatHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryManager.swift; sourceTree = "<group>"; };
+		202D16302E06648900493124 /* ChatHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistory.swift; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -42,6 +52,10 @@
 		20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMCP.swift; sourceTree = "<group>"; };
 		20F224122DF1EAE40046CA52 /* MoriTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MoriTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViews.swift; sourceTree = "<group>"; };
+		30F224212E0665A000493124 /* ChatItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatItemView.swift; sourceTree = "<group>"; };
+		30F224232E0665B000493124 /* WorkflowStepItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowStepItemView.swift; sourceTree = "<group>"; };
+		30F224252E0665C000493124 /* CalendarEventComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventComponents.swift; sourceTree = "<group>"; };
+		30F224272E0665D000493124 /* ErrorDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorDetailView.swift; sourceTree = "<group>"; };
 		A1000002000000000000001 /* MoriApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoriApp.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000006000000000000001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -113,14 +127,27 @@
 		A1000025000000000000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				202D162B2E05535400493124 /* ChatView2.swift */,
 				20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */,
 				A1000006000000000000001 /* OnboardingView.swift */,
 				20DE190C2DF8578300CD902D /* FilesView.swift */,
 				20DE193A2E0046F900CD902D /* MenuView.swift */,
 				20DE193C2E0049FD00CD902D /* MainView.swift */,
 				20DE193E2E004C5600CD902D /* ChatView.swift */,
+				30F224282E0665E000493124 /* Components */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		30F224282E0665E000493124 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				30F224212E0665A000493124 /* ChatItemView.swift */,
+				30F224232E0665B000493124 /* WorkflowStepItemView.swift */,
+				30F224252E0665C000493124 /* CalendarEventComponents.swift */,
+				30F224272E0665D000493124 /* ErrorDetailView.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 		A1000026000000000000001 /* Services */ = {
@@ -129,6 +156,7 @@
 				A1000010000000000000001 /* AudioRecorder.swift */,
 				A1000012000000000000001 /* LLMAIService.swift */,
 				20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */,
+				202D162D2E06648800493124 /* ChatHistoryManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -137,6 +165,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000014000000000000001 /* ChatMessage.swift */,
+				202D16302E06648900493124 /* ChatHistory.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -261,16 +290,23 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				202D162C2E05535400493124 /* ChatView2.swift in Sources */,
 				A1000003000000000000001 /* ContentView.swift in Sources */,
 				20DE193D2E0049FD00CD902D /* MainView.swift in Sources */,
 				A1000005000000000000001 /* OnboardingView.swift in Sources */,
+				202D162E2E06648800493124 /* ChatHistoryManager.swift in Sources */,
 				A1000009000000000000001 /* AudioRecorder.swift in Sources */,
 				20DE193F2E004C5600CD902D /* ChatView.swift in Sources */,
 				20DE190D2DF8578400CD902D /* FilesView.swift in Sources */,
 				A1000011000000000000001 /* LLMAIService.swift in Sources */,
 				20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */,
+				30F224202E0665A000493124 /* ChatItemView.swift in Sources */,
+				30F224222E0665B000493124 /* WorkflowStepItemView.swift in Sources */,
+				30F224242E0665C000493124 /* CalendarEventComponents.swift in Sources */,
+				30F224262E0665D000493124 /* ErrorDetailView.swift in Sources */,
 				20DE193B2E0046F900CD902D /* MenuView.swift in Sources */,
 				A1000013000000000000001 /* ChatMessage.swift in Sources */,
+				202D162F2E06648900493124 /* ChatHistory.swift in Sources */,
 				20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */,
 				A1000001000000000000001 /* MoriApp.swift in Sources */,
 			);

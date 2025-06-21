@@ -7,14 +7,8 @@ class LLMAIServiceTests: XCTestCase {
     var mockCalendarMCP: MockCalendarMCP!
     
     override func setUpWithError() throws {
-        // Initialize with test configuration
-        let config = LLMProviderConfig(
-            type: .openRouter,
-            apiKey: "test-api-key",
-            baseURL: "https://api.test.com",
-            model: "test-model"
-        )
-        llmService = LLMAIService(config: config)
+        // Initialize with simplified configuration
+        llmService = LLMAIService()
         mockCalendarMCP = MockCalendarMCP()
     }
     
@@ -74,7 +68,13 @@ class LLMAIServiceTests: XCTestCase {
             workflowSteps: []
         )
         
-        let conversationHistory = [userMessage, assistantResponse, toolSystemMessage, llmResponse, userFollowUp]
+        let conversationHistory: [MessageListItemType] = [
+            .chatMessage(userMessage), 
+            .chatMessage(assistantResponse), 
+            .chatMessage(toolSystemMessage), 
+            .chatMessage(llmResponse), 
+            .chatMessage(userFollowUp)
+        ]
         
         print("🧪 Starting meeting rescheduling scenario test")
         print("📝 Conversation history prepared with \(conversationHistory.count) messages")
@@ -82,10 +82,34 @@ class LLMAIServiceTests: XCTestCase {
         // Since we can't actually test the full streaming without network calls,
         // we'll test the conversation setup and verify the structure
         XCTAssertEqual(conversationHistory.count, 5, "Should have 5 conversation messages")
-        XCTAssertTrue(conversationHistory[0].isUser, "First message should be from user")
-        XCTAssertFalse(conversationHistory[1].isUser, "Second message should be from assistant")
-        XCTAssertTrue(conversationHistory[2].isSystem, "Third message should be system message")
-        XCTAssertEqual(conversationHistory[4].content, "Two of them.", "Last message should be user follow-up")
+        
+        // Verify first message is from user
+        if case .chatMessage(let firstMessage) = conversationHistory[0] {
+            XCTAssertTrue(firstMessage.isUser, "First message should be from user")
+        } else {
+            XCTFail("First item should be a chat message")
+        }
+        
+        // Verify second message is from assistant
+        if case .chatMessage(let secondMessage) = conversationHistory[1] {
+            XCTAssertFalse(secondMessage.isUser, "Second message should be from assistant")
+        } else {
+            XCTFail("Second item should be a chat message")
+        }
+        
+        // Verify third message is system message
+        if case .chatMessage(let thirdMessage) = conversationHistory[2] {
+            XCTAssertTrue(thirdMessage.isSystem, "Third message should be system message")
+        } else {
+            XCTFail("Third item should be a chat message")
+        }
+        
+        // Verify last message content
+        if case .chatMessage(let lastMessage) = conversationHistory[4] {
+            XCTAssertEqual(lastMessage.content, "Two of them.", "Last message should be user follow-up")
+        } else {
+            XCTFail("Last item should be a chat message")
+        }
         
         print("✅ Conversation structure validation passed")
     }
@@ -116,6 +140,36 @@ class LLMAIServiceTests: XCTestCase {
         XCTAssertEqual(toolCalls.first?.arguments["startDate"] as? String, "2025/06/07", "Should extract correct start date")
         XCTAssertEqual(toolCalls.first?.arguments["endDate"] as? String, "2025/06/14", "Should extract correct end date")
         XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you check your calendar for this week.", "Should return cleaned text without JSON")
+    }
+    
+    // Test tool call extraction with code block format
+    func testToolCallExtractionWithCodeBlock() {
+        // Given: A response with tool call in code block format
+        let responseWithCodeBlock = """
+        I'll help you check your calendar for this week.
+        
+        ```json
+        {
+            "tool": "read-calendar",
+            "arguments": {
+                "startDate": "2025/06/07",
+                "endDate": "2025/06/14"
+            }
+        }
+        ```
+        """
+        
+        // When: Extract tool calls using our simulation
+        let result = extractToolCallsSimulated(from: responseWithCodeBlock)
+        let toolCalls = result.0
+        let cleanedText = result.1
+        
+        // Then: Verify extraction
+        XCTAssertEqual(toolCalls.count, 1, "Should extract one tool call from code block")
+        XCTAssertEqual(toolCalls.first?.tool, "read-calendar", "Should extract read-calendar tool")
+        XCTAssertEqual(toolCalls.first?.arguments["startDate"] as? String, "2025/06/07", "Should extract correct start date")
+        XCTAssertEqual(toolCalls.first?.arguments["endDate"] as? String, "2025/06/14", "Should extract correct end date")
+        XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you check your calendar for this week.", "Should return cleaned text without code block")
     }
     
     // Test tool call extraction with multiple tools
@@ -153,6 +207,45 @@ class LLMAIServiceTests: XCTestCase {
         XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you reschedule both events.", "Should return cleaned text without JSON")
     }
     
+    // Test tool call extraction with multiple code blocks
+    func testMultipleCodeBlockToolCallExtraction() {
+        // Given: A response with multiple tool calls in code blocks
+        let responseWithMultipleCodeBlocks = """
+        I'll help you reschedule both events.
+        
+        ```json
+        {
+            "tool": "update-calendar",
+            "arguments": {
+                "eventId": "event1",
+                "newStartTime": "2025-06-08T09:00:00Z"
+            }
+        }
+        ```
+        
+        ```json
+        {
+            "tool": "update-calendar", 
+            "arguments": {
+                "eventId": "event2",
+                "newStartTime": "2025-06-08T12:00:00Z"
+            }
+        }
+        ```
+        """
+        
+        // When: Extract tool calls
+        let result = extractToolCallsSimulated(from: responseWithMultipleCodeBlocks)
+        let toolCalls = result.0
+        let cleanedText = result.1
+        
+        // Then: Verify extraction
+        XCTAssertEqual(toolCalls.count, 2, "Should extract two tool calls from code blocks")
+        XCTAssertEqual(toolCalls[0].tool, "update-calendar", "First tool should be update-calendar")
+        XCTAssertEqual(toolCalls[1].tool, "update-calendar", "Second tool should be update-calendar")
+        XCTAssertEqual(cleanedText.trimmingCharacters(in: .whitespacesAndNewlines), "I'll help you reschedule both events.", "Should return cleaned text without code blocks")
+    }
+    
     // Test tool call extraction with no tools
     func testNoToolCallExtraction() {
         // Given: A response without tool calls
@@ -172,37 +265,76 @@ class LLMAIServiceTests: XCTestCase {
     
     // Test LLM Service initialization
     func testLLMServiceInitialization() {
-        // Given: OpenAI configuration
-        let openaiConfig = LLMProviderConfig(
-            type: .openai,
-            apiKey: "test-openai-key",
-            baseURL: "https://api.openai.com",
-            model: "gpt-4o-2024-11-20"
-        )
-        
-        // When: Initialize service with OpenAI
-        let openaiService = LLMAIService(config: openaiConfig)
+        // When: Initialize service with simplified configuration
+        let service = LLMAIService()
         
         // Then: Service should be initialized
-        XCTAssertNotNil(openaiService, "OpenAI service should be initialized")
+        XCTAssertNotNil(service, "LLM service should be initialized")
+    }
+    
+    // Test sendChatMessage basic functionality
+    func testSendChatMessage() async throws {
+        // Given: A simple conversation history
+        let conversationHistory: [MessageListItemType] = [
+           .chatMessage(ChatMessage(
+               content: "Hello, how are you?",
+               isUser: true,
+               timestamp: Date(),
+               isSystem: false,
+               workflowSteps: []
+           ))
+       ]
         
-        // Given: OpenRouter configuration
-        let openrouterConfig = LLMProviderConfig(
-            type: .openRouter,
-            apiKey: "test-openrouter-key",
-            baseURL: "https://openrouter.ai/api",
-            model: "deepseek/deepseek-chat-v3-0324"
-        )
+        print("🧪 Starting sendChatMessage test")
+        print("📝 Created conversation history with 1 message")
         
-        // When: Initialize service with OpenRouter
-        let openrouterService = LLMAIService(config: openrouterConfig)
+        // When: Send chat message using the stream
+        var hasReceivedData = false
+        var accumulatedResponse = ""
         
-        // Then: Service should be initialized
-        XCTAssertNotNil(openrouterService, "OpenRouter service should be initialized")
+        // Use a shorter timeout since this might fail due to network
+        let timeoutTask = Task {
+            try await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds timeout
+            throw NSError(domain: "TimeoutError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Test timeout - no data received within 5 seconds"])
+        }
         
-        // Test backward compatibility initializer
-        let compatService = LLMAIService(apiKey: "test-key", customBaseURL: "https://custom.api.com")
-        XCTAssertNotNil(compatService, "Backward compatibility service should be initialized")
+        let streamTask = Task {
+            for try await chunk in llmService.sendChatMessage(conversationHistory: conversationHistory) {
+                hasReceivedData = true
+                accumulatedResponse += chunk
+                print("📦 Received chunk: \(chunk.prefix(50))...")
+                
+                // Cancel timeout task once we receive data
+                timeoutTask.cancel()
+                
+                // For testing, we only need to verify we get some response
+                if accumulatedResponse.count > 10 {
+                    break
+                }
+            }
+        }
+        
+        // Race between stream and timeout - if either throws, the test will fail
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { try await streamTask.value }
+            group.addTask { try await timeoutTask.value }
+            
+            // Wait for either task to complete
+            try await group.next()
+            
+            // Cancel remaining tasks
+            streamTask.cancel()
+            timeoutTask.cancel()
+        }
+        
+        // Then: Verify we received data
+        XCTAssertTrue(hasReceivedData, "Should have received data from sendChatMessage")
+        XCTAssertTrue(accumulatedResponse.count > 0, "Should receive some response data")
+        
+        print("✅ Test PASSED: Received data from sendChatMessage")
+        print("📊 Accumulated response length: \(accumulatedResponse.count) characters")
+        print("📝 Response preview: \(accumulatedResponse.prefix(100))...")
+        print("🏁 sendChatMessage test completed")
     }
     
     // Simulated tool call extraction for testing
@@ -211,60 +343,65 @@ class LLMAIServiceTests: XCTestCase {
         var cleanedText = response
         var extractedRanges: [Range<String.Index>] = []
         
-        // Find potential JSON objects by looking for balanced braces
-        let characters = Array(response)
-        var i = 0
-        
-        while i < characters.count {
-            if characters[i] == "{" {
-                // Found opening brace, try to find the matching closing brace
-                var braceCount = 1
-                var j = i + 1
-                
-                while j < characters.count && braceCount > 0 {
-                    if characters[j] == "{" {
-                        braceCount += 1
-                    } else if characters[j] == "}" {
-                        braceCount -= 1
-                    }
-                    j += 1
-                }
-                
-                if braceCount == 0 {
-                    // Found balanced braces, extract the JSON string
-                    let startIndex = response.index(response.startIndex, offsetBy: i)
-                    let endIndex = response.index(response.startIndex, offsetBy: j)
-                    let jsonString = String(response[startIndex..<endIndex])
+        // Extract JSON code blocks (```json...```)
+        let codeBlockPattern = "```json\\s*([\\s\\S]*?)```"
+        if let regex = try? NSRegularExpression(pattern: codeBlockPattern, options: [.caseInsensitive]) {
+            let nsRange = NSRange(location: 0, length: response.utf16.count)
+            let matches = regex.matches(in: response, options: [], range: nsRange)
+            
+            for match in matches.reversed() { // Process in reverse to maintain string indices
+                if match.numberOfRanges >= 2 {
+                    let jsonRange = match.range(at: 1)
+                    let fullRange = match.range(at: 0)
                     
-                    // Check if this JSON contains "tool" field
-                    if jsonString.contains("\"tool\"") {
+                    if let jsonSwiftRange = Range(jsonRange, in: response),
+                       let fullSwiftRange = Range(fullRange, in: response) {
+                        let jsonString = String(response[jsonSwiftRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        
+                        // Try to parse the JSON
                         if let jsonData = jsonString.data(using: .utf8) {
                             do {
-                                let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
-                                if let tool = json?["tool"] as? String,
-                                   let arguments = json?["arguments"] as? [String: Any] {
-                                    let toolCall = ToolCall(tool: tool, arguments: arguments)
-                                    toolCalls.append(toolCall)
+                                let data = try JSONSerialization.jsonObject(with: jsonData)
+                                
+                                // Handle single tool call object
+                                if let objectData = data as? [String: Any] {
+                                    if let tool = objectData["tool"] as? String,
+                                       let arguments = objectData["arguments"] as? [String: Any] {
+                                        let toolCall = ToolCall(tool: tool, arguments: arguments)
+                                        toolCalls.append(toolCall)
+                                        extractedRanges.append(fullSwiftRange)
+                                    }
+                                }
+                                // Handle array of tool calls
+                                else if let arrayData = data as? [[String: Any]] {
+                                    var validTools = true
+                                    var tempToolCalls: [ToolCall] = []
                                     
-                                    // Record the range for removal
-                                    extractedRanges.append(startIndex..<endIndex)
+                                    for item in arrayData {
+                                        if let tool = item["tool"] as? String,
+                                           let arguments = item["arguments"] as? [String: Any] {
+                                            tempToolCalls.append(ToolCall(tool: tool, arguments: arguments))
+                                        } else {
+                                            validTools = false
+                                            break
+                                        }
+                                    }
+                                    
+                                    if validTools {
+                                        toolCalls.append(contentsOf: tempToolCalls)
+                                        extractedRanges.append(fullSwiftRange)
+                                    }
                                 }
                             } catch {
                                 // Continue on JSON parse error
                             }
                         }
                     }
-                    
-                    i = j
-                } else {
-                    i += 1
                 }
-            } else {
-                i += 1
             }
         }
         
-        // Build the cleaned text by removing the extracted JSON parts
+        // Build the cleaned text by removing the extracted JSON code blocks
         if !extractedRanges.isEmpty {
             var cleanedParts: [String] = []
             var lastEndIndex = response.startIndex
@@ -273,18 +410,62 @@ class LLMAIServiceTests: XCTestCase {
             let sortedRanges = extractedRanges.sorted { $0.lowerBound < $1.lowerBound }
             
             for range in sortedRanges {
-                // Add text before this JSON range
+                // Add text before this JSON code block
                 cleanedParts.append(String(response[lastEndIndex..<range.lowerBound]))
                 lastEndIndex = range.upperBound
             }
             
-            // Add remaining text after the last JSON range
+            // Add remaining text after the last JSON code block
             cleanedParts.append(String(response[lastEndIndex..<response.endIndex]))
             
             cleanedText = cleanedParts.joined().trimmingCharacters(in: .whitespacesAndNewlines)
         }
         
         return (toolCalls, cleanedText)
+    }
+}
+
+// MARK: - Test Helper Classes
+class TestLLMAIService: LLMAIService {
+    // Override with invalid URL to trigger network error
+    override func sendChatMessage(conversationHistory: [MessageListItemType]) -> AsyncThrowingStream<String, Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    // Use an invalid URL that will definitely fail
+                    guard let invalidURL = URL(string: "https://invalid-nonexistent-domain-12345.com/api") else {
+                        continuation.finish(throwing: LLMError.invalidResponse)
+                        return
+                    }
+                    
+                    var request = URLRequest(url: invalidURL)
+                    request.httpMethod = "POST"
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.timeoutInterval = 5.0 // Short timeout for testing
+                    
+                    let requestBody = ["messages": [["role": "user", "content": "test"]]]
+                    request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+                    
+                    // This should fail with a network error
+                    let (_, _) = try await URLSession.shared.data(for: request)
+                    
+                } catch {
+                    // Convert URLError to LLMError for testing
+                    if let urlError = error as? URLError {
+                        switch urlError.code {
+                        case .cannotFindHost, .cannotConnectToHost:
+                            continuation.finish(throwing: LLMError.networkError(urlError))
+                        case .timedOut:
+                            continuation.finish(throwing: LLMError.connectionTimeout)
+                        default:
+                            continuation.finish(throwing: LLMError.networkError(urlError))
+                        }
+                    } else {
+                        continuation.finish(throwing: error)
+                    }
+                }
+            }
+        }
     }
 }
 

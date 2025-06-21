@@ -1,46 +1,68 @@
 import SwiftUI
 
-// MARK: - Chat History Manager
-class ChatHistoryManager: ObservableObject {
+// MARK: - Menu Chat History Manager
+class MenuChatHistoryManager: ObservableObject {
     @Published var chatHistories: [ChatHistory] = []
     @AppStorage("currentChatHistoryId") var currentChatHistoryId: String?
+    private let chatHistoryManager = ChatHistoryManager()
     
     init() {
         loadChatHistories()
     }
     
     func loadChatHistories() {
-        chatHistories = ChatView.loadAllChatHistories()
+        chatHistories = chatHistoryManager.getAllChatHistories()
     }
     
     func deleteChatHistory(_ historyId: String) {
-        if let history = chatHistories.first(where: { $0.id == historyId }) {
-            ChatView.deleteChatHistory(history)
-            loadChatHistories()
-            
-            // If the deleted chat is current, clear current ID
-            if currentChatHistoryId == historyId {
-                currentChatHistoryId = nil
-            }
+        chatHistoryManager.deleteChat(id: historyId)
+        loadChatHistories()
+        
+        // If the deleted chat is current, clear current ID
+        if currentChatHistoryId == historyId {
+            currentChatHistoryId = nil
         }
     }
     
     func renameChatHistory(_ historyId: String, to newTitle: String) {
-        if let history = chatHistories.first(where: { $0.id == historyId }) {
-            ChatView.renameChatHistory(history, newTitle: newTitle)
-            loadChatHistories()
-        }
+        chatHistoryManager.renameChat(id: historyId, newTitle: newTitle)
+        loadChatHistories()
     }
 }
 
 struct MenuView: View {
     @EnvironmentObject var router: AppRouter
-    @StateObject private var chatHistoryManager = ChatHistoryManager()
+    @StateObject private var menuChatHistoryManager = MenuChatHistoryManager()
     @Binding var isPresented: Bool
     @State private var showingRenameAlert = false
     @State private var selectedHistoryId: String?
     @State private var renameText = ""
     @State private var showingDebugMenu = false
+    @State private var showingActionAlert = false
+    @State private var pendingAction: MenuAction?
+    
+    enum MenuAction {
+        case email
+        case github
+        
+        var title: String {
+            switch self {
+            case .email:
+                return "Send Email"
+            case .github:
+                return "Open GitHub"
+            }
+        }
+        
+        var message: String {
+            switch self {
+            case .email:
+                return "This will open your email app to send an email to lwy8wing@gmail.com"
+            case .github:
+                return "This will open the GitHub page in your browser"
+            }
+        }
+    }
     
     var onClearChat: (() -> Void)?
     var onShowFiles: (() -> Void)?
@@ -56,18 +78,6 @@ struct MenuView: View {
                         .foregroundColor(.primary)
                     
                     Spacer()
-                    
-                    Button(action: {
-                        // Add new chat action
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(width: 20, height: 20)
-                            .background(Color.secondary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-                    .buttonStyle(PlainButtonStyle())
                 }
             }
             .padding(.horizontal, 16)
@@ -76,12 +86,12 @@ struct MenuView: View {
             // Chat History List
             ScrollView {
                 LazyVStack(spacing: 2) {
-                    ForEach(chatHistoryManager.chatHistories) { history in
+                    ForEach(menuChatHistoryManager.chatHistories) { history in
                         ChatHistoryItemView(
                             history: history,
-                            isSelected: chatHistoryManager.currentChatHistoryId == history.id,
+                            isSelected: menuChatHistoryManager.currentChatHistoryId == history.id,
                             onSelect: {
-                                chatHistoryManager.currentChatHistoryId = history.id
+                                menuChatHistoryManager.currentChatHistoryId = history.id
                                 onSelectChatHistory?(history)
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     isPresented = false
@@ -93,7 +103,7 @@ struct MenuView: View {
                                 showingRenameAlert = true
                             },
                             onDelete: {
-                                chatHistoryManager.deleteChatHistory(history.id)
+                                menuChatHistoryManager.deleteChatHistory(history.id)
                             }
                         )
                     }
@@ -111,33 +121,20 @@ struct MenuView: View {
                 
                 VStack(spacing: 2) {
                     MenuItemView(
-                        icon: "gearshape",
-                        title: "Settings",
+                        icon: "envelope",
+                        title: "Email",
                         action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isPresented = false
-                            }
-                            router.resetOnboarding()
+                            pendingAction = .email
+                            showingActionAlert = true
                         }
                     )
                     
                     MenuItemView(
-                        icon: "info.circle",
-                        title: "About",
+                        icon: "link",
+                        title: "GitHub",
                         action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isPresented = false
-                            }
-                        }
-                    )
-                    
-                    MenuItemView(
-                        icon: "questionmark.circle",
-                        title: "Help",
-                        action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isPresented = false
-                            }
+                            pendingAction = .github
+                            showingActionAlert = true
                         }
                     )
                 }
@@ -151,38 +148,52 @@ struct MenuView: View {
                         .foregroundColor(.secondary.opacity(0.8))
                     
                     Spacer()
-                    
-                    Button(action: {
-                        showingDebugMenu = true
-                    }) {
-                        Image(systemName: "ladybug")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary.opacity(0.6))
-                            .frame(width: 24, height: 24)
-                            .background(Color.secondary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .popover(isPresented: $showingDebugMenu) {
-                        DebugMenuView()
-                            .frame(width: 200, height: 150)
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.secondary.opacity(0.05))
             }
         }
-        .frame(width: 280)
+        .frame(maxWidth: .infinity)
         .background(Color(UIColor.systemBackground))
         .alert("Rename Chat", isPresented: $showingRenameAlert) {
             TextField("Chat Title", text: $renameText)
             Button("Cancel", role: .cancel) { }
             Button("Rename") {
                 if let historyId = selectedHistoryId {
-                    chatHistoryManager.renameChatHistory(historyId, to: renameText)
+                    menuChatHistoryManager.renameChatHistory(historyId, to: renameText)
                 }
             }
+        }
+        .alert(
+            pendingAction?.title ?? "",
+            isPresented: $showingActionAlert
+        ) {
+            Button("Cancel", role: .cancel) {
+                pendingAction = nil
+            }
+            Button("Confirm") {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isPresented = false
+                }
+                
+                switch pendingAction {
+                case .email:
+                    if let url = URL(string: "mailto:lwy8wing@gmail.com") {
+                        UIApplication.shared.open(url)
+                    }
+                case .github:
+                    if let url = URL(string: "https://github.com/aquarius-wing/mori") {
+                        UIApplication.shared.open(url)
+                    }
+                case .none:
+                    break
+                }
+                
+                pendingAction = nil
+            }
+        } message: {
+            Text(pendingAction?.message ?? "")
         }
     }
 }
@@ -321,71 +332,6 @@ struct ChatHistoryItemView: View {
             .background(Color(UIColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-        }
-    }
-}
-
-struct DebugMenuView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Debug Menu")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.primary)
-                .padding(.bottom, 8)
-            
-            VStack(spacing: 4) {
-                DebugMenuItem(title: "Clear All Data", icon: "trash") {
-                    // Debug action - placeholder
-                }
-                
-                DebugMenuItem(title: "Export Logs", icon: "square.and.arrow.up") {
-                    // Debug action - placeholder
-                }
-                
-                DebugMenuItem(title: "Reset Settings", icon: "arrow.clockwise") {
-                    // Debug action - placeholder
-                }
-            }
-            
-            Spacer()
-        }
-        .padding(16)
-        .background(Color(UIColor.systemBackground))
-    }
-}
-
-struct DebugMenuItem: View {
-    let title: String
-    let icon: String
-    let action: () -> Void
-    @State private var isHovered = false
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .frame(width: 14, height: 14)
-                
-                Text(title)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(.primary)
-                
-                Spacer()
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(isHovered ? Color.secondary.opacity(0.1) : Color.clear)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
         }
     }
 }
