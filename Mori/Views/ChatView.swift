@@ -107,10 +107,13 @@ struct ChatView: View {
                                 }
                             }
                         }
-                        .onTapGesture {
-                            // Dismiss keyboard when tapping on chat area
-                            isTextFieldFocused = false
-                        }
+                        .simultaneousGesture(
+                            TapGesture()
+                                .onEnded { _ in
+                                    // Dismiss keyboard when tapping on chat area
+                                    isTextFieldFocused = false
+                                }
+                        )
                     }
 
                     // Input area
@@ -188,6 +191,7 @@ struct ChatView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
+                        isTextFieldFocused = false
                         onShowMenu?()
                     }) {
                         Image(systemName: "sidebar.left")
@@ -209,10 +213,6 @@ struct ChatView: View {
                 }
             }
             .preferredColorScheme(.dark)
-            .onTapGesture {
-                // Dismiss keyboard when tapping anywhere outside input area
-                isTextFieldFocused = false
-            }
         }
         .onAppear {
             setupLLMService()
