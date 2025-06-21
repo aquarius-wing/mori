@@ -321,7 +321,12 @@ struct ChatView: View {
         var toolCallCount = 0
 
         do {
-            let chatMessages = messageList.compactMap { $0 as? ChatMessage }
+            let chatMessages = messageList.compactMap { item in
+                if case .chatMessage(let chatMessage) = item {
+                    return chatMessage
+                }
+                return nil
+            }
             let stream = service.sendChatMessageWithTools(
                 conversationHistory: chatMessages
             )

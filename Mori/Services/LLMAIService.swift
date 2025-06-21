@@ -92,7 +92,7 @@ class LLMAIService: ObservableObject {
         
         let requestBody: [String: Any] = [
             "messages": messages,
-            "model": "google/gemini-2.0-flash-lite-001",
+            "model": "deepseek/deepseek-chat-v3-0324",
             "stream": true,
             "temperature": 0
         ]
