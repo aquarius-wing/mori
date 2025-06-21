@@ -74,7 +74,11 @@ class ChatHistoryManager: ObservableObject {
                     let chatHistory = try decoder.decode(ChatHistory.self, from: data)
                     chatHistories.append(chatHistory)
                 } catch {
-                    print("❌ Failed to load chat history from \(fileURL.lastPathComponent): \(error)")
+                    // Temporarily no need
+                    // print("❌ Failed to load chat history from \(fileURL.lastPathComponent): \(error)")
+                    // // print the string content of file
+                    // let stringContent = String(data: try Data(contentsOf: fileURL), encoding: .utf8)
+                    // print(stringContent)
                 }
             }
             

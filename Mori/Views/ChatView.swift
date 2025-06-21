@@ -718,10 +718,8 @@ struct ChatView: View {
     }
 
     private func loadChatHistory(_ chatHistory: ChatHistory) {
-        // Save current chat if it has messages
-        if !messageList.isEmpty {
-            saveCurrentChatHistory()
-        }
+        // No need saveCurrentChatHistory here
+        // because already saved after response
 
         // Load new chat
         currentChatId = chatHistory.id
