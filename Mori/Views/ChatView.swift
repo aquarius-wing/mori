@@ -5,7 +5,7 @@ import SwiftUI
 struct ChatView: View {
     // LLM Service and chat management
     @State private var llmService: LLMAIService?
-    @State private var messageList: [any MessageListItem] = []
+    @State private var messageList: [any MessageListItem]
     @State private var currentStatus = "Ready"
     @State private var statusType: WorkflowStepStatus = .finalStatus
     @State private var isStreaming = false
@@ -34,6 +34,11 @@ struct ChatView: View {
     @State private var inputText = ""
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isTextFieldFocused: Bool
+
+    // MARK: - Initializer
+    init(initialMessages: [any MessageListItem] = []) {
+        self._messageList = State(initialValue: initialMessages)
+    }
 
     var body: some View {
         NavigationStack {
@@ -170,12 +175,24 @@ struct ChatView: View {
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .preferredColorScheme(.dark)
-            .onTapGesture {
-                // Dismiss keyboard when tapping anywhere outside input area
-                isTextFieldFocused = false
+                    .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    createNewChat()
+                }) {
+                    Image(systemName: "message")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                }
+                .disabled(isStreaming || isSending)
             }
+        }
+        .preferredColorScheme(.dark)
+        .onTapGesture {
+            // Dismiss keyboard when tapping anywhere outside input area
+            isTextFieldFocused = false
+        }
         }
         .onAppear {
             setupLLMService()
@@ -471,6 +488,16 @@ struct ChatView: View {
     private func regenerateResponse() {
         // Implement regenerate functionality
         print("🔄 Regenerating response")
+    }
+    
+    private func createNewChat() {
+        // Clear current chat
+        messageList.removeAll()
+        currentStatus = "Ready"
+        statusType = .finalStatus
+        inputText = ""
+        
+        print("🆕 Created new chat - cleared all messages")
     }
 }
 
@@ -1017,6 +1044,85 @@ struct ErrorDetailView: View {
 #Preview {
     ChatView()
         .preferredColorScheme(.dark)
+}
+
+#Preview("Chat with Sample Data") {
+    ChatView(initialMessages: [
+        // User asks about calendar
+        ChatMessage(content: "What's on my calendar today?", isUser: true),
+        
+        // Calendar workflow
+        WorkflowStep(status: .scheduled, toolName: "read-calendar", details: [
+            "tool_name": "read-calendar", 
+            "arguments": "Searching today's events..."
+        ]),
+        WorkflowStep(status: .executing, toolName: "read-calendar", details: [
+            "tool_name": "read-calendar"
+        ]),
+        WorkflowStep(status: .result, toolName: "read-calendar", details: [
+            "result": """
+            {
+                "success": true,
+                "count": 2,
+                "date_range": {
+                    "startDate": "2024-01-15T00:00:00+08:00",
+                    "endDate": "2024-01-15T23:59:59+08:00"
+                },
+                "events": [
+                    {
+                        "id": "1",
+                        "title": "Team Meeting",
+                        "start_date": "2024-01-15T10:00:00+08:00",
+                        "end_date": "2024-01-15T11:00:00+08:00",
+                        "location": "Conference Room A",
+                        "notes": "Weekly sync meeting",
+                        "is_all_day": false
+                    },
+                    {
+                        "id": "2",
+                        "title": "Project Review",
+                        "start_date": "2024-01-15T15:00:00+08:00",
+                        "end_date": "2024-01-15T16:30:00+08:00",
+                        "location": "Online",
+                        "notes": "Q1 progress review",
+                        "is_all_day": false
+                    }
+                ]
+            }
+            """
+        ]),
+        
+        // AI response
+        ChatMessage(content: "I found 2 events on your calendar today:\n\n• **Team Meeting** at 10:00 AM\n  📍 Conference Room A\n  Weekly sync meeting\n\n• **Project Review** at 3:00 PM\n  📍 Online\n  Q1 progress review\n\nWould you like me to help with anything else?", isUser: false),
+        
+        // User asks to add reminder
+        ChatMessage(content: "Add a 15-minute reminder for the team meeting", isUser: true),
+        
+        // Update calendar workflow
+        WorkflowStep(status: .result, toolName: "update-calendar", details: [
+            "result": """
+            {
+                "success": true,
+                "message": "Reminder added successfully",
+                "event": {
+                    "title": "Team Meeting",
+                    "reminder": "15 minutes before"
+                }
+            }
+            """
+        ]),
+        
+        ChatMessage(content: "✅ Perfect! I've added a 15-minute reminder for your Team Meeting. You'll be notified at 9:45 AM.", isUser: false),
+        
+        // Error example
+        ChatMessage(content: "What's the weather like?", isUser: true),
+        WorkflowStep(status: .error, toolName: "Weather API Error: Service temporarily unavailable"),
+        ChatMessage(content: "I'm sorry, but I can't get the weather information right now. The weather service is temporarily unavailable. Please try again later.", isUser: false),
+        
+        // Final status
+        WorkflowStep(status: .finalStatus, toolName: "Completed. Processed 2 tool calls.")
+    ])
+    .preferredColorScheme(.dark)
 }
 
 // MARK: - Calendar Events Detail View
