@@ -70,6 +70,11 @@ struct ChatView: View {
                                         onLike: likeMessage,
                                         onDislike: dislikeMessage,
                                         onRegenerate: regenerateResponse,
+                                        onRetry: {
+                                            if case .message(let message) = item {
+                                                retryFromMessage(message)
+                                            }
+                                        },
                                         onShowErrorDetail: {
                                             showingErrorDetail = true
                                         },
@@ -309,19 +314,28 @@ struct ChatView: View {
 
             } catch {
                 await MainActor.run {
+                    // Create detailed error information
+                    let fullErrorDetail = "\(error)"
+                    let shortErrorMessage = error.localizedDescription
+                    
                     let errorStep = WorkflowStep(
                         status: .error,
-                        toolName: "Send failed: \(error.localizedDescription)"
+                        toolName: "API Error",
+                        details: [
+                            "error_type": "API Request Failed",
+                            "short_message": shortErrorMessage,
+                            "full_details": fullErrorDetail
+                        ]
                     )
                     messageList.append(.workflowStep(errorStep))
                     updateStatus(
-                        "Error: \(error.localizedDescription)",
+                        "Error: \(shortErrorMessage)",
                         type: .error
                     )
                     isSending = false
                     isStreaming = false
                     // Save complete error detail
-                    errorDetail = "\(error)"
+                    errorDetail = fullErrorDetail
                 }
             }
         }
@@ -463,7 +477,12 @@ struct ChatView: View {
                     case "error":
                         let errorStep = WorkflowStep(
                             status: .error,
-                            toolName: content
+                            toolName: "Stream Error",
+                            details: [
+                                "error_type": "Streaming Error",
+                                "short_message": content,
+                                "full_details": content
+                            ]
                         )
                         messageList.append(.workflowStep(errorStep))
                         updateStatus("❌ Error: \(content)", type: .error)
@@ -510,11 +529,11 @@ struct ChatView: View {
                     toolCallCount > 0
                     ? "Completed. Processed \(toolCallCount) tool call(s)."
                     : "Completed."
-                let finalStep = WorkflowStep(
-                    status: .finalStatus,
-                    toolName: finalStatusMessage
-                )
-                messageList.append(.workflowStep(finalStep))
+                // let finalStep = WorkflowStep(
+                //     status: .finalStatus,
+                //     toolName: finalStatusMessage
+                // )
+                // messageList.append(.workflowStep(finalStep))
 
                 updateStatus("✅ \(finalStatusMessage)", type: .finalStatus)
 
@@ -530,20 +549,29 @@ struct ChatView: View {
             }
         } catch {
             await MainActor.run {
+                // Create detailed error information
+                let fullErrorDetail = "\(error)"
+                let shortErrorMessage = error.localizedDescription
+                
                 let errorStep = WorkflowStep(
                     status: .error,
-                    toolName: "Error: \(error.localizedDescription)"
+                    toolName: "Workflow Error",
+                    details: [
+                        "error_type": "Workflow Execution Failed",
+                        "short_message": shortErrorMessage,
+                        "full_details": fullErrorDetail
+                    ]
                 )
                 messageList.append(.workflowStep(errorStep))
                 updateStatus(
-                    "❌ Error: \(error.localizedDescription)",
+                    "❌ Error: \(shortErrorMessage)",
                     type: .error
                 )
                 isStreaming = false
                 showingError = true
-                errorMessage = error.localizedDescription
+                errorMessage = shortErrorMessage
                 // Save complete error detail
-                errorDetail = "\(error)"
+                errorDetail = fullErrorDetail
             }
         }
     }
@@ -659,6 +687,36 @@ struct ChatView: View {
 
         print("🆕 Created new chat with ID: \(currentChatId ?? "unknown")")
     }
+
+    private func retryFromMessage(_ message: ChatMessage) {
+        // Find the index of the message to retry from
+        guard let messageIndex = messageList.firstIndex(where: { item in
+            if case .chatMessage(let chatMessage) = item {
+                return chatMessage.id == message.id
+            }
+            return false
+        }) else {
+            print("⚠️ Message not found for retry")
+            return
+        }
+
+        // Store the message content before removal
+        let messageContent = message.content
+
+        // Remove the message and all messages after it
+        messageList.removeSubrange(messageIndex...)
+        print("🔄 Removed \(messageList.count - messageIndex) messages for retry")
+
+        // Reset state
+        currentStatus = "Ready"
+        statusType = .finalStatus
+        isStreaming = false
+        isSending = false
+
+        // Set the input text and trigger send
+        inputText = messageContent
+        sendMessage()
+    }
 }
 
 // MARK: - UI Components (keeping original design)
@@ -669,6 +727,7 @@ struct ChatItemView: View {
     let onLike: () -> Void
     let onDislike: () -> Void
     let onRegenerate: () -> Void
+    let onRetry: () -> Void
     let onShowErrorDetail: () -> Void
     let errorDetail: String
 
@@ -684,6 +743,7 @@ struct ChatItemView: View {
                 onLike: onLike,
                 onDislike: onDislike,
                 onRegenerate: onRegenerate,
+                onRetry: onRetry,
                 onShowErrorDetail: onShowErrorDetail,
                 errorDetail: errorDetail
             )
@@ -699,6 +759,7 @@ struct MessageItemView: View {
     let onLike: () -> Void
     let onDislike: () -> Void
     let onRegenerate: () -> Void
+    let onRetry: () -> Void
     let onShowErrorDetail: () -> Void
     let errorDetail: String
 
@@ -728,6 +789,11 @@ struct MessageItemView: View {
                         .contextMenu {
                             Button(action: onCopy) {
                                 Label("Copy", systemImage: "doc.on.doc")
+                            }
+                            if message.isUser {
+                                Button(action: onRetry) {
+                                    Label("Retry", systemImage: "arrow.clockwise")
+                                }
                             }
                         }
 
@@ -975,12 +1041,27 @@ struct WorkflowStepItemView: View {
                 }
 
                 if !step.details.isEmpty {
-                    ForEach(Array(step.details.keys.sorted()), id: \.self) {
-                        key in
-                        if let value = step.details[key], !value.isEmpty {
-                            Text(value)
+                    // For error status, show only short message in the main view
+                    if step.status == .error {
+                        if let shortMessage = step.details["short_message"], !shortMessage.isEmpty {
+                            Text(shortMessage)
                                 .font(.body)
                                 .foregroundColor(.white)
+                                .lineLimit(2)
+                        } else if let errorType = step.details["error_type"], !errorType.isEmpty {
+                            Text(errorType)
+                                .font(.body)
+                                .foregroundColor(.white)
+                        }
+                    } else {
+                        // For non-error status, show all details as before
+                        ForEach(Array(step.details.keys.sorted()), id: \.self) {
+                            key in
+                            if let value = step.details[key], !value.isEmpty {
+                                Text(value)
+                                    .font(.body)
+                                    .foregroundColor(.white)
+                            }
                         }
                     }
                 }
@@ -1005,7 +1086,9 @@ struct WorkflowStepItemView: View {
             }
         }
         .sheet(isPresented: $showingErrorDetail) {
-            ErrorDetailView(errorDetail: step.toolName)
+            // Use full details for error detail view
+            let detailContent = step.details["full_details"] ?? step.toolName
+            ErrorDetailView(errorDetail: detailContent)
         }
     }
 
