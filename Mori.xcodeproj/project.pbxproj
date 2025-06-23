@@ -90,6 +90,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		30F224282E0665E000493124 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				30F224212E0665A000493124 /* ChatItemView.swift */,
+				30F224232E0665B000493124 /* WorkflowStepItemView.swift */,
+				30F224252E0665C000493124 /* CalendarEventComponents.swift */,
+				30F224272E0665D000493124 /* ErrorDetailView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
 		A1000022000000000000001 = {
 			isa = PBXGroup;
 			children = (
@@ -137,17 +148,6 @@
 				30F224282E0665E000493124 /* Components */,
 			);
 			path = Views;
-			sourceTree = "<group>";
-		};
-		30F224282E0665E000493124 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				30F224212E0665A000493124 /* ChatItemView.swift */,
-				30F224232E0665B000493124 /* WorkflowStepItemView.swift */,
-				30F224252E0665C000493124 /* CalendarEventComponents.swift */,
-				30F224272E0665D000493124 /* ErrorDetailView.swift */,
-			);
-			path = Components;
 			sourceTree = "<group>";
 		};
 		A1000026000000000000001 /* Services */ = {
@@ -487,7 +487,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Mori/Mori.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "\"Mori/Preview Content\"";
 				DEVELOPMENT_TEAM = NP667JFK84;
 				ENABLE_PREVIEWS = YES;
@@ -521,7 +521,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Mori/Mori.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "\"Mori/Preview Content\"";
 				DEVELOPMENT_TEAM = NP667JFK84;
 				ENABLE_PREVIEWS = YES;
