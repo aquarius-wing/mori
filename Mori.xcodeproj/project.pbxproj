@@ -26,6 +26,8 @@
 		A1000009000000000000001 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000010000000000000001 /* AudioRecorder.swift */; };
 		A1000011000000000000001 /* LLMAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000012000000000000001 /* LLMAIService.swift */; };
 		A1000013000000000000001 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000014000000000000001 /* ChatMessage.swift */; };
+		A2000001000000000000001 /* AudioRecordingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000002000000000000001 /* AudioRecordingManager.swift */; };
+		A2000003000000000000001 /* AudioRecordingButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000004000000000000001 /* AudioRecordingButton.swift */; };
 		A1000015000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000016000000000000001 /* Assets.xcassets */; };
 		A1000017000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000018000000000000001 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -63,6 +65,8 @@
 		A1000012000000000000001 /* LLMAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAIService.swift; sourceTree = "<group>"; };
 		A1000014000000000000001 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		A1000016000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A2000002000000000000001 /* AudioRecordingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecordingManager.swift; sourceTree = "<group>"; };
+		A2000004000000000000001 /* AudioRecordingButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecordingButton.swift; sourceTree = "<group>"; };
 		A1000018000000000000001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		A1000019000000000000001 /* Mori.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mori.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000020000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -97,6 +101,7 @@
 				30F224232E0665B000493124 /* WorkflowStepItemView.swift */,
 				30F224252E0665C000493124 /* CalendarEventComponents.swift */,
 				30F224272E0665D000493124 /* ErrorDetailView.swift */,
+				A2000004000000000000001 /* AudioRecordingButton.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -157,6 +162,7 @@
 				A1000012000000000000001 /* LLMAIService.swift */,
 				20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */,
 				202D162D2E06648800493124 /* ChatHistoryManager.swift */,
+				A2000002000000000000001 /* AudioRecordingManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -309,6 +315,8 @@
 				202D162F2E06648900493124 /* ChatHistory.swift in Sources */,
 				20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */,
 				A1000001000000000000001 /* MoriApp.swift in Sources */,
+				A2000001000000000000001 /* AudioRecordingManager.swift in Sources */,
+				A2000003000000000000001 /* AudioRecordingButton.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import SwiftUI
+import AVFoundation
 
 struct ChatView: View {
     // LLM Service and chat management
@@ -145,6 +146,21 @@ struct ChatView: View {
 
                             HStack(spacing: 12) {
                                 Spacer()
+                                
+                                // Audio Recording Button
+                                AudioRecordingButton(
+                                    llmService: llmService,
+                                    onTranscriptionComplete: { transcribedText in
+                                        inputText += transcribedText
+                                    },
+                                    onError: { error in
+                                        errorMessage = error
+                                        showingError = true
+                                    },
+                                    isDisabled: isSending || isStreaming
+                                )
+                                
+                                // Send Button
                                 Button(action: sendMessage) {
                                     Image(
                                         systemName: isSending

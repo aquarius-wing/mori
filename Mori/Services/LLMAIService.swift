@@ -280,6 +280,11 @@ class LLMAIService: ObservableObject {
         
         var body = Data()
         
+        // Add model parameter
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
+        body.append("whisper-1\r\n".data(using: .utf8)!)
+        
         // Add file data
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n".data(using: .utf8)!)

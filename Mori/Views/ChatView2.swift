@@ -109,7 +109,7 @@ struct ChatView2: View {
                     }
                     .disabled(isSending || isStreaming || isTranscribing)
                     .onLongPressGesture(
-                        minimumDuration: 0.1,
+                        minimumDuration: 0.5,
                         maximumDistance: 50,
                         perform: {
                             // Long press ended - stop recording
