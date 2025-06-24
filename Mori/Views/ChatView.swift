@@ -383,45 +383,32 @@ struct ChatView: View {
     private var recordingStatusOverlay: some View {
         if isRecording {
             VStack(spacing: 12) {
-                // Recording animation
+                // Recording animation with cancel icon overlay
                 ZStack {
                     Circle()
-                        .fill(Color.red.opacity(0.2))
+                        .fill((isDraggedToCancel ? Color.orange : Color.red).opacity(0.2))
                         .frame(width: 60, height: 60)
                         .scaleEffect(isRecording ? 1.2 : 1.0)
                         .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isRecording)
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                     
-                    Image(systemName: "mic.fill")
+                    Image(systemName: isDraggedToCancel ? "xmark" : "mic.fill")
                         .font(.title2)
-                        .foregroundColor(.red)
+                        .foregroundColor(isDraggedToCancel ? .orange : .red)
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                 }
                 
                 VStack(spacing: 4) {
-                    Text(isDraggedToCancel ? "Release to cancel" : "Recording...")
+                    Text("Recording...")
                         .font(.headline)
                         .fontWeight(.medium)
                         .foregroundColor(isDraggedToCancel ? Color.orange : Color.white)
                         .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                     
-                    Text(isDraggedToCancel ? "Slide up to cancel recording" : "Release to send")
+                    Text("Drag here to cancel")
                         .font(.caption)
                         .foregroundColor((isDraggedToCancel ? Color.orange : Color.white).opacity(0.7))
                         .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
-                }
-                
-                // Cancel zone indicator
-                if isDraggedToCancel {
-                    VStack(spacing: 8) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundColor(.orange)
-                        Text("Cancel Zone")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.orange)
-                    }
-                    .padding(.top, 16)
-                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 24)
@@ -431,10 +418,13 @@ struct ChatView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke((isDraggedToCancel ? Color.orange : Color.white).opacity(0.3), lineWidth: 2)
+                            .stroke((isDraggedToCancel ? Color.orange : Color.white).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
+                            .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                     )
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+            .scaleEffect(isDraggedToCancel ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
             
         } else if isTranscribing {
             VStack(spacing: 12) {
@@ -465,7 +455,7 @@ struct ChatView: View {
                     )
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-                 }
+        }
     }
     
     // MARK: - Recording Error Overlay
