@@ -59,13 +59,6 @@ struct AudioRecordingButton: View {
             .onChange(of: recordingManager.recordingPermissionGranted) { _, newValue in
                 recordingPermissionGranted = newValue
             }
-            
-            // Recording status overlay - positioned at screen center
-            if isRecording || isTranscribing {
-                recordingStatusOverlay
-                    .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2)
-                    .allowsHitTesting(false) // Allow touches to pass through
-            }
         }
     }
     
@@ -80,39 +73,6 @@ struct AudioRecordingButton: View {
             return .white
         } else {
             return .gray
-        }
-    }
-    
-    // MARK: - Recording Status Overlay
-    
-    @ViewBuilder
-    private var recordingStatusOverlay: some View {
-        if isRecording {
-            VStack(spacing: 8) {
-                Text("Recording...")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Text("Release to transcribe")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            .padding(20)
-            .background(Color.black.opacity(0.8))
-            .cornerRadius(12)
-            .transition(.scale.combined(with: .opacity))
-        } else if isTranscribing {
-            VStack(spacing: 8) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(0.8)
-                Text("Transcribing...")
-                    .font(.headline)
-                    .foregroundColor(.white)
-            }
-            .padding(20)
-            .background(Color.black.opacity(0.8))
-            .cornerRadius(12)
-            .transition(.scale.combined(with: .opacity))
         }
     }
     
@@ -158,7 +118,8 @@ struct AudioRecordingButton: View {
 
 // MARK: - Preview
 #Preview {
-    HStack {
+    VStack(spacing: 20) {
+        Text("Normal State")
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -172,14 +133,8 @@ struct AudioRecordingButton: View {
             isTranscribing: .constant(false),
             recordingPermissionGranted: .constant(true)
         )
-    }
-    .padding()
-    .background(Color.black)
-    .preferredColorScheme(.dark)
-}
-
-#Preview("Recording") {
-    HStack {
+        
+        Text("Recording State")
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -193,14 +148,8 @@ struct AudioRecordingButton: View {
             isTranscribing: .constant(false),
             recordingPermissionGranted: .constant(true)
         )
-    }
-    .padding()
-    .background(Color.black)
-    .preferredColorScheme(.dark)
-}
-
-#Preview("Transcribing") {
-    HStack {
+        
+        Text("Transcribing State")
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
