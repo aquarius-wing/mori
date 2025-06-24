@@ -25,100 +25,99 @@ struct AudioRecordingButton: View {
     // MARK: - Body
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                // Main button
-                Button(action: {
-                    // This is for tap action (currently unused)
-                }) {
-                    Image(systemName: isRecording ? "mic.fill" : "mic")
-                        .foregroundColor(buttonColor)
-                        .font(.body)
-                        .scaleEffect(isRecording ? 1.2 : 1.0)
-                        .animation(.easeInOut(duration: 0.1), value: isRecording)
+            // Main button
+            Button(action: {
+                // This is for tap action (currently unused)
+            }) {
+                Image(systemName: isRecording ? "mic.fill" : "mic")
+                    .foregroundColor(buttonColor)
+                    .font(.body)
+                    .scaleEffect(isRecording ? 1.2 : 1.0)
+                    .animation(.easeInOut(duration: 0.1), value: isRecording)
+                    .frame(width: 32, height: 32)
+            }
+            .disabled(isDisabled || isTranscribing || !recordingPermissionGranted)
+            .onLongPressGesture(
+                minimumDuration: 0.5,
+                maximumDistance: .infinity, // Allow unlimited movement
+                perform: {
+                    // This will rarely be called because we handle in onPressingChanged
+                },
+                onPressingChanged: { pressing in
+                    if pressing {
+                        // Long press started - start recording
+                        handleStartRecording()
+                        dragOffset = .zero
+                        isDraggedToCancel = false
+                        isDragging = false
+                    } else {
+                        print("🛑 Long press ended")
+                        // Only stop if we're not in a drag gesture
+                        // if !isDragging {
+                        //     handleStopRecording()
+                        // }
+                    }
                 }
-                .disabled(isDisabled || isTranscribing || !recordingPermissionGranted)
-                .onLongPressGesture(
-                    minimumDuration: 0.5,
-                    maximumDistance: .infinity, // Allow unlimited movement
-                    perform: {
-                        // This will rarely be called because we handle in onPressingChanged
-                    },
-                    onPressingChanged: { pressing in
-                        if pressing {
-                            // Long press started - start recording
-                            handleStartRecording()
-                            dragOffset = .zero
-                            isDraggedToCancel = false
-                            isDragging = false
-                        } else {
-                            print("🛑 Long press ended")
-                            // Only stop if we're not in a drag gesture
-                            // if !isDragging {
-                            //     handleStopRecording()
-                            // }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if isRecording {
+                            isDragging = true
+                            dragOffset = value.translation
+                            
+                            // Convert local drag position to global coordinates
+                            let buttonGlobalFrame = geometry.frame(in: .global)
+                            let fingerGlobalPosition = CGPoint(
+                                x: buttonGlobalFrame.midX + value.translation.width,
+                                y: buttonGlobalFrame.midY + value.translation.height
+                            )
+                            dragGlobalPosition = fingerGlobalPosition
+                            
+                            // Check if finger is within cancel zone (circular area)
+                            isDraggedToCancel = isFingerInCancelZone(fingerPosition: fingerGlobalPosition)
+                            
+                            print("🔍 Button center: \(CGPoint(x: buttonGlobalFrame.midX, y: buttonGlobalFrame.midY)), Finger: \(fingerGlobalPosition), In zone: \(isDraggedToCancel)")
                         }
                     }
-                )
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            if isRecording {
-                                isDragging = true
-                                dragOffset = value.translation
-                                
-                                // Convert local drag position to global coordinates
-                                let buttonGlobalFrame = geometry.frame(in: .global)
-                                let fingerGlobalPosition = CGPoint(
-                                    x: buttonGlobalFrame.midX + value.translation.width,
-                                    y: buttonGlobalFrame.midY + value.translation.height
-                                )
-                                dragGlobalPosition = fingerGlobalPosition
-                                
-                                // Check if finger is within cancel zone (circular area)
-                                isDraggedToCancel = isFingerInCancelZone(fingerPosition: fingerGlobalPosition)
-                                
-                                print("🔍 Button center: \(CGPoint(x: buttonGlobalFrame.midX, y: buttonGlobalFrame.midY)), Finger: \(fingerGlobalPosition), In zone: \(isDraggedToCancel)")
-                            }
-                        }
-                        .onEnded { value in
-                        // will trigger better than
-                            isDragging = false
-                            dragOffset = .zero
-                            print("🛑 DragGesture onEnded isRecording: \(isRecording) isDraggedToCancel: \(isDraggedToCancel)")
+                    .onEnded { value in
+                    // will trigger better than
+                        isDragging = false
+                        dragOffset = .zero
+                        print("🛑 DragGesture onEnded isRecording: \(isRecording) isDraggedToCancel: \(isDraggedToCancel)")
+                        
+                        if isRecording {
+                            // Check final position to determine cancel vs stop
+                            let buttonGlobalFrame = geometry.frame(in: .global)
+                            let fingerGlobalPosition = CGPoint(
+                                x: buttonGlobalFrame.midX + value.translation.width,
+                                y: buttonGlobalFrame.midY + value.translation.height
+                            )
                             
-                            if isRecording {
-                                // Check final position to determine cancel vs stop
-                                let buttonGlobalFrame = geometry.frame(in: .global)
-                                let fingerGlobalPosition = CGPoint(
-                                    x: buttonGlobalFrame.midX + value.translation.width,
-                                    y: buttonGlobalFrame.midY + value.translation.height
-                                )
-                                
-                                if isFingerInCancelZone(fingerPosition: fingerGlobalPosition) {
-                                    // Cancel recording
-                                    handleCancelRecording()
-                                } else {
-                                    // Normal stop recording
-                                    handleStopRecording()
-                                }
+                            if isFingerInCancelZone(fingerPosition: fingerGlobalPosition) {
+                                // Cancel recording
+                                handleCancelRecording()
+                            } else {
+                                // Normal stop recording
+                                handleStopRecording()
                             }
-                            isDraggedToCancel = false
                         }
-                )
-                .onAppear {
-                    recordingManager.checkRecordingPermission()
-                    // Sync initial permission state
-                    recordingPermissionGranted = recordingManager.recordingPermissionGranted
-                }
-                .onChange(of: recordingManager.isRecording) { _, newValue in
-                    isRecording = newValue
-                }
-                .onChange(of: recordingManager.isTranscribing) { _, newValue in
-                    isTranscribing = newValue
-                }
-                .onChange(of: recordingManager.recordingPermissionGranted) { _, newValue in
-                    recordingPermissionGranted = newValue
-                }
+                        isDraggedToCancel = false
+                    }
+            )
+            .onAppear {
+                recordingManager.checkRecordingPermission()
+                // Sync initial permission state
+                recordingPermissionGranted = recordingManager.recordingPermissionGranted
+            }
+            .onChange(of: recordingManager.isRecording) { _, newValue in
+                isRecording = newValue
+            }
+            .onChange(of: recordingManager.isTranscribing) { _, newValue in
+                isTranscribing = newValue
+            }
+            .onChange(of: recordingManager.recordingPermissionGranted) { _, newValue in
+                recordingPermissionGranted = newValue
             }
         }
         .frame(width: 32, height: 32) // Set explicit frame to match the design

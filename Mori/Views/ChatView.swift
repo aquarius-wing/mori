@@ -184,28 +184,33 @@ struct ChatView: View {
                                     Spacer()
                                     
                                     // Audio Recording Button
-                                    AudioRecordingButton(
-                                        llmService: llmService,
-                                        onTranscriptionComplete: { transcribedText in
-                                            inputText += transcribedText
-                                        },
-                                        onError: { error in
-                                            // Check if this is a recording-specific error
-                                            if error.contains("too short") || error.contains("duration") {
-                                                recordingError = error
-                                                showRecordingError = true
-                                            } else {
-                                                errorMessage = error
-                                                showingError = true
-                                            }
-                                        },
-                                        isDisabled: isSending || isStreaming,
-                                        cancelZoneFrame: cancelZoneFrame,
-                                        isRecording: $isRecording,
-                                        isTranscribing: $isTranscribing,
-                                        recordingPermissionGranted: $recordingPermissionGranted,
-                                        isDraggedToCancel: $isDraggedToCancel
-                                    )
+                                    HStack(spacing: 12) {
+                                        AudioRecordingButton(
+                                            llmService: llmService,
+                                            onTranscriptionComplete: { transcribedText in
+                                                inputText += transcribedText
+                                            },
+                                            onError: { error in
+                                                // Check if this is a recording-specific error
+                                                if error.contains("too short") || error.contains("duration") {
+                                                    recordingError = error
+                                                    showRecordingError = true
+                                                } else {
+                                                    errorMessage = error
+                                                    showingError = true
+                                                }
+                                            },
+                                            isDisabled: isSending || isStreaming,
+                                            cancelZoneFrame: cancelZoneFrame,
+                                            isRecording: $isRecording,
+                                            isTranscribing: $isTranscribing,
+                                            recordingPermissionGranted: $recordingPermissionGranted,
+                                            isDraggedToCancel: $isDraggedToCancel
+                                        )
+                                    }
+                                    .frame(width: 32, height: 32)
+                                    .cornerRadius(16)
+                                    .contentShape(Rectangle())
                                     
                                     // Send Button
                                     Button(action: sendMessage) {
