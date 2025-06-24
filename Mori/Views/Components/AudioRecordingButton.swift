@@ -14,6 +14,11 @@ struct AudioRecordingButton: View {
     @Binding var isRecording: Bool
     @Binding var isTranscribing: Bool
     @Binding var recordingPermissionGranted: Bool
+    @Binding var isDraggedToCancel: Bool
+    
+    // MARK: - Internal State
+    @State private var dragOffset: CGSize = .zero
+    @State private var isDragging = false
     
     // MARK: - Body
     var body: some View {
@@ -31,19 +36,57 @@ struct AudioRecordingButton: View {
             .disabled(isDisabled || isTranscribing || !recordingPermissionGranted)
             .onLongPressGesture(
                 minimumDuration: 0.5,
-                maximumDistance: 50,
+                maximumDistance: .infinity, // Allow unlimited movement
                 perform: {
-                    // Long press completed - but we handle stop in onPressingChanged
+                    // This will rarely be called because we handle in onPressingChanged
                 },
                 onPressingChanged: { pressing in
                     if pressing {
                         // Long press started - start recording
                         handleStartRecording()
+                        dragOffset = .zero
+                        isDraggedToCancel = false
+                        isDragging = false
                     } else {
-                        // Long press ended - stop recording
-                        handleStopRecording()
+                        print("🛑 Long press ended")
+                        // Only stop if we're not in a drag gesture
+                        // if !isDragging {
+                        //     handleStopRecording()
+                        // }
                     }
                 }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if isRecording {
+                            isDragging = true
+                            dragOffset = value.translation
+                            // Cancel threshold: dragging up by 60 points
+                            let cancelThreshold: CGFloat = -60
+                            isDraggedToCancel = value.translation.height < cancelThreshold
+                        }
+                    }
+                    .onEnded { value in
+                    // will trigger better than
+                        isDragging = false
+                        dragOffset = .zero
+                        print("🛑 DragGesture onEnded isRecording: \(isRecording) isDragging: \(isDragging) isDraggedToCancel: \(isDraggedToCancel) value.translation.height: \(value.translation.height)")
+                        
+                        // dragOffset is greater than 0
+                        if isRecording {
+                            // Check if we should cancel based on final position
+                            let cancelThreshold: CGFloat = -60
+                            if value.translation.height < cancelThreshold {
+                                // Cancel recording
+                                handleCancelRecording()
+                            } else {
+                                // Normal stop recording
+                                handleStopRecording()
+                            }
+                        }
+                        isDraggedToCancel = false
+                    }
             )
             .onAppear {
                 recordingManager.checkRecordingPermission()
@@ -124,6 +167,12 @@ struct AudioRecordingButton: View {
             }
         }
     }
+    
+    private func handleCancelRecording() {
+        recordingManager.cancelRecording()
+        // Don't call onError for user-initiated cancellation
+        print("🚫 Recording cancelled by user")
+     }
 }
 
 // MARK: - Preview
@@ -141,7 +190,8 @@ struct AudioRecordingButton: View {
             isDisabled: false,
             isRecording: .constant(false),
             isTranscribing: .constant(false),
-            recordingPermissionGranted: .constant(true)
+            recordingPermissionGranted: .constant(true),
+            isDraggedToCancel: .constant(false)
         )
         
         Text("Recording State")
@@ -156,7 +206,8 @@ struct AudioRecordingButton: View {
             isDisabled: false,
             isRecording: .constant(true),
             isTranscribing: .constant(false),
-            recordingPermissionGranted: .constant(true)
+            recordingPermissionGranted: .constant(true),
+            isDraggedToCancel: .constant(false)
         )
         
         Text("Transcribing State")
@@ -171,7 +222,8 @@ struct AudioRecordingButton: View {
             isDisabled: false,
             isRecording: .constant(false),
             isTranscribing: .constant(true),
-            recordingPermissionGranted: .constant(true)
+            recordingPermissionGranted: .constant(true),
+            isDraggedToCancel: .constant(false)
         )
     }
     .padding()

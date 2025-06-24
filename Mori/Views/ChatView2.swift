@@ -142,9 +142,9 @@ struct ChatView2: View {
                         Image(systemName: statusType == .error ? "exclamationmark.triangle" : 
                               isRecording ? "waveform" : 
                               isTranscribing ? "doc.text" : "gear")
-                            .foregroundColor(statusType == .error ? .red : 
-                                           isRecording ? .red :
-                                           isTranscribing ? .orange : .blue)
+                            .foregroundColor(statusType == .error ? Color.red : 
+                                           isRecording ? Color.red :
+                                           isTranscribing ? Color.orange : Color.blue)
                         Text(isRecording ? "Recording..." : 
                              isTranscribing ? "Transcribing..." : currentStatus)
                             .font(.caption)

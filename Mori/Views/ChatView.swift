@@ -24,6 +24,7 @@ struct ChatView: View {
     @State private var recordingPermissionGranted = true
     @State private var recordingError: String?
     @State private var showRecordingError = false
+    @State private var isDraggedToCancel = false
 
     // Chat History Management
     private let chatHistoryManager = ChatHistoryManager()
@@ -66,7 +67,8 @@ struct ChatView: View {
         isTranscribing: Bool = false,
         recordingPermissionGranted: Bool = true,
         recordingError: String? = nil,
-        showRecordingError: Bool = false
+        showRecordingError: Bool = false,
+        isDraggedToCancel: Bool = false
     ) {
         self._messageList = State(initialValue: initialMessages)
         self.onShowMenu = onShowMenu
@@ -76,6 +78,7 @@ struct ChatView: View {
         self._recordingPermissionGranted = State(initialValue: recordingPermissionGranted)
         self._recordingError = State(initialValue: recordingError)
         self._showRecordingError = State(initialValue: showRecordingError)
+        self._isDraggedToCancel = State(initialValue: isDraggedToCancel)
     }
 
     var body: some View {
@@ -195,7 +198,8 @@ struct ChatView: View {
                                         isDisabled: isSending || isStreaming,
                                         isRecording: $isRecording,
                                         isTranscribing: $isTranscribing,
-                                        recordingPermissionGranted: $recordingPermissionGranted
+                                        recordingPermissionGranted: $recordingPermissionGranted,
+                                        isDraggedToCancel: $isDraggedToCancel
                                     )
                                     
                                     // Send Button
@@ -393,14 +397,31 @@ struct ChatView: View {
                 }
                 
                 VStack(spacing: 4) {
-                    Text("Recording...")
+                    Text(isDraggedToCancel ? "Release to cancel" : "Recording...")
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(isDraggedToCancel ? Color.orange : Color.white)
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                     
-                    Text("Release to send")
+                    Text(isDraggedToCancel ? "Slide up to cancel recording" : "Release to send")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor((isDraggedToCancel ? Color.orange : Color.white).opacity(0.7))
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+                }
+                
+                // Cancel zone indicator
+                if isDraggedToCancel {
+                    VStack(spacing: 8) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundColor(.orange)
+                        Text("Cancel Zone")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.top, 16)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 24)
@@ -410,7 +431,7 @@ struct ChatView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke((isDraggedToCancel ? Color.orange : Color.white).opacity(0.3), lineWidth: 2)
                     )
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
@@ -1181,6 +1202,17 @@ struct ChatView: View {
         ],
         recordingError: "Transcription failed: Network connection error. Please check your internet connection and try again.",
         showRecordingError: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Drag to Cancel") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Testing voice message...", isUser: true))
+        ],
+        isRecording: true,
+        isDraggedToCancel: true
     )
     .preferredColorScheme(.dark)
 }
