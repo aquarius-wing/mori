@@ -11,6 +11,7 @@ class AudioRecordingManager: ObservableObject {
     // MARK: - Private Properties
     private var audioRecorder: AVAudioRecorder?
     private var recordingURL: URL?
+    private var recordingStartTime: Date?
     
     // MARK: - Public Methods
     
@@ -68,6 +69,7 @@ class AudioRecordingManager: ObservableObject {
         audioRecorder?.record()
         
         isRecording = true
+        recordingStartTime = Date()
         print("🎤 Started recording to: \(audioFilename)")
     }
     
@@ -85,6 +87,20 @@ class AudioRecordingManager: ObservableObject {
         
         // Deactivate audio session
         try? AVAudioSession.sharedInstance().setActive(false)
+    }
+    
+    /// Check if recording duration meets minimum requirement
+    func checkRecordingDuration() throws {
+        guard let startTime = recordingStartTime else {
+            throw AudioRecordingError.noRecordingFound
+        }
+        
+        let duration = Date().timeIntervalSince(startTime)
+        let minimumDuration: TimeInterval = 1.0
+        
+        if duration < minimumDuration {
+            throw AudioRecordingError.tooShort(duration: duration, minimum: minimumDuration)
+        }
     }
     
     /// Transcribe audio using LLM service
@@ -138,6 +154,7 @@ class AudioRecordingManager: ObservableObject {
         }
         
         recordingURL = nil
+        recordingStartTime = nil
     }
 }
 
@@ -146,6 +163,7 @@ enum AudioRecordingError: LocalizedError {
     case permissionDenied
     case noRecordingFound
     case transcriptionFailed(String)
+    case tooShort(duration: TimeInterval, minimum: TimeInterval)
     
     var errorDescription: String? {
         switch self {
@@ -155,6 +173,8 @@ enum AudioRecordingError: LocalizedError {
             return "No audio recording found"
         case .transcriptionFailed(let message):
             return "Transcription failed: \(message)"
+        case .tooShort(let duration, let minimum):
+            return "Recording too short! Please record for at least \(Int(minimum)) second(s). Your recording was only \(String(format: "%.1f", duration)) second(s)."
         }
     }
 } 

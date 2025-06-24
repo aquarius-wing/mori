@@ -100,6 +100,16 @@ struct AudioRecordingButton: View {
         
         recordingManager.stopRecording()
         
+        // Check recording duration before transcription
+        do {
+            try recordingManager.checkRecordingDuration()
+        } catch {
+            // Duration error - clean up and report
+            recordingManager.cancelRecording()
+            onError(error.localizedDescription)
+            return
+        }
+        
         // Start transcription
         Task {
             do {

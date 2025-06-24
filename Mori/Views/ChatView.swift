@@ -22,6 +22,8 @@ struct ChatView: View {
     @State private var isRecording = false
     @State private var isTranscribing = false
     @State private var recordingPermissionGranted = true
+    @State private var recordingError: String?
+    @State private var showRecordingError = false
 
     // Chat History Management
     private let chatHistoryManager = ChatHistoryManager()
@@ -62,7 +64,9 @@ struct ChatView: View {
         onShowMenu: (() -> Void)? = nil,
         isRecording: Bool = false,
         isTranscribing: Bool = false,
-        recordingPermissionGranted: Bool = true
+        recordingPermissionGranted: Bool = true,
+        recordingError: String? = nil,
+        showRecordingError: Bool = false
     ) {
         self._messageList = State(initialValue: initialMessages)
         self.onShowMenu = onShowMenu
@@ -70,6 +74,8 @@ struct ChatView: View {
         self._isRecording = State(initialValue: isRecording)
         self._isTranscribing = State(initialValue: isTranscribing)
         self._recordingPermissionGranted = State(initialValue: recordingPermissionGranted)
+        self._recordingError = State(initialValue: recordingError)
+        self._showRecordingError = State(initialValue: showRecordingError)
     }
 
     var body: some View {
@@ -177,8 +183,14 @@ struct ChatView: View {
                                             inputText += transcribedText
                                         },
                                         onError: { error in
-                                            errorMessage = error
-                                            showingError = true
+                                            // Check if this is a recording-specific error
+                                            if error.contains("too short") || error.contains("duration") {
+                                                recordingError = error
+                                                showRecordingError = true
+                                            } else {
+                                                errorMessage = error
+                                                showingError = true
+                                            }
                                         },
                                         isDisabled: isSending || isStreaming,
                                         isRecording: $isRecording,
@@ -248,6 +260,15 @@ struct ChatView: View {
                         .transition(.scale.combined(with: .opacity))
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isRecording)
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isTranscribing)
+                }
+                
+                // Recording Error Overlay - centered on screen
+                if showRecordingError {
+                    recordingErrorOverlay
+                        .zIndex(1001)
+                        .allowsHitTesting(true)
+                        .transition(.scale.combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showRecordingError)
                 }
             }
             .navigationTitle("Mori")
@@ -411,6 +432,58 @@ struct ChatView: View {
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
                 }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+                 }
+    }
+    
+    // MARK: - Recording Error Overlay
+    
+    @ViewBuilder
+    private var recordingErrorOverlay: some View {
+        if let error = recordingError {
+            VStack(spacing: 12) {
+                // Error icon
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundColor(.orange)
+                
+                VStack(spacing: 4) {
+                    Text("Recording Error")
+                        .font(.headline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                    
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                
+                // Dismiss button
+                Button("OK") {
+                    recordingError = nil
+                    showRecordingError = false
+                }
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.blue)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.blue.opacity(0.2))
+                )
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
@@ -1074,6 +1147,40 @@ struct ChatView: View {
             .chatMessage(ChatMessage(content: "Hi! How can I help you today?", isUser: false))
         ],
         isTranscribing: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Recording Error") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Hello", isUser: true)),
+            .chatMessage(ChatMessage(content: "Hi! How can I help you today?", isUser: false))
+        ],
+        recordingError: "Recording too short! Please record for at least 1 second(s). Your recording was only 0.5 second(s).",
+        showRecordingError: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Permission Error") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "What's the weather like?", isUser: true))
+        ],
+        recordingError: "Recording permission denied. Please allow microphone access in Settings.",
+        showRecordingError: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Transcription Error") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Can you hear me?", isUser: true))
+        ],
+        recordingError: "Transcription failed: Network connection error. Please check your internet connection and try again.",
+        showRecordingError: true
     )
     .preferredColorScheme(.dark)
 }
