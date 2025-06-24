@@ -10,6 +10,11 @@ struct AudioRecordingButton: View {
     let onError: (String) -> Void
     let isDisabled: Bool
     
+    // Recording states from parent
+    @Binding var isRecording: Bool
+    @Binding var isTranscribing: Bool
+    @Binding var recordingPermissionGranted: Bool
+    
     // MARK: - Body
     var body: some View {
         ZStack {
@@ -17,13 +22,13 @@ struct AudioRecordingButton: View {
             Button(action: {
                 // This is for tap action (currently unused)
             }) {
-                Image(systemName: recordingManager.isRecording ? "mic.fill" : "mic")
+                Image(systemName: isRecording ? "mic.fill" : "mic")
                     .foregroundColor(buttonColor)
                     .font(.body)
-                    .scaleEffect(recordingManager.isRecording ? 1.2 : 1.0)
-                    .animation(.easeInOut(duration: 0.1), value: recordingManager.isRecording)
+                    .scaleEffect(isRecording ? 1.2 : 1.0)
+                    .animation(.easeInOut(duration: 0.1), value: isRecording)
             }
-            .disabled(isDisabled || recordingManager.isTranscribing || !recordingManager.recordingPermissionGranted)
+            .disabled(isDisabled || isTranscribing || !recordingPermissionGranted)
             .onLongPressGesture(
                 minimumDuration: 0.5,
                 maximumDistance: 50,
@@ -42,10 +47,21 @@ struct AudioRecordingButton: View {
             )
             .onAppear {
                 recordingManager.checkRecordingPermission()
+                // Sync initial permission state
+                recordingPermissionGranted = recordingManager.recordingPermissionGranted
+            }
+            .onChange(of: recordingManager.isRecording) { _, newValue in
+                isRecording = newValue
+            }
+            .onChange(of: recordingManager.isTranscribing) { _, newValue in
+                isTranscribing = newValue
+            }
+            .onChange(of: recordingManager.recordingPermissionGranted) { _, newValue in
+                recordingPermissionGranted = newValue
             }
             
             // Recording status overlay - positioned at screen center
-            if recordingManager.isRecording || recordingManager.isTranscribing {
+            if isRecording || isTranscribing {
                 recordingStatusOverlay
                     .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2)
                     .allowsHitTesting(false) // Allow touches to pass through
@@ -56,11 +72,11 @@ struct AudioRecordingButton: View {
     // MARK: - Computed Properties
     
     private var buttonColor: Color {
-        if isDisabled || recordingManager.isTranscribing {
+        if isDisabled || isTranscribing {
             return .gray
-        } else if recordingManager.isRecording {
+        } else if isRecording {
             return .red
-        } else if recordingManager.recordingPermissionGranted {
+        } else if recordingPermissionGranted {
             return .white
         } else {
             return .gray
@@ -71,7 +87,7 @@ struct AudioRecordingButton: View {
     
     @ViewBuilder
     private var recordingStatusOverlay: some View {
-        if recordingManager.isRecording {
+        if isRecording {
             VStack(spacing: 8) {
                 Text("Recording...")
                     .font(.headline)
@@ -84,7 +100,7 @@ struct AudioRecordingButton: View {
             .background(Color.black.opacity(0.8))
             .cornerRadius(12)
             .transition(.scale.combined(with: .opacity))
-        } else if recordingManager.isTranscribing {
+        } else if isTranscribing {
             VStack(spacing: 8) {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -151,7 +167,52 @@ struct AudioRecordingButton: View {
             onError: { error in
                 print("Error: \(error)")
             },
-            isDisabled: false
+            isDisabled: false,
+            isRecording: .constant(false),
+            isTranscribing: .constant(false),
+            recordingPermissionGranted: .constant(true)
+        )
+    }
+    .padding()
+    .background(Color.black)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Recording") {
+    HStack {
+        AudioRecordingButton(
+            llmService: nil,
+            onTranscriptionComplete: { text in
+                print("Transcribed: \(text)")
+            },
+            onError: { error in
+                print("Error: \(error)")
+            },
+            isDisabled: false,
+            isRecording: .constant(true),
+            isTranscribing: .constant(false),
+            recordingPermissionGranted: .constant(true)
+        )
+    }
+    .padding()
+    .background(Color.black)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Transcribing") {
+    HStack {
+        AudioRecordingButton(
+            llmService: nil,
+            onTranscriptionComplete: { text in
+                print("Transcribed: \(text)")
+            },
+            onError: { error in
+                print("Error: \(error)")
+            },
+            isDisabled: false,
+            isRecording: .constant(false),
+            isTranscribing: .constant(true),
+            recordingPermissionGranted: .constant(true)
         )
     }
     .padding()

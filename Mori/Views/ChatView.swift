@@ -18,6 +18,11 @@ struct ChatView: View {
     @State private var showingFilesView = false
     @State private var debugActionSheet = false
 
+    // Recording states for AudioRecordingButton
+    @State private var isRecording = false
+    @State private var isTranscribing = false
+    @State private var recordingPermissionGranted = true
+
     // Chat History Management
     private let chatHistoryManager = ChatHistoryManager()
     @State private var currentChatId: String?
@@ -49,6 +54,22 @@ struct ChatView: View {
     ) {
         self._messageList = State(initialValue: initialMessages)
         self.onShowMenu = onShowMenu
+    }
+    
+    // Convenience initializer for preview with recording states
+    init(
+        initialMessages: [MessageListItemType] = [],
+        onShowMenu: (() -> Void)? = nil,
+        isRecording: Bool = false,
+        isTranscribing: Bool = false,
+        recordingPermissionGranted: Bool = true
+    ) {
+        self._messageList = State(initialValue: initialMessages)
+        self.onShowMenu = onShowMenu
+        // Set initial recording states
+        self._isRecording = State(initialValue: isRecording)
+        self._isTranscribing = State(initialValue: isTranscribing)
+        self._recordingPermissionGranted = State(initialValue: recordingPermissionGranted)
     }
 
     var body: some View {
@@ -157,7 +178,10 @@ struct ChatView: View {
                                         errorMessage = error
                                         showingError = true
                                     },
-                                    isDisabled: isSending || isStreaming
+                                    isDisabled: isSending || isStreaming,
+                                    isRecording: $isRecording,
+                                    isTranscribing: $isTranscribing,
+                                    recordingPermissionGranted: $recordingPermissionGranted
                                 )
                                 
                                 // Send Button
@@ -942,5 +966,27 @@ struct ChatView: View {
             )
         ),
     ])
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Recording State") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Hello", isUser: true)),
+            .chatMessage(ChatMessage(content: "Hi! How can I help you today?", isUser: false))
+        ],
+        isRecording: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Transcribing State") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Hello", isUser: true)),
+            .chatMessage(ChatMessage(content: "Hi! How can I help you today?", isUser: false))
+        ],
+        isTranscribing: true
+    )
     .preferredColorScheme(.dark)
 }
