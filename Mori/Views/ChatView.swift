@@ -50,6 +50,10 @@ struct ChatView: View {
     // Navigation callbacks
     var onShowMenu: (() -> Void)?
 
+    // MARK: - Properties for Cancel Zone Detection
+    @State private var cancelZoneFrame: CGRect = .zero
+    @State private var screenSize: CGSize = .zero
+
     // MARK: - Initializer
     init(
         initialMessages: [MessageListItemType] = [],
@@ -196,6 +200,7 @@ struct ChatView: View {
                                             }
                                         },
                                         isDisabled: isSending || isStreaming,
+                                        cancelZoneFrame: cancelZoneFrame,
                                         isRecording: $isRecording,
                                         isTranscribing: $isTranscribing,
                                         recordingPermissionGranted: $recordingPermissionGranted,
@@ -382,6 +387,7 @@ struct ChatView: View {
     @ViewBuilder
     private var recordingStatusOverlay: some View {
         if isRecording {
+            // Cancel zone
             VStack(spacing: 12) {
                 // Recording animation with cancel icon overlay
                 ZStack {
@@ -414,13 +420,25 @@ struct ChatView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke((isDraggedToCancel ? Color.orange : Color.white).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
-                            .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
-                    )
+                GeometryReader { geo in
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke((isDraggedToCancel ? Color.orange : Color.white).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
+                                .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+                        )
+                        .onAppear {
+                            // Calculate cancel zone frame in global coordinates
+                            let localFrame = geo.frame(in: .local)
+                            let globalFrame = geo.frame(in: .global)
+                            cancelZoneFrame = globalFrame
+                            print("📍 Cancel zone frame: \(globalFrame)")
+                        }
+                        .onChange(of: geo.frame(in: .global)) { _, newFrame in
+                            cancelZoneFrame = newFrame
+                        }
+                }
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
             .scaleEffect(isDraggedToCancel ? 1.05 : 1.0)
