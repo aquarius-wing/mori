@@ -1109,16 +1109,16 @@ struct ChatView: View {
                 details: [
                     "result": """
                     {
-                        "success": true,
-                        "message": "Event updated successfully",
-                        "event": {
-                            "id": "1",
-                            "title": "Team Meeting",
-                            "start_date": "2024-01-15T10:00:00+08:00",
-                            "end_date": "2024-01-15T11:00:00+08:00",
-                            "location": "Conference Room A",
-                            "notes": "Weekly sync meeting",
-                            "is_all_day": false
+                        "success" : true,
+                        "message" : "Event created successfully",
+                        "event" : {
+                            "location" : "",
+                            "start_date" : "2025-06-24T02:15:00+08:00",
+                            "notes" : "核心升级点：\n• 🏠 智能家居中枢\n• 🧘 身心健康教练\n• 🎯 生活目标管理系统\n• 🛒 消费决策参谋\nSlogan候选：\n1. 「你的数字生活另一半」\n2. 「从起床到入睡的全域AI伴侣」\n3. 「Mori：让理想生活自动运行」",
+                            "title" : "🔄 项目升级：Mori-AI生活合伙人",
+                            "id" : "FE8FFBDB-EBB4-4C97-AE03-298352BBD38C:7F1D1AC3-D693-4AE8-B1BA-D8D8D7212F80",
+                            "is_all_day" : false,
+                            "end_date" : "2025-06-24T02:30:00+08:00"
                         }
                     }
                     """

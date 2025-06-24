@@ -47,6 +47,12 @@ struct CalendarUpdateResponse: Codable {
     let event: CalendarEvent
 }
 
+struct CalendarDeleteResponse: Codable {
+    let success: Bool
+    let message: String
+    let eventId: String
+}
+
 class CalendarMCP: ObservableObject {
     private let eventStore = EKEventStore()
     
@@ -71,9 +77,18 @@ class CalendarMCP: ObservableObject {
         - startDate: like \(startString) (required)
         - endDate: like \(endString) (required)
         
+        Tool: add-calendar
+        Description: Create a new calendar event.
+        Arguments:
+        - title: Event title (required)
+        - startDate: Start date like \(startString) (required)
+        - endDate: End date like \(endString) (required)
+        - location: Event location (optional)
+        - notes: Event notes (optional)
+        - isAllDay: true/false for all day event (optional, default false)
         
         Tool: update-calendar
-        Description: Create or update calendar events.
+        Description: Update an existing calendar event.
         Arguments:
         - id: Event id (required)
         - title: Event title (optional)
@@ -82,12 +97,17 @@ class CalendarMCP: ObservableObject {
         - location: Event location (optional)
         - notes: Event notes (optional)
         - isAllDay: true/false for all day event (optional, default false)
+        
+        Tool: remove-calendar
+        Description: Delete a calendar event.
+        Arguments:
+        - id: Event id (required)
         """
     }
     
     // MARK: - Available Tools List
     static func getAvailableTools() -> [String] {
-        return ["read-calendar", "update-calendar"]
+        return ["read-calendar", "add-calendar", "update-calendar", "remove-calendar"]
     }
     
     // MARK: - Calendar Access
@@ -348,6 +368,127 @@ class CalendarMCP: ObservableObject {
             }
         }
     }
+    
+    func addCalendar(arguments: [String: Any]) async throws -> [String: Any] {
+        print("📅 Creating new calendar event with arguments: \(arguments)")
+        
+        // Check calendar access first
+        let hasAccess = await requestCalendarAccess()
+        guard hasAccess else {
+            throw CalendarMCPError.accessDenied("Calendar access not granted")
+        }
+        
+        // Validate required arguments
+        guard let title = arguments["title"] as? String,
+              let startDateString = arguments["startDate"] as? String,
+              let endDateString = arguments["endDate"] as? String else {
+            throw CalendarMCPError.invalidArguments("title, startDate and endDate are required")
+        }
+        
+        // Parse optional arguments
+        let location = arguments["location"] as? String ?? ""
+        let notes = arguments["notes"] as? String ?? ""
+        let isAllDay = arguments["isAllDay"] as? Bool ?? false
+        
+        // Parse dates
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.timeZone = TimeZone.current
+        
+        guard let startDate = isoFormatter.date(from: startDateString),
+              let endDate = isoFormatter.date(from: endDateString) else {
+            throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
+        }
+        
+        // Create new event
+        let event = EKEvent(eventStore: eventStore)
+        event.title = title
+        event.startDate = startDate
+        event.endDate = endDate
+        event.location = location
+        event.notes = notes
+        event.isAllDay = isAllDay
+        event.calendar = eventStore.defaultCalendarForNewEvents
+        
+        // Save event
+        do {
+            try eventStore.save(event, span: .thisEvent)
+            print("📅 Event created successfully: \(title)")
+            
+            let outputFormatter = ISO8601DateFormatter()
+            outputFormatter.timeZone = TimeZone.current
+            
+            let calendarEvent = CalendarEvent(
+                id: event.eventIdentifier ?? "",
+                title: title,
+                startDate: outputFormatter.string(from: startDate),
+                endDate: outputFormatter.string(from: endDate),
+                location: location,
+                notes: notes,
+                isAllDay: isAllDay
+            )
+            
+            let response = CalendarUpdateResponse(
+                success: true,
+                message: "Event created successfully",
+                event: calendarEvent
+            )
+            
+            // Convert to dictionary for compatibility
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(response)
+            let dictionary = try JSONSerialization.jsonObject(with: data, options: []) as! [String: Any]
+            
+            return dictionary
+        } catch {
+            print("❌ Failed to create event: \(error.localizedDescription)")
+            throw CalendarMCPError.creationFailed("Failed to create event: \(error.localizedDescription)")
+        }
+    }
+    
+    func removeCalendar(arguments: [String: Any]) async throws -> [String: Any] {
+        print("📅 Removing calendar event with arguments: \(arguments)")
+        
+        // Check calendar access first
+        let hasAccess = await requestCalendarAccess()
+        guard hasAccess else {
+            throw CalendarMCPError.accessDenied("Calendar access not granted")
+        }
+        
+        // Validate required arguments
+        guard let eventId = arguments["id"] as? String, !eventId.isEmpty else {
+            throw CalendarMCPError.invalidArguments("Event id is required")
+        }
+        
+        // Find the event
+        guard let event = eventStore.event(withIdentifier: eventId) else {
+            throw CalendarMCPError.eventNotFound("Event with id \(eventId) not found")
+        }
+        
+        // Save event title for response
+        let eventTitle = event.title ?? "Untitled Event"
+        
+        // Delete event
+        do {
+            try eventStore.remove(event, span: .thisEvent)
+            print("📅 Event deleted successfully: \(eventTitle)")
+            
+            let response = CalendarDeleteResponse(
+                success: true,
+                message: "Event '\(eventTitle)' deleted successfully",
+                eventId: eventId
+            )
+            
+            // Convert to dictionary for compatibility
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(response)
+            let dictionary = try JSONSerialization.jsonObject(with: data, options: []) as! [String: Any]
+            
+            return dictionary
+        } catch {
+            print("❌ Failed to delete event: \(error.localizedDescription)")
+            throw CalendarMCPError.deletionFailed("Failed to delete event: \(error.localizedDescription)")
+        }
+    }
 }
 
 // MARK: - Errors
@@ -358,6 +499,7 @@ enum CalendarMCPError: Error, LocalizedError {
     case creationFailed(String)
     case eventNotFound(String)
     case updateFailed(String)
+    case deletionFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -373,6 +515,8 @@ enum CalendarMCPError: Error, LocalizedError {
             return "Event not found: \(message)"
         case .updateFailed(let message):
             return "Update failed: \(message)"
+        case .deletionFailed(let message):
+            return "Deletion failed: \(message)"
         }
     }
 } 
