@@ -557,7 +557,7 @@ extension CalendarMCP {
                             .frame(width: 24, height: 24)
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Found \(calendarResponse.count) events in Calendar")
+                            Text("Found \(calendarResponse.count) events")
                                 .font(.body)
                                 .fontWeight(.medium)
                                 .foregroundColor(.white)
@@ -566,16 +566,7 @@ extension CalendarMCP {
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
                         }
-
                         Spacer()
-
-                        Button(action: {
-                            openCalendarApp()
-                        }) {
-                            Image(systemName: "calendar.badge.plus")
-                                .font(.title3)
-                                .foregroundColor(.blue)
-                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
@@ -585,13 +576,17 @@ extension CalendarMCP {
                         VStack(spacing: 12) {
                             // Display first 3 events
                             ForEach(Array(calendarResponse.events.prefix(3).enumerated()), id: \.offset) { index, event in
-                                CalendarEventDetailRowWithButton(
-                                    event: event,
-                                    onOpenCalendar: {
+                                CalendarEventDetailRowWithButton(event: event) {
+                                    Button(action: {
                                         eventToOpen.wrappedValue = event
                                         showingCalendarConfirmation.wrappedValue = true
+                                    }) {
+                                        Image(systemName: "calendar")
+                                            .font(.title3)
+                                            .foregroundColor(.blue)
+                                            .padding(8)
                                     }
-                                )
+                                }
                             }
                             
                             // Show "more" button if there are more than 3 events
@@ -677,13 +672,17 @@ extension CalendarMCP {
                    from: jsonData
                )
             {
-                CalendarEventDetailRowWithButton(
-                    event: updateResponse.event,
-                    onOpenCalendar: {
+                CalendarEventDetailRowWithButton(event: updateResponse.event) {
+                    Button(action: {
                         eventToOpen.wrappedValue = updateResponse.event
                         showingCalendarConfirmation.wrappedValue = true
+                    }) {
+                        Image(systemName: "calendar")
+                            .font(.title3)
+                            .foregroundColor(.blue)
+                            .padding(8)
                     }
-                )
+                }
                 .background(
                     RoundedRectangle(cornerRadius: 16)
                         .fill(
@@ -724,17 +723,21 @@ extension CalendarMCP {
                    from: jsonData
                )
             {
-                CalendarEventDetailRowWithButton(
-                    event: addResponse.event,
-                    onOpenCalendar: {
+                CalendarEventDetailRowWithButton(event: addResponse.event) {
+                    Button(action: {
                         eventToOpen.wrappedValue = addResponse.event
                         showingCalendarConfirmation.wrappedValue = true
+                    }) {
+                        Image(systemName: "calendar")
+                            .font(.title3)
+                            .foregroundColor(.blue)
+                            .padding(8)
                     }
-                )
+                }
                 .background(
                     RoundedRectangle(cornerRadius: 16)
                         .fill(
-                            (updateResponse.success ? Color.green : Color.red)
+                            (addResponse.success ? Color.green : Color.red)
                                 .opacity(0.2)
                         )
                 )

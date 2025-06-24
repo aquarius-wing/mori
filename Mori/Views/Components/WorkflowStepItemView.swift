@@ -159,9 +159,14 @@ struct WorkflowStepItemView: View {
 }
 
 // MARK: - Calendar Event Detail Row with Button
-struct CalendarEventDetailRowWithButton: View {
+struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
     let event: CalendarEvent
-    let onOpenCalendar: () -> Void
+    let buttonContent: ButtonContent
+
+    init(event: CalendarEvent, @ViewBuilder buttonContent: () -> ButtonContent) {
+        self.event = event
+        self.buttonContent = buttonContent()
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -173,6 +178,7 @@ struct CalendarEventDetailRowWithButton: View {
                             .font(.headline)
                             .fontWeight(.medium)
                             .foregroundColor(.white)
+                            .lineLimit(1)
                             .multilineTextAlignment(.leading)
 
                         HStack(spacing: 8) {
@@ -207,6 +213,7 @@ struct CalendarEventDetailRowWithButton: View {
                         Text(event.location)
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
                             .multilineTextAlignment(.leading)
                     }
                 }
@@ -221,18 +228,14 @@ struct CalendarEventDetailRowWithButton: View {
                         Text(event.notes)
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
                             .multilineTextAlignment(.leading)
                     }
                 }
             }
             
-            // Open calendar button
-            Button(action: onOpenCalendar) {
-                Image(systemName: "calendar.badge.plus")
-                    .font(.title3)
-                    .foregroundColor(.blue)
-                    .padding(8)
-            }
+            // Button content from outside
+            buttonContent
         }
         .padding(16)
         .background(
