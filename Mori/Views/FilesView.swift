@@ -129,6 +129,13 @@ struct FilesView: View {
         stopPlayback() // Stop any current playback
         
         do {
+            // Configure audio session for playback
+            let audioSession = AVAudioSession.sharedInstance()
+            // Continues playing when muted or locked
+            // default category is soloAmbient, it will be silenced by mute switch and screen lock
+            try audioSession.setCategory(.playback, mode: .default)
+            try audioSession.setActive(true)
+            
             audioPlayer = try AVAudioPlayer(contentsOf: file.url)
             
             // Create delegate that will reset playingFileID when playback finishes

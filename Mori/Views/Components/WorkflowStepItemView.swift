@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import EventKit
 
 // MARK: - Workflow Step Item View
 
@@ -7,129 +8,42 @@ struct WorkflowStepItemView: View {
     let step: WorkflowStep
     @State private var showingCalendarDetail = false
     @State private var showingErrorDetail = false
+    @State private var showingCalendarConfirmation = false
+    @State private var eventToOpen: CalendarEvent?
 
     var body: some View {
         // Dynamic rendering based on toolName and status
         if step.toolName == "read-calendar" && step.status == .result {
-            renderCalendarReadResult()
+            CalendarMCP.createReadResultView(
+                step: step,
+                showingCalendarDetail: $showingCalendarDetail,
+                showingCalendarConfirmation: $showingCalendarConfirmation,
+                eventToOpen: $eventToOpen
+            )
         } else if step.toolName == "update-calendar" && step.status == .result {
-            renderCalendarUpdateResult()
+            CalendarMCP.createUpdateResultView(
+                step: step,
+                showingCalendarConfirmation: $showingCalendarConfirmation,
+                eventToOpen: $eventToOpen
+            )
+        } else if step.toolName == "add-calendar" && step.status == .result {
+            CalendarMCP.createAddResultView(
+                step: step,
+                showingCalendarConfirmation: $showingCalendarConfirmation,
+                eventToOpen: $eventToOpen
+            )
+        } else if step.toolName == "remove-calendar" && step.status == .result {
+            CalendarMCP.createRemoveResultView(
+                step: step
+            )
         } else {
             renderDefaultWorkflowStep()
         }
     }
 
-    // MARK: - Calendar Read Result
-    @ViewBuilder
-    private func renderCalendarReadResult() -> some View {
-        if let resultValue = step.details["result"],
-            let jsonData = resultValue.data(using: .utf8),
-            let calendarResponse = try? JSONDecoder().decode(
-                CalendarReadResponse.self,
-                from: jsonData
-            )
-        {
-            // Simplified view showing only summary
-            HStack(spacing: 16) {
-                Image(systemName: "magnifyingglass")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .frame(width: 24, height: 24)
 
-                Text("Found \(calendarResponse.count) events in Calendar")
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
 
-                Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.blue.opacity(0.2))
-            )
-            .padding(.horizontal, 20)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                showingCalendarDetail = true
-            }
-            .sheet(isPresented: $showingCalendarDetail) {
-                CalendarEventsDetailView(
-                    title: "Read Calendar",
-                    subtitle: formatDateRange(from: calendarResponse.dateRange),
-                    events: calendarResponse.events
-                )
-            }
-
-        } else {
-            renderDefaultWorkflowStep()
-        }
-    }
-
-    // MARK: - Calendar Update Result
-    @ViewBuilder
-    private func renderCalendarUpdateResult() -> some View {
-        if let resultValue = step.details["result"],
-            let jsonData = resultValue.data(using: .utf8),
-            let updateResponse = try? JSONDecoder().decode(
-                CalendarUpdateResponse.self,
-                from: jsonData
-            )
-        {
-            // Simplified view showing only summary
-            HStack(spacing: 16) {
-                Image(
-                    systemName: updateResponse.success
-                        ? "checkmark.circle.fill" : "xmark.circle.fill"
-                )
-                .font(.title2)
-                .foregroundColor(updateResponse.success ? .green : .red)
-                .frame(width: 24, height: 24)
-
-                Text(updateResponse.message)
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        (updateResponse.success ? Color.green : Color.red)
-                            .opacity(0.2)
-                    )
-            )
-            .padding(.horizontal, 20)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                showingCalendarDetail = true
-            }
-            .sheet(isPresented: $showingCalendarDetail) {
-                CalendarEventsDetailView(
-                    title: updateResponse.success ? "Update Calendar" : "Calendar Update Failed",
-                    subtitle: updateResponse.event.title.isEmpty ? "Event details" : "Event: \(updateResponse.event.title)",
-                    events: [updateResponse.event]
-                )
-            }
-
-        } else {
-            renderDefaultWorkflowStep()
-        }
-    }
 
     // MARK: - Default Workflow Step
     @ViewBuilder
@@ -241,75 +155,146 @@ struct WorkflowStepItemView: View {
         }
     }
     
-    // MARK: - Date Range Formatting
-    private func formatDateRange(from dateRange: DateRange) -> String {
+
+}
+
+// MARK: - Calendar Event Detail Row with Button
+struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
+    let event: CalendarEvent
+    let buttonContent: ButtonContent
+
+    init(event: CalendarEvent, @ViewBuilder buttonContent: () -> ButtonContent) {
+        self.event = event
+        self.buttonContent = buttonContent()
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Title and time
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(event.title)
+                            .font(.headline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+
+                            if event.isAllDay {
+                                Text("All day")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.8))
+                            } else {
+                                Text(
+                                    "\(formatDateTime(event.startDate)) - \(formatTime(event.endDate))"
+                                )
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                            }
+                        }
+                    }
+
+                    Spacer()
+                }
+
+                // Location (if available)
+                if !event.location.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "location")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+
+                        Text(event.location)
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+
+                // Notes (if available)
+                if !event.notes.isEmpty {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "note.text")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+
+                        Text(event.notes)
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+            }
+            
+            // Button content from outside
+            buttonContent
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.1))
+        )
+    }
+
+    private func formatDateTime(_ dateString: String) -> String {
+        // Try ISO8601DateFormatter first
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.timeZone = TimeZone.current
+
+        if let date = isoFormatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "MMM d, HH:mm"
+            displayFormatter.timeZone = TimeZone.current
+            return displayFormatter.string(from: date)
+        }
+
+        // Fallback to manual DateFormatter
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
         formatter.timeZone = TimeZone.current
-        
-        // Try to parse start date
-        let startDate: Date?
-        let endDate: Date?
-        
+
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "MMM d, HH:mm"
+            displayFormatter.timeZone = TimeZone.current
+            return displayFormatter.string(from: date)
+        }
+
+        return dateString
+    }
+
+    private func formatTime(_ dateString: String) -> String {
+        // Try ISO8601DateFormatter first
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.timeZone = TimeZone.current
-        
-        // Try ISO format first, then fallback to manual format
-        if let date = isoFormatter.date(from: dateRange.startDate) {
-            startDate = date
-        } else {
-            startDate = formatter.date(from: dateRange.startDate)
+
+        if let date = isoFormatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "HH:mm"
+            displayFormatter.timeZone = TimeZone.current
+            return displayFormatter.string(from: date)
         }
-        
-        if let date = isoFormatter.date(from: dateRange.endDate) {
-            endDate = date
-        } else {
-            endDate = formatter.date(from: dateRange.endDate)
+
+        // Fallback to manual DateFormatter
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+        formatter.timeZone = TimeZone.current
+
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "HH:mm"
+            displayFormatter.timeZone = TimeZone.current
+            return displayFormatter.string(from: date)
         }
-        
-        let displayFormatter = DateFormatter()
-        displayFormatter.timeZone = TimeZone.current
-        
-        if let start = startDate, let end = endDate {
-            // Check if it's the same day
-            let calendar = Calendar.current
-            if calendar.isDate(start, inSameDayAs: end) {
-                displayFormatter.dateFormat = "MMM d, yyyy"
-                let dateStr = displayFormatter.string(from: start)
-                
-                // Add time range if not a full day
-                let timeFormatter = DateFormatter()
-                timeFormatter.dateFormat = "HH:mm"
-                timeFormatter.timeZone = TimeZone.current
-                
-                let startTime = timeFormatter.string(from: start)
-                let endTime = timeFormatter.string(from: end)
-                
-                // Check if it's likely a full day (00:00-23:59 or similar)
-                if startTime == "00:00" && (endTime == "23:59" || endTime == "00:00") {
-                    return dateStr
-                } else {
-                    return "\(dateStr) \(startTime)-\(endTime)"
-                }
-            } else {
-                displayFormatter.dateFormat = "MMM d"
-                let startStr = displayFormatter.string(from: start)
-                let endStr = displayFormatter.string(from: end)
-                
-                // Add year if different
-                let yearFormatter = DateFormatter()
-                yearFormatter.dateFormat = "yyyy"
-                let startYear = yearFormatter.string(from: start)
-                let endYear = yearFormatter.string(from: end)
-                
-                if startYear == endYear {
-                    return "\(startStr) - \(endStr), \(startYear)"
-                } else {
-                    return "\(startStr), \(startYear) - \(endStr), \(endYear)"
-                }
-            }
-        }
-        
-        return "Date range: \(dateRange.startDate) - \(dateRange.endDate)"
+
+        return "Time"
     }
 } 

@@ -280,6 +280,11 @@ class LLMAIService: ObservableObject {
         
         var body = Data()
         
+        // Add model parameter
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
+        body.append("whisper-1\r\n".data(using: .utf8)!)
+        
         // Add file data
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n".data(using: .utf8)!)
@@ -415,6 +420,10 @@ class LLMAIService: ObservableObject {
             return try await calendarMCP.readCalendar(arguments: toolCall.arguments)
         case "update-calendar":
             return try await calendarMCP.updateCalendar(arguments: toolCall.arguments)
+        case "add-calendar":
+            return try await calendarMCP.addCalendar(arguments: toolCall.arguments)
+        case "remove-calendar":
+            return try await calendarMCP.removeCalendar(arguments: toolCall.arguments)
         default:
             throw LLMError.customError("Unknown tool: \(toolCall.tool)")
         }

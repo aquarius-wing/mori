@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import SwiftUI
+import AVFoundation
 
 struct ChatView: View {
     // LLM Service and chat management
@@ -16,6 +17,14 @@ struct ChatView: View {
     @State private var errorDetail = ""
     @State private var showingFilesView = false
     @State private var debugActionSheet = false
+
+    // Recording states for AudioRecordingButton
+    @State private var isRecording = false
+    @State private var isTranscribing = false
+    @State private var recordingPermissionGranted = true
+    @State private var recordingError: String?
+    @State private var showRecordingError = false
+    @State private var isDraggedToCancel = false
 
     // Chat History Management
     private let chatHistoryManager = ChatHistoryManager()
@@ -41,6 +50,10 @@ struct ChatView: View {
     // Navigation callbacks
     var onShowMenu: (() -> Void)?
 
+    // MARK: - Properties for Cancel Zone Detection
+    @State private var cancelZoneFrame: CGRect = .zero
+    @State private var screenSize: CGSize = .zero
+
     // MARK: - Initializer
     init(
         initialMessages: [MessageListItemType] = [],
@@ -49,152 +62,227 @@ struct ChatView: View {
         self._messageList = State(initialValue: initialMessages)
         self.onShowMenu = onShowMenu
     }
+    
+    // Convenience initializer for preview with recording states
+    init(
+        initialMessages: [MessageListItemType] = [],
+        onShowMenu: (() -> Void)? = nil,
+        isRecording: Bool = false,
+        isTranscribing: Bool = false,
+        recordingPermissionGranted: Bool = true,
+        recordingError: String? = nil,
+        showRecordingError: Bool = false,
+        isDraggedToCancel: Bool = false
+    ) {
+        self._messageList = State(initialValue: initialMessages)
+        self.onShowMenu = onShowMenu
+        // Set initial recording states
+        self._isRecording = State(initialValue: isRecording)
+        self._isTranscribing = State(initialValue: isTranscribing)
+        self._recordingPermissionGranted = State(initialValue: recordingPermissionGranted)
+        self._recordingError = State(initialValue: recordingError)
+        self._showRecordingError = State(initialValue: showRecordingError)
+        self._isDraggedToCancel = State(initialValue: isDraggedToCancel)
+    }
 
     var body: some View {
         NavigationStack {
-            GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    // Chat messages area
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 16) {
-                                ForEach(chatItems) { item in
-                                    let copyAction = {
-                                        if case .message(let message) = item {
-                                            copyMessage(message.content)
-                                        } else {
-                                            copyLastMessage()
-                                        }
-                                    }
-                                    
-                                    let retryAction = {
-                                        if case .message(let message) = item {
-                                            retryFromMessage(message)
-                                        }
-                                    }
-                                    
-                                    let showErrorAction = {
-                                        showingErrorDetail = true
-                                    }
-                                    
-                                    ChatItemView(
-                                        item: item,
-                                        onCopy: copyAction,
-                                        onLike: likeMessage,
-                                        onDislike: dislikeMessage,
-                                        onRetry: retryAction,
-                                        onShowErrorDetail: showErrorAction,
-                                        errorDetail: errorDetail
-                                    )
-                                    .id(item.id)
-                                }
-
-                                if isStreaming || isSending {
-                                    HStack {
-                                        ProgressView()
-                                            .progressViewStyle(
-                                                CircularProgressViewStyle(
-                                                    tint: .white
-                                                )
-                                            )
-                                            .scaleEffect(0.8)
-                                        Text(currentStatus)
-                                            .font(.caption)
-                                            .foregroundColor(
-                                                .white.opacity(0.7)
-                                            )
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 20)
-                                }
-                            }
-                            .padding(.vertical, 20)
-                            .padding(.bottom, 0)
-                        }
-                        .onChange(of: chatItems.count) { _, _ in
-                            if let lastItem = chatItems.last {
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    proxy.scrollTo(lastItem.id, anchor: .bottom)
-                                }
-                            }
-                        }
-                        .simultaneousGesture(
-                            TapGesture()
-                                .onEnded { _ in
-                                    // Dismiss keyboard when tapping on chat area
-                                    isTextFieldFocused = false
-                                }
-                        )
-                    }
-
-                    // Input area
+            ZStack {
+                // Main content
+                GeometryReader { geometry in
                     VStack(spacing: 0) {
-                        // Input field
-                        VStack(spacing: 16) {
-                            TextField(
-                                "Input message...",
-                                text: $inputText,
-                                axis: .vertical
-                            )
-                            .textFieldStyle(.plain)
-                            .lineLimit(1...5)
-                            .foregroundColor(.white)
-                            .accentColor(.white)
-                            .focused($isTextFieldFocused)
-                            .disabled(isSending || isStreaming)
+                        // Chat messages area
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                LazyVStack(spacing: 16) {
+                                    ForEach(chatItems) { item in
+                                        let copyAction = {
+                                            if case .message(let message) = item {
+                                                copyMessage(message.content)
+                                            } else {
+                                                copyLastMessage()
+                                            }
+                                        }
+                                        
+                                        let retryAction = {
+                                            if case .message(let message) = item {
+                                                retryFromMessage(message)
+                                            }
+                                        }
+                                        
+                                        let showErrorAction = {
+                                            showingErrorDetail = true
+                                        }
+                                        
+                                        ChatItemView(
+                                            item: item,
+                                            onCopy: copyAction,
+                                            onLike: likeMessage,
+                                            onDislike: dislikeMessage,
+                                            onRetry: retryAction,
+                                            onShowErrorDetail: showErrorAction,
+                                            errorDetail: errorDetail
+                                        )
+                                        .id(item.id)
+                                    }
 
-                            HStack(spacing: 12) {
-                                Spacer()
-                                Button(action: sendMessage) {
-                                    Image(
-                                        systemName: isSending
-                                            ? "hourglass" : "arrow.up"
-                                    )
-                                    .foregroundColor(.white)
+                                    if isStreaming || isSending {
+                                        HStack {
+                                            ProgressView()
+                                                .progressViewStyle(
+                                                    CircularProgressViewStyle(
+                                                        tint: .white
+                                                    )
+                                                )
+                                                .scaleEffect(0.8)
+                                            Text(currentStatus)
+                                                .font(.caption)
+                                                .foregroundColor(
+                                                    .white.opacity(0.7)
+                                                )
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 20)
+                                    }
                                 }
-                                .frame(width: 32, height: 32)
-                                .background(
-                                    inputText.trimmingCharacters(
-                                        in: .whitespacesAndNewlines
-                                    ).isEmpty || isSending || isStreaming
-                                        ? Color.gray : Color.blue
-                                )
-                                .cornerRadius(16)
-                                .contentShape(Rectangle())
-                                .disabled(
-                                    inputText.trimmingCharacters(
-                                        in: .whitespacesAndNewlines
-                                    ).isEmpty || isSending || isStreaming
-                                )
+                                .padding(.vertical, 20)
+                                .padding(.bottom, 0)
                             }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            // Focus on TextField when tapping on the VStack area
-                            isTextFieldFocused = true
-                        }
-                        .overlay(
-                            // Floating gray rectangle
-                            Rectangle()
-                                .fill(Color.white.opacity(0.1))
-                                .frame(height: geometry.safeAreaInsets.bottom)
-                                .frame(width: geometry.size.width)
-                                .offset(y: geometry.safeAreaInsets.bottom + 12),
-                            alignment: .bottom
-                        )
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        .padding(.bottom, 12)
-                        .background(
-                            UnevenRoundedRectangle(
-                                topLeadingRadius: 20,
-                                bottomLeadingRadius: 0,
-                                bottomTrailingRadius: 0,
-                                topTrailingRadius: 20
+                            .onChange(of: chatItems.count) { _, _ in
+                                if let lastItem = chatItems.last {
+                                    withAnimation(.easeOut(duration: 0.3)) {
+                                        proxy.scrollTo(lastItem.id, anchor: .bottom)
+                                    }
+                                }
+                            }
+                            .simultaneousGesture(
+                                TapGesture()
+                                    .onEnded { _ in
+                                        // Dismiss keyboard when tapping on chat area
+                                        isTextFieldFocused = false
+                                    }
                             )
-                            .fill(Color.white.opacity(0.1))
-                        )
+                        }
+
+                        // Input area
+                        VStack(spacing: 0) {
+                            // Input field
+                            VStack(spacing: 16) {
+                                TextField(
+                                    "Input message...",
+                                    text: $inputText,
+                                    axis: .vertical
+                                )
+                                .textFieldStyle(.plain)
+                                .lineLimit(1...5)
+                                .foregroundColor(.white)
+                                .accentColor(.white)
+                                .focused($isTextFieldFocused)
+                                .disabled(isSending || isStreaming)
+
+                                HStack(spacing: 12) {
+                                    Spacer()
+                                    
+                                    // Audio Recording Button
+                                    HStack(spacing: 12) {
+                                        AudioRecordingButton(
+                                            llmService: llmService,
+                                            onTranscriptionComplete: { transcribedText in
+                                                inputText += transcribedText
+                                            },
+                                            onError: { error in
+                                                // Check if this is a recording-specific error
+                                                if error.contains("too short") || error.contains("duration") {
+                                                    recordingError = error
+                                                    showRecordingError = true
+                                                } else {
+                                                    errorMessage = error
+                                                    showingError = true
+                                                }
+                                            },
+                                            isDisabled: isSending || isStreaming,
+                                            cancelZoneFrame: cancelZoneFrame,
+                                            isRecording: $isRecording,
+                                            isTranscribing: $isTranscribing,
+                                            recordingPermissionGranted: $recordingPermissionGranted,
+                                            isDraggedToCancel: $isDraggedToCancel
+                                        )
+                                    }
+                                    .frame(width: 32, height: 32)
+                                    .cornerRadius(16)
+                                    .contentShape(Rectangle())
+                                    
+                                    // Send Button
+                                    Button(action: sendMessage) {
+                                        Image(
+                                            systemName: isSending
+                                                ? "hourglass" : "arrow.up"
+                                        )
+                                        .foregroundColor(.white)
+                                    }
+                                    .frame(width: 32, height: 32)
+                                    .background(
+                                        inputText.trimmingCharacters(
+                                            in: .whitespacesAndNewlines
+                                        ).isEmpty || isSending || isStreaming
+                                            ? Color.gray : Color.blue
+                                    )
+                                    .cornerRadius(16)
+                                    .contentShape(Rectangle())
+                                    .disabled(
+                                        inputText.trimmingCharacters(
+                                            in: .whitespacesAndNewlines
+                                        ).isEmpty || isSending || isStreaming
+                                    )
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                // Focus on TextField when tapping on the VStack area
+                                isTextFieldFocused = true
+                            }
+                            .overlay(
+                                // Floating gray rectangle
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.1))
+                                    .frame(height: geometry.safeAreaInsets.bottom)
+                                    .frame(width: geometry.size.width)
+                                    .offset(y: geometry.safeAreaInsets.bottom + 12),
+                                alignment: .bottom
+                            )
+                            .padding(.horizontal, 20)
+                            .padding(.top, 20)
+                            .padding(.bottom, 12)
+                            .background(
+                                UnevenRoundedRectangle(
+                                    topLeadingRadius: 20,
+                                    bottomLeadingRadius: 0,
+                                    bottomTrailingRadius: 0,
+                                    topTrailingRadius: 20
+                                )
+                                .fill(Color.white.opacity(0.1))
+                            )
+                        }
                     }
+                }
+                
+                // Recording Status Overlay - centered on screen
+                if isRecording || isTranscribing {
+                    recordingStatusOverlay
+                        .zIndex(1000)
+                        .allowsHitTesting(false)
+                        .transition(.scale.combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isRecording)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isTranscribing)
+                }
+                
+                // Recording Error Overlay - centered on screen
+                if showRecordingError {
+                    recordingErrorOverlay
+                        .zIndex(1001)
+                        .allowsHitTesting(true)
+                        .transition(.scale.combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showRecordingError)
                 }
             }
             .navigationTitle("Mori")
@@ -296,6 +384,152 @@ struct ChatView: View {
             }
             
             Button("Cancel", role: .cancel) { }
+        }
+    }
+
+    // MARK: - Recording Status Overlay
+    
+    @ViewBuilder
+    private var recordingStatusOverlay: some View {
+        if isRecording {
+            // Cancel zone
+            VStack(spacing: 12) {
+                // Recording animation with cancel icon overlay
+                ZStack {
+                    Circle()
+                        .fill((isDraggedToCancel ? Color.orange : Color.red).opacity(0.2))
+                        .frame(width: 60, height: 60)
+                        .scaleEffect(isRecording ? 1.2 : 1.0)
+                        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isRecording)
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+                    
+                    Image(systemName: isDraggedToCancel ? "xmark" : "mic.fill")
+                        .font(.title2)
+                        .foregroundColor(isDraggedToCancel ? .orange : .red)
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+                }
+                
+                VStack(spacing: 4) {
+                    Text("Recording...")
+                        .font(.headline)
+                        .fontWeight(.medium)
+                        .foregroundColor(isDraggedToCancel ? Color.orange : Color.white)
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+                    
+                    Text("Drag here to cancel")
+                        .font(.caption)
+                        .foregroundColor((isDraggedToCancel ? Color.orange : Color.white).opacity(0.7))
+                        .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .background(
+                GeometryReader { geo in
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke((isDraggedToCancel ? Color.orange : Color.white).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
+                                .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+                        )
+                        .onAppear {
+                            // Calculate cancel zone frame in global coordinates
+                            let localFrame = geo.frame(in: .local)
+                            let globalFrame = geo.frame(in: .global)
+                            cancelZoneFrame = globalFrame
+                            print("📍 Cancel zone frame: \(globalFrame)")
+                        }
+                        .onChange(of: geo.frame(in: .global)) { _, newFrame in
+                            cancelZoneFrame = newFrame
+                        }
+                }
+            )
+            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+            .scaleEffect(isDraggedToCancel ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
+            
+        } else if isTranscribing {
+            VStack(spacing: 12) {
+                // Transcribing animation
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                    .scaleEffect(1.2)
+                
+                VStack(spacing: 4) {
+                    Text("Transcribing...")
+                        .font(.headline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                    
+                    Text("Processing audio...")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+        }
+    }
+    
+    // MARK: - Recording Error Overlay
+    
+    @ViewBuilder
+    private var recordingErrorOverlay: some View {
+        if let error = recordingError {
+            VStack(spacing: 12) {
+                // Error icon
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundColor(.orange)
+                
+                VStack(spacing: 4) {
+                    Text("Recording Error")
+                        .font(.headline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                    
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                
+                // Dismiss button
+                Button("OK") {
+                    recordingError = nil
+                    showRecordingError = false
+                }
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.blue)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.blue.opacity(0.2))
+                )
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
         }
     }
 
@@ -875,16 +1109,40 @@ struct ChatView: View {
                 details: [
                     "result": """
                     {
-                        "success": true,
-                        "message": "Event updated successfully",
-                        "event": {
-                            "id": "1",
-                            "title": "Team Meeting",
-                            "start_date": "2024-01-15T10:00:00+08:00",
-                            "end_date": "2024-01-15T11:00:00+08:00",
-                            "location": "Conference Room A",
-                            "notes": "Weekly sync meeting",
-                            "is_all_day": false
+                        "success" : true,
+                        "message" : "Event created successfully",
+                        "event" : {
+                            "location" : "",
+                            "start_date" : "2025-06-24T02:15:00+08:00",
+                            "notes" : "核心升级点：\n• 🏠 智能家居中枢\n• 🧘 身心健康教练\n• 🎯 生活目标管理系统\n• 🛒 消费决策参谋\nSlogan候选：\n1. 「你的数字生活另一半」\n2. 「从起床到入睡的全域AI伴侣」\n3. 「Mori：让理想生活自动运行」",
+                            "title" : "🔄 项目升级：Mori-AI生活合伙人",
+                            "id" : "FE8FFBDB-EBB4-4C97-AE03-298352BBD38C:7F1D1AC3-D693-4AE8-B1BA-D8D8D7212F80",
+                            "is_all_day" : false,
+                            "end_date" : "2025-06-24T02:30:00+08:00"
+                        }
+                    }
+                    """
+                ]
+            )
+        ),
+
+        .workflowStep(
+            WorkflowStep(
+                status: .result,
+                toolName: "add-calendar",
+                details: [
+                    "result": """
+                    {
+                        "success" : true,
+                        "message" : "Add Event created successfully",
+                        "event" : {
+                            "location" : "",
+                            "start_date" : "2025-06-24T02:15:00+08:00",
+                            "notes" : "核心升级点：\n• 🏠 智能家居中枢\n• 🧘 身心健康教练\n• 🎯 生活目标管理系统\n• 🛒 消费决策参谋\nSlogan候选：\n1. 「你的数字生活另一半」\n2. 「从起床到入睡的全域AI伴侣」\n3. 「Mori：让理想生活自动运行」",
+                            "title" : "🔄 项目升级：Mori-AI生活合伙人",
+                            "id" : "FE8FFBDB-EBB4-4C97-AE03-298352BBD38C:7F1D1AC3-D693-4AE8-B1BA-D8D8D7212F80",
+                            "is_all_day" : false,
+                            "end_date" : "2025-06-24T02:30:00+08:00"
                         }
                     }
                     """
@@ -926,5 +1184,72 @@ struct ChatView: View {
             )
         ),
     ])
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Recording State") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Hello", isUser: true)),
+            .chatMessage(ChatMessage(content: "Hi! How can I help you today?", isUser: false))
+        ],
+        isRecording: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Transcribing State") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Hello", isUser: true)),
+            .chatMessage(ChatMessage(content: "Hi! How can I help you today?", isUser: false))
+        ],
+        isTranscribing: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Recording Error") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Hello", isUser: true)),
+            .chatMessage(ChatMessage(content: "Hi! How can I help you today?", isUser: false))
+        ],
+        recordingError: "Recording too short! Please record for at least 1 second(s). Your recording was only 0.5 second(s).",
+        showRecordingError: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Permission Error") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "What's the weather like?", isUser: true))
+        ],
+        recordingError: "Recording permission denied. Please allow microphone access in Settings.",
+        showRecordingError: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Transcription Error") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Can you hear me?", isUser: true))
+        ],
+        recordingError: "Transcription failed: Network connection error. Please check your internet connection and try again.",
+        showRecordingError: true
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Drag to Cancel") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Testing voice message...", isUser: true))
+        ],
+        isRecording: true,
+        isDraggedToCancel: true
+    )
     .preferredColorScheme(.dark)
 }
