@@ -3,6 +3,17 @@ import Foundation
 import SwiftUI
 import AVFoundation
 
+// MARK: - Helper Types
+struct CalendarEventFormatted {
+    let id: String
+    let title: String
+    let startDate: String
+    let endDate: String
+    let location: String
+    let notes: String
+    let isAllDay: Bool
+}
+
 struct ChatView: View {
     // LLM Service and chat management
     @State private var llmService: LLMAIService?
@@ -383,6 +394,10 @@ struct ChatView: View {
                 showingFilesView = true
             }
             
+            Button("Print My Calendar Events in Last 1 Month") {
+                printCalendarEventsLastMonth()
+            }
+            
             Button("Cancel", role: .cancel) { }
         }
     }
@@ -534,6 +549,140 @@ struct ChatView: View {
     }
 
     // MARK: - Private Methods
+    
+    private func printCalendarEventsLastMonth() {
+        Task {
+            do {
+                let calendarMCP = CalendarMCP()
+                
+                // Calculate date range for last month
+                let endDate = Date()
+                let calendar = Calendar.current
+                guard let startDate = calendar.date(byAdding: .month, value: -1, to: endDate) else {
+                    print("❌ Failed to calculate start date")
+                    return
+                }
+                
+                // Format dates for the API
+                let formatter = ISO8601DateFormatter()
+                formatter.timeZone = TimeZone.current
+                let startDateString = formatter.string(from: startDate)
+                let endDateString = formatter.string(from: endDate)
+                
+                let arguments = [
+                    "startDate": startDateString,
+                    "endDate": endDateString
+                ]
+                
+                // Call calendar API
+                let result = try await calendarMCP.readCalendar(arguments: arguments)
+                
+                // Parse response
+                guard let success = result["success"] as? Bool, success,
+                      let eventsArray = result["events"] as? [[String: Any]] else {
+                    print("❌ Failed to get calendar events")
+                    return
+                }
+                
+                // Convert to CalendarEvent objects and sort by start date
+                var events: [CalendarEventFormatted] = []
+                for eventDict in eventsArray {
+                    if let id = eventDict["id"] as? String,
+                       let title = eventDict["title"] as? String,
+                       let startDateStr = eventDict["start_date"] as? String,
+                       let endDateStr = eventDict["end_date"] as? String,
+                       let location = eventDict["location"] as? String,
+                       let notes = eventDict["notes"] as? String,
+                       let isAllDay = eventDict["is_all_day"] as? Bool {
+                        
+                        events.append(CalendarEventFormatted(
+                            id: id,
+                            title: title,
+                            startDate: startDateStr,
+                            endDate: endDateStr,
+                            location: location,
+                            notes: notes,
+                            isAllDay: isAllDay
+                        ))
+                    }
+                }
+                
+                // Sort events by start date
+                events.sort { event1, event2 in
+                    let formatter = ISO8601DateFormatter()
+                    formatter.timeZone = TimeZone.current
+                    guard let date1 = formatter.date(from: event1.startDate),
+                          let date2 = formatter.date(from: event2.startDate) else {
+                        return false
+                    }
+                    return date1 < date2
+                }
+                
+                // Group events by day and format output
+                var output = "📅 Calendar Events (Last 1 Month)\n"
+                output += "Date Range: \(startDateString) to \(endDateString)\n"
+                output += "Total Events: \(events.count)\n\n"
+                
+                let dayFormatter = DateFormatter()
+                dayFormatter.dateFormat = "yyyy-MM-dd"
+                dayFormatter.timeZone = TimeZone.current
+                
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "HH:mm"
+                timeFormatter.timeZone = TimeZone.current
+                
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.timeZone = TimeZone.current
+                
+                var currentDay = ""
+                
+                for event in events {
+                    guard let startDate = isoFormatter.date(from: event.startDate) else {
+                        continue
+                    }
+                    
+                    let dayString = dayFormatter.string(from: startDate)
+                    
+                    // Add day header if new day
+                    if dayString != currentDay {
+                        if !currentDay.isEmpty {
+                            output += "\n"
+                        }
+                        output += "## \(dayString)\n"
+                        currentDay = dayString
+                    }
+                    
+                    // Format event
+                    output += "### \(event.id)\n"
+                    output += "id: \(event.id)\n"
+                    output += "title: \(event.title)\n"
+                    
+                    if event.isAllDay {
+                        output += "startDate: \(dayString) (All Day)\n"
+                        output += "endDate: \(dayString) (All Day)\n"
+                    } else {
+                        // Parse end date for display
+                        let endDate = isoFormatter.date(from: event.endDate)
+                        let endDayString = endDate.map { dayFormatter.string(from: $0) } ?? dayString
+                        let startTimeString = timeFormatter.string(from: startDate)
+                        let endTimeString = endDate.map { timeFormatter.string(from: $0) } ?? "00:00"
+                        
+                        output += "startDate: \(dayString) \(startTimeString)\n"
+                        output += "endDate: \(endDayString) \(endTimeString)\n"
+                    }
+                    
+                    output += "notes: \(event.notes)\n"
+                    output += "location: \(event.location)\n"
+                    output += "isAllDay: \(event.isAllDay)\n\n"
+                }
+                
+                print(output)
+                
+            } catch {
+                print("❌ Failed to get calendar events: \(error)")
+            }
+        }
+    }
 
     private func printMessagesInView() {
         let messageListCloned = messageList
