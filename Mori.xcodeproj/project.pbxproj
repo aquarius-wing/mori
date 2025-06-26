@@ -10,7 +10,6 @@
 		202D162C2E05535400493124 /* ChatView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162B2E05535400493124 /* ChatView2.swift */; };
 		202D162E2E06648800493124 /* ChatHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162D2E06648800493124 /* ChatHistoryManager.swift */; };
 		202D162F2E06648900493124 /* ChatHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D16302E06648900493124 /* ChatHistory.swift */; };
-		68DAE446DBF74C619CB482A0 /* SystemMessage.md in Resources */ = {isa = PBXBuildFile; fileRef = 68DAE446DBF74C619CB482A1 /* SystemMessage.md */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
 		20DE193D2E0049FD00CD902D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193C2E0049FD00CD902D /* MainView.swift */; };
@@ -21,6 +20,7 @@
 		30F224222E0665B000493124 /* WorkflowStepItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224232E0665B000493124 /* WorkflowStepItemView.swift */; };
 		30F224242E0665C000493124 /* CalendarEventComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224252E0665C000493124 /* CalendarEventComponents.swift */; };
 		30F224262E0665D000493124 /* ErrorDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224272E0665D000493124 /* ErrorDetailView.swift */; };
+		68DAE446DBF74C619CB482A0 /* SystemMessage.md in Resources */ = {isa = PBXBuildFile; fileRef = 68DAE446DBF74C619CB482A1 /* SystemMessage.md */; };
 		A1000001000000000000001 /* MoriApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* MoriApp.swift */; };
 		A1000003000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* ContentView.swift */; };
 		A1000005000000000000001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* OnboardingView.swift */; };
@@ -48,7 +48,6 @@
 		202D162B2E05535400493124 /* ChatView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView2.swift; sourceTree = "<group>"; };
 		202D162D2E06648800493124 /* ChatHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryManager.swift; sourceTree = "<group>"; };
 		202D16302E06648900493124 /* ChatHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistory.swift; sourceTree = "<group>"; };
-		68DAE446DBF74C619CB482A1 /* SystemMessage.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SystemMessage.md; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -60,6 +59,7 @@
 		30F224232E0665B000493124 /* WorkflowStepItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowStepItemView.swift; sourceTree = "<group>"; };
 		30F224252E0665C000493124 /* CalendarEventComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventComponents.swift; sourceTree = "<group>"; };
 		30F224272E0665D000493124 /* ErrorDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorDetailView.swift; sourceTree = "<group>"; };
+		68DAE446DBF74C619CB482A1 /* SystemMessage.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SystemMessage.md; sourceTree = "<group>"; };
 		A1000002000000000000001 /* MoriApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoriApp.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000006000000000000001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -344,7 +344,7 @@
 				DEVELOPMENT_TEAM = NP667JFK84;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.meogic.MoriTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -363,7 +363,7 @@
 				DEVELOPMENT_TEAM = NP667JFK84;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.meogic.MoriTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -499,7 +499,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Mori/Mori.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"Mori/Preview Content\"";
 				DEVELOPMENT_TEAM = NP667JFK84;
 				ENABLE_PREVIEWS = YES;
@@ -519,7 +519,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.meogic.mori;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -535,7 +535,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Mori/Mori.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"Mori/Preview Content\"";
 				DEVELOPMENT_TEAM = NP667JFK84;
 				ENABLE_PREVIEWS = YES;
@@ -555,7 +555,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.meogic.mori;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
