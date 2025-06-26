@@ -22,13 +22,23 @@ class LLMAIService: ObservableObject {
         dateFormatter.timeZone = TimeZone.current
         let currentDate = dateFormatter.string(from: Date())
         
+        // Get user's preferred language
+        let userLanguage = Locale.preferredLanguages.first ?? "en"
+        let languageDisplayName = Locale.current.localizedString(forLanguageCode: userLanguage) ?? userLanguage
+        
         let systemMessage = """
         You are Mori, a helpful AI assistant with access to calendar management tools.
+
+        Current date and time: \(currentDate)
+        User's preferred language: \(userLanguage) (\(languageDisplayName))
 
         Available Tools:
         \(toolsDescription)
 
-        Current date and time: \(currentDate)
+        ## Language Instructions:
+        - Always respond in the user's preferred language: \(languageDisplayName)
+        - If the user's language is not supported, respond in English
+        - Keep technical terms and tool names in English when necessary
 
         ## Tool Usage Instructions:
         1. Analyze the user's request to determine if tools are needed
@@ -81,6 +91,11 @@ class LLMAIService: ObservableObject {
             "role": "system",
             "content": generateSystemMessage()
         ])
+
+        // Format current date by iso
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.timeZone = TimeZone.current
+        let currentDate = dateFormatter.string(from: Date())
         
         // Add history messages (keep only recent 10 messages to control token count)
         let recentHistory = Array(conversationHistory.suffix(10))
@@ -89,11 +104,17 @@ class LLMAIService: ObservableObject {
             case .chatMessage(let msg):
                 // Determine role based on message properties
                 let role: String = msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant")
-                
-                messages.append([
-                    "role": role,
-                    "content": msg.content
-                ])
+                if role == "user" {
+                    messages.append([
+                        "role": role,
+                        "content": msg.content + "\n\nCurrent Time: \(currentDate)"
+                    ])
+                } else {
+                    messages.append([
+                        "role": role,
+                        "content": msg.content
+                    ])
+                }
                 
             case .workflowStep(let step):
                 // Convert workflow step to system message for LLM context
