@@ -299,12 +299,31 @@ class LLMAIService: ObservableObject {
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         
+        // Get user's preferred language and create prompt
+        let userLanguage = Locale.preferredLanguages.first ?? "en"
+        // Extract ISO-639-1 language code (first 2 characters)
+        let iso639Code = String(userLanguage.prefix(2))
+        // Use the user's language locale to get localized language name
+        let userLocale = Locale(identifier: userLanguage)
+        let languageDisplayName = userLocale.localizedString(forIdentifier: userLanguage) ?? "English"
+        let promptText = "This is an audio recording in \(languageDisplayName)."
+        
         var body = Data()
         
         // Add model parameter
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
         body.append("whisper-1\r\n".data(using: .utf8)!)
+        
+        // Add language parameter (ISO-639-1 format)
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(iso639Code)\r\n".data(using: .utf8)!)
+        
+        // Add prompt parameter to guide language recognition
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(promptText)\r\n".data(using: .utf8)!)
         
         // Add file data
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
