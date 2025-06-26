@@ -99,7 +99,7 @@ class CalendarMCP: ObservableObject {
         Tool: update-calendar
         Description: Update an existing calendar event.
         Arguments:
-        - id: Event id (required)
+        - id: Event id (required, must get id from read-calendar tool)
         - title: Event title (optional)
         - startDate: Start date like \(startString) (optional)
         - endDate: End date like \(endString) (optional)
@@ -110,7 +110,7 @@ class CalendarMCP: ObservableObject {
         Tool: remove-calendar
         Description: Delete a calendar event.
         Arguments:
-        - id: Event id (required)
+        - id: Event id (required, must get id from read-calendar tool)
         """
     }
     

@@ -14,7 +14,14 @@ class LLMAIService: ObservableObject {
         // Simple initialization - no configuration needed
     }
     
-    private func generateSystemMessage() -> String {
+    internal func generateSystemMessage() -> String {
+        // Read system message template from bundle
+        guard let templatePath = Bundle.main.path(forResource: "SystemMessage", ofType: "md"),
+              let template = try? String(contentsOfFile: templatePath) else {
+            print("⚠️ Failed to load SystemMessage.md, using fallback")
+            return getFallbackSystemMessage()
+        }
+        
         let toolsDescription = CalendarMCP.getToolDescription()
         
         // Format current date by iso
@@ -22,13 +29,46 @@ class LLMAIService: ObservableObject {
         dateFormatter.timeZone = TimeZone.current
         let currentDate = dateFormatter.string(from: Date())
         
-        let systemMessage = """
+        // Get user's preferred language
+        let userLanguage = Locale.preferredLanguages.first ?? "en"
+        let languageDisplayName = Locale.current.localizedString(forLanguageCode: userLanguage) ?? userLanguage
+        
+        // Replace placeholders in template
+        let systemMessage = template
+            .replacingOccurrences(of: "{{CURRENT_DATE}}", with: currentDate)
+            .replacingOccurrences(of: "{{USER_LANGUAGE}}", with: userLanguage)
+            .replacingOccurrences(of: "{{LANGUAGE_DISPLAY_NAME}}", with: languageDisplayName)
+            .replacingOccurrences(of: "{{TOOLS_DESCRIPTION}}", with: toolsDescription)
+        
+        return systemMessage
+    }
+    
+    // Fallback system message in case template file cannot be loaded
+    internal func getFallbackSystemMessage() -> String {
+        let toolsDescription = CalendarMCP.getToolDescription()
+        
+        // Format current date by iso
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.timeZone = TimeZone.current
+        let currentDate = dateFormatter.string(from: Date())
+        
+        // Get user's preferred language
+        let userLanguage = Locale.preferredLanguages.first ?? "en"
+        let languageDisplayName = Locale.current.localizedString(forLanguageCode: userLanguage) ?? userLanguage
+        
+        return """
         You are Mori, a helpful AI assistant with access to calendar management tools.
+
+        Current date and time: \(currentDate)
+        User's preferred language: \(userLanguage) (\(languageDisplayName))
 
         Available Tools:
         \(toolsDescription)
 
-        Current date and time: \(currentDate)
+        ## Language Instructions:
+        - Always respond in the user's preferred language: \(languageDisplayName)
+        - If the user's language is not supported, respond in English
+        - Keep technical terms and tool names in English when necessary
 
         ## Tool Usage Instructions:
         1. Analyze the user's request to determine if tools are needed
@@ -42,6 +82,7 @@ class LLMAIService: ObservableObject {
                 "param": "value"
             }
         }
+        ```
 
         Multiple tools:
         ```json
@@ -58,6 +99,7 @@ class LLMAIService: ObservableObject {
             }
         }]
         ```
+        
         ## Response Guidelines:
         - After tool execution, provide natural, conversational responses
         - Focus on the most relevant information from tool results
@@ -68,7 +110,6 @@ class LLMAIService: ObservableObject {
 
         Always prioritize helping the user accomplish their calendar management tasks efficiently.
         """
-        return systemMessage
     }
     
     // MARK: - Generate Request Body
@@ -81,6 +122,11 @@ class LLMAIService: ObservableObject {
             "role": "system",
             "content": generateSystemMessage()
         ])
+
+        // Format current date by iso
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.timeZone = TimeZone.current
+        let currentDate = dateFormatter.string(from: Date())
         
         // Add history messages (keep only recent 10 messages to control token count)
         let recentHistory = Array(conversationHistory.suffix(10))
@@ -89,11 +135,17 @@ class LLMAIService: ObservableObject {
             case .chatMessage(let msg):
                 // Determine role based on message properties
                 let role: String = msg.isSystem ? "system" : (msg.isUser ? "user" : "assistant")
-                
-                messages.append([
-                    "role": role,
-                    "content": msg.content
-                ])
+                if role == "user" {
+                    messages.append([
+                        "role": role,
+                        "content": msg.content + "\n\nCurrent Time: \(currentDate)"
+                    ])
+                } else {
+                    messages.append([
+                        "role": role,
+                        "content": msg.content
+                    ])
+                }
                 
             case .workflowStep(let step):
                 // Convert workflow step to system message for LLM context
@@ -278,12 +330,31 @@ class LLMAIService: ObservableObject {
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         
+        // Get user's preferred language and create prompt
+        let userLanguage = Locale.preferredLanguages.first ?? "en"
+        // Extract ISO-639-1 language code (first 2 characters)
+        let iso639Code = String(userLanguage.prefix(2))
+        // Use the user's language locale to get localized language name
+        let userLocale = Locale(identifier: userLanguage)
+        let languageDisplayName = userLocale.localizedString(forIdentifier: userLanguage) ?? "English"
+        let promptText = "This is an audio recording in \(languageDisplayName)."
+        
         var body = Data()
         
         // Add model parameter
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
         body.append("whisper-1\r\n".data(using: .utf8)!)
+        
+        // Add language parameter (ISO-639-1 format)
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(iso639Code)\r\n".data(using: .utf8)!)
+        
+        // Add prompt parameter to guide language recognition
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(promptText)\r\n".data(using: .utf8)!)
         
         // Add file data
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
