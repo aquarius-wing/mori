@@ -10,6 +10,7 @@
 		202D162C2E05535400493124 /* ChatView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162B2E05535400493124 /* ChatView2.swift */; };
 		202D162E2E06648800493124 /* ChatHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162D2E06648800493124 /* ChatHistoryManager.swift */; };
 		202D162F2E06648900493124 /* ChatHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D16302E06648900493124 /* ChatHistory.swift */; };
+		68DAE446DBF74C619CB482A0 /* SystemMessage.md in Resources */ = {isa = PBXBuildFile; fileRef = 68DAE446DBF74C619CB482A1 /* SystemMessage.md */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
 		20DE193D2E0049FD00CD902D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193C2E0049FD00CD902D /* MainView.swift */; };
@@ -47,6 +48,7 @@
 		202D162B2E05535400493124 /* ChatView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView2.swift; sourceTree = "<group>"; };
 		202D162D2E06648800493124 /* ChatHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryManager.swift; sourceTree = "<group>"; };
 		202D16302E06648900493124 /* ChatHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistory.swift; sourceTree = "<group>"; };
+		68DAE446DBF74C619CB482A1 /* SystemMessage.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SystemMessage.md; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -121,6 +123,7 @@
 				202D16182E051A9E00493124 /* Mori.entitlements */,
 				A1000002000000000000001 /* MoriApp.swift */,
 				A1000004000000000000001 /* ContentView.swift */,
+				68DAE446DBF74C619CB482A1 /* SystemMessage.md */,
 				A1000025000000000000001 /* Views */,
 				A1000026000000000000001 /* Services */,
 				A1000027000000000000001 /* Models */,
@@ -279,6 +282,7 @@
 			files = (
 				A1000017000000000000001 /* Preview Assets.xcassets in Resources */,
 				A1000015000000000000001 /* Assets.xcassets in Resources */,
+				68DAE446DBF74C619CB482A0 /* SystemMessage.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

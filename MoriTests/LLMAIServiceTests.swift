@@ -17,6 +17,134 @@ class LLMAIServiceTests: XCTestCase {
         mockCalendarMCP = nil
     }
     
+    // MARK: - System Message Template Tests
+    
+    // Test system message template parameter replacement
+    func testSystemMessageParameterReplacement() {
+        // Given: LLMAIService instance
+        let service = LLMAIService()
+        
+        // When: Generate system message
+        let systemMessage = service.generateSystemMessage()
+        
+        // Then: Verify all parameters are replaced (no placeholders remain)
+        XCTAssertFalse(systemMessage.contains("{{CURRENT_DATE}}"), "CURRENT_DATE placeholder should be replaced")
+        XCTAssertFalse(systemMessage.contains("{{USER_LANGUAGE}}"), "USER_LANGUAGE placeholder should be replaced")
+        XCTAssertFalse(systemMessage.contains("{{LANGUAGE_DISPLAY_NAME}}"), "LANGUAGE_DISPLAY_NAME placeholder should be replaced")
+        XCTAssertFalse(systemMessage.contains("{{TOOLS_DESCRIPTION}}"), "TOOLS_DESCRIPTION placeholder should be replaced")
+        
+        // Verify content is present
+        XCTAssertTrue(systemMessage.contains("Current date and time:"), "Should contain current date label")
+        XCTAssertTrue(systemMessage.contains("User's preferred language:"), "Should contain language label")
+        XCTAssertTrue(systemMessage.contains("Available Tools:"), "Should contain tools label")
+        XCTAssertTrue(systemMessage.contains("read-calendar"), "Should contain tool descriptions")
+        
+        print("✅ System message parameter replacement test passed")
+        print("📝 Generated system message length: \(systemMessage.count) characters")
+    }
+    
+    // Test system message date format
+    func testSystemMessageDateFormat() {
+        // Given: LLMAIService instance
+        let service = LLMAIService()
+        
+        // When: Generate system message
+        let systemMessage = service.generateSystemMessage()
+        
+        // Then: Verify date format is ISO8601
+        let datePattern = #"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"#
+        let regex = try! NSRegularExpression(pattern: datePattern)
+        let range = NSRange(location: 0, length: systemMessage.utf16.count)
+        let matches = regex.matches(in: systemMessage, range: range)
+        
+        XCTAssertGreaterThan(matches.count, 0, "Should contain at least one ISO8601 date format")
+        
+        print("✅ System message date format test passed")
+    }
+    
+    // Test system message language handling
+    func testSystemMessageLanguageHandling() {
+        // Given: LLMAIService instance
+        let service = LLMAIService()
+        
+        // When: Generate system message
+        let systemMessage = service.generateSystemMessage()
+        
+        // Then: Verify language information is present
+        let preferredLanguage = Locale.preferredLanguages.first ?? "en"
+        XCTAssertTrue(systemMessage.contains(preferredLanguage), "Should contain user's preferred language code")
+        
+        print("✅ System message language handling test passed")
+        print("📱 User preferred language: \(preferredLanguage)")
+    }
+    
+    // Test system message tools description
+    func testSystemMessageToolsDescription() {
+        // Given: LLMAIService instance
+        let service = LLMAIService()
+        
+        // When: Generate system message
+        let systemMessage = service.generateSystemMessage()
+        
+        // Then: Verify all expected tools are described
+        let expectedTools = ["read-calendar", "update-calendar", "add-calendar", "remove-calendar"]
+        for tool in expectedTools {
+            XCTAssertTrue(systemMessage.contains(tool), "Should contain description for \(tool) tool")
+        }
+        
+        print("✅ System message tools description test passed")
+        print("🔧 All expected tools found in system message")
+    }
+    
+    // Test fallback system message when template file is not available
+    func testFallbackSystemMessage() {
+        // Given: LLMAIService instance
+        let service = LLMAIService()
+        
+        // When: Call getFallbackSystemMessage directly (simulating template file read failure)
+        let fallbackMessage = service.getFallbackSystemMessage()
+        
+        // Then: Verify fallback contains all necessary information
+        XCTAssertTrue(fallbackMessage.contains("You are Mori"), "Fallback should contain AI identity")
+        XCTAssertTrue(fallbackMessage.contains("Current date and time:"), "Fallback should contain current date")
+        XCTAssertTrue(fallbackMessage.contains("User's preferred language:"), "Fallback should contain language info")
+        XCTAssertTrue(fallbackMessage.contains("Available Tools:"), "Fallback should contain tools info")
+        XCTAssertTrue(fallbackMessage.contains("read-calendar"), "Fallback should contain tool descriptions")
+        
+        // Verify no placeholders remain in fallback
+        XCTAssertFalse(fallbackMessage.contains("{{"), "Fallback should not contain any placeholders")
+        
+        print("✅ Fallback system message test passed")
+        print("🔄 Fallback message length: \(fallbackMessage.count) characters")
+    }
+    
+    // Test system message consistency
+    func testSystemMessageConsistency() {
+        // Given: LLMAIService instance
+        let service = LLMAIService()
+        
+        // When: Generate system message multiple times
+        let message1 = service.generateSystemMessage()
+        let message2 = service.generateSystemMessage()
+        
+        // Then: Messages should be structurally similar (allowing for timestamp differences)
+        // Remove timestamps for comparison
+        let cleanMessage1 = removeTimestamps(from: message1)
+        let cleanMessage2 = removeTimestamps(from: message2)
+        
+        XCTAssertEqual(cleanMessage1, cleanMessage2, "System messages should be consistent when removing timestamps")
+        
+        print("✅ System message consistency test passed")
+    }
+    
+    // Helper function to remove timestamps for comparison
+    private func removeTimestamps(from message: String) -> String {
+        let timestampPattern = #"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"#
+        let regex = try! NSRegularExpression(pattern: timestampPattern)
+        let range = NSRange(location: 0, length: message.utf16.count)
+        return regex.stringByReplacingMatches(in: message, options: [], range: range, withTemplate: "TIMESTAMP_PLACEHOLDER")
+    }
+    
     // Test the meeting rescheduling scenario
     func testMeetingReschedulingScenario() async throws {
         // Given: User conversation history

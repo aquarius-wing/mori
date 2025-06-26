@@ -14,7 +14,14 @@ class LLMAIService: ObservableObject {
         // Simple initialization - no configuration needed
     }
     
-    private func generateSystemMessage() -> String {
+    internal func generateSystemMessage() -> String {
+        // Read system message template from bundle
+        guard let templatePath = Bundle.main.path(forResource: "SystemMessage", ofType: "md"),
+              let template = try? String(contentsOfFile: templatePath) else {
+            print("⚠️ Failed to load SystemMessage.md, using fallback")
+            return getFallbackSystemMessage()
+        }
+        
         let toolsDescription = CalendarMCP.getToolDescription()
         
         // Format current date by iso
@@ -26,7 +33,30 @@ class LLMAIService: ObservableObject {
         let userLanguage = Locale.preferredLanguages.first ?? "en"
         let languageDisplayName = Locale.current.localizedString(forLanguageCode: userLanguage) ?? userLanguage
         
-        let systemMessage = """
+        // Replace placeholders in template
+        let systemMessage = template
+            .replacingOccurrences(of: "{{CURRENT_DATE}}", with: currentDate)
+            .replacingOccurrences(of: "{{USER_LANGUAGE}}", with: userLanguage)
+            .replacingOccurrences(of: "{{LANGUAGE_DISPLAY_NAME}}", with: languageDisplayName)
+            .replacingOccurrences(of: "{{TOOLS_DESCRIPTION}}", with: toolsDescription)
+        
+        return systemMessage
+    }
+    
+    // Fallback system message in case template file cannot be loaded
+    internal func getFallbackSystemMessage() -> String {
+        let toolsDescription = CalendarMCP.getToolDescription()
+        
+        // Format current date by iso
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.timeZone = TimeZone.current
+        let currentDate = dateFormatter.string(from: Date())
+        
+        // Get user's preferred language
+        let userLanguage = Locale.preferredLanguages.first ?? "en"
+        let languageDisplayName = Locale.current.localizedString(forLanguageCode: userLanguage) ?? userLanguage
+        
+        return """
         You are Mori, a helpful AI assistant with access to calendar management tools.
 
         Current date and time: \(currentDate)
@@ -52,6 +82,7 @@ class LLMAIService: ObservableObject {
                 "param": "value"
             }
         }
+        ```
 
         Multiple tools:
         ```json
@@ -68,6 +99,7 @@ class LLMAIService: ObservableObject {
             }
         }]
         ```
+        
         ## Response Guidelines:
         - After tool execution, provide natural, conversational responses
         - Focus on the most relevant information from tool results
@@ -78,7 +110,6 @@ class LLMAIService: ObservableObject {
 
         Always prioritize helping the user accomplish their calendar management tasks efficiently.
         """
-        return systemMessage
     }
     
     // MARK: - Generate Request Body
