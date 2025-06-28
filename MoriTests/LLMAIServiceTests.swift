@@ -529,6 +529,56 @@ class LLMAIServiceTests: XCTestCase {
             }
         }
         
+        // Extract standalone JSON objects (not in code blocks) 
+        // Only process if no code blocks were found
+        if toolCalls.isEmpty {
+            // Find all potential JSON objects by looking for balanced braces
+            var braceCount = 0
+            var startIndex: String.Index?
+            var currentIndex = response.startIndex
+            
+            while currentIndex < response.endIndex {
+                let char = response[currentIndex]
+                
+                if char == "{" {
+                    if braceCount == 0 {
+                        startIndex = currentIndex
+                    }
+                    braceCount += 1
+                } else if char == "}" {
+                    braceCount -= 1
+                    
+                    if braceCount == 0, let start = startIndex {
+                        let endIndex = response.index(after: currentIndex)
+                        let jsonString = String(response[start..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        
+                        // Try to parse the JSON
+                        if let jsonData = jsonString.data(using: .utf8) {
+                            do {
+                                let data = try JSONSerialization.jsonObject(with: jsonData)
+                                
+                                // Handle single tool call object
+                                if let objectData = data as? [String: Any] {
+                                    if let tool = objectData["tool"] as? String,
+                                       let arguments = objectData["arguments"] as? [String: Any] {
+                                        let toolCall = ToolCall(tool: tool, arguments: arguments)
+                                        toolCalls.append(toolCall)
+                                        extractedRanges.append(start..<endIndex)
+                                    }
+                                }
+                            } catch {
+                                // Continue on JSON parse error
+                            }
+                        }
+                        
+                        startIndex = nil
+                    }
+                }
+                
+                currentIndex = response.index(after: currentIndex)
+            }
+        }
+        
         // Build the cleaned text by removing the extracted JSON code blocks
         if !extractedRanges.isEmpty {
             var cleanedParts: [String] = []
