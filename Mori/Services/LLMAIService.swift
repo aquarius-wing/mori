@@ -523,10 +523,7 @@ class LLMAIService: ObservableObject {
                         var llmResponse = ""
                         for try await chunk in sendChatMessage(conversationHistory: currentMessages) {
                             llmResponse += chunk
-                            if toolExecutionCount == 0 {
-                                // Only yield chunks on first iteration
-                                continuation.yield(("response", chunk))
-                            }
+                            continuation.yield(("response", chunk))
                         }
                         
                         accumulatedResponse += llmResponse
