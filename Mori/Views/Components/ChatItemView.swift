@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import MarkdownUI
 
 // MARK: - Chat Item Components
 
@@ -56,12 +57,11 @@ struct MessageItemView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(truncateContent(message.content))
-                        .font(.body)
+                    Markdown(truncateContent(message.content))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(
-                            RoundedRectangle(cornerRadius: 20)
+                            RoundedRectangle(cornerRadius: 16)
                                 .fill(Color.white.opacity(0.1))
                         )
                         .foregroundColor(.white)
@@ -86,16 +86,7 @@ struct MessageItemView: View {
                 )
             } else {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(truncateContent(message.content))
-                        .font(.body)
-                        .foregroundColor(isErrorMessage ? .red : .white)
-                        .multilineTextAlignment(.leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if isErrorMessage {
-                                onShowErrorDetail()
-                            }
-                        }
+                    Markdown(truncateContent(message.content))
 
                     if isErrorMessage {
                         Text("Tap for details")
