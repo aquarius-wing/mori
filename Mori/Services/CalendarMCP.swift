@@ -25,6 +25,7 @@ struct CalendarEvent: Codable {
     let location: String
     let notes: String
     let isAllDay: Bool
+    let alarms: [CalendarAlarm]
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -34,6 +35,17 @@ struct CalendarEvent: Codable {
         case location
         case notes
         case isAllDay = "is_all_day"
+        case alarms
+    }
+}
+
+struct CalendarAlarm: Codable {
+    let relativeOffset: Double? // Minutes before event (negative value)
+    let absoluteDate: String?   // Absolute date for alarm
+    
+    enum CodingKeys: String, CodingKey {
+        case relativeOffset = "relative_offset"
+        case absoluteDate = "absolute_date"
     }
 }
 
@@ -95,6 +107,10 @@ class CalendarMCP: ObservableObject {
         - location: Event location (optional)
         - notes: Event notes (optional)
         - isAllDay: true/false for all day event (optional, default false)
+        - alarms: Array of alarm objects (optional). Each alarm can have:
+          - relativeOffset: Minutes before/after event (e.g., -15 for 15 minutes before, 0 for event start time)
+          - absoluteDate: Absolute date for alarm like \(startString)
+          Example: [{"relativeOffset": -15}, {"relativeOffset": 0}]
         
         Tool: update-calendar
         Description: Update an existing calendar event.
@@ -106,6 +122,10 @@ class CalendarMCP: ObservableObject {
         - location: Event location (optional)
         - notes: Event notes (optional)
         - isAllDay: true/false for all day event (optional, default false)
+        - alarms: Array of alarm objects (optional, will keep existing alarms if not provided). Each alarm can have:
+          - relativeOffset: Minutes before/after event (e.g., -15 for 15 minutes before, 0 for event start time)
+          - absoluteDate: Absolute date for alarm like \(startString)
+          Example: [{"relativeOffset": -15}, {"relativeOffset": 0}]
         
         Tool: remove-calendar
         Description: Delete a calendar event.
@@ -130,6 +150,44 @@ class CalendarMCP: ObservableObject {
                 continuation.resume(returning: granted)
             }
         }
+    }
+    
+    // MARK: - Helper Functions
+    private func createAlarms(from alarmsData: Any?, useDefaultAlarm: Bool = true) -> [EKAlarm] {
+        // If no alarms data provided and we should use default, create event start time alarm
+        if alarmsData == nil && useDefaultAlarm {
+            let defaultAlarm = EKAlarm()
+            defaultAlarm.relativeOffset = 0 // At event start time
+            return [defaultAlarm]
+        }
+        
+        guard let alarmsArray = alarmsData as? [[String: Any]] else {
+            return []
+        }
+        
+        var ekAlarms: [EKAlarm] = []
+        
+        for alarmDict in alarmsArray {
+            let alarm = EKAlarm()
+            
+            // Handle relative offset (in minutes, convert to seconds)
+            if let relativeOffset = alarmDict["relativeOffset"] as? Double {
+                alarm.relativeOffset = relativeOffset * 60.0 // Convert minutes to seconds
+                ekAlarms.append(alarm)
+            }
+            // Handle absolute date
+            else if let absoluteDateString = alarmDict["absoluteDate"] as? String {
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.timeZone = TimeZone.current
+                
+                if let absoluteDate = isoFormatter.date(from: absoluteDateString) {
+                    alarm.absoluteDate = absoluteDate
+                    ekAlarms.append(alarm)
+                }
+            }
+        }
+        
+        return ekAlarms
     }
     
     // MARK: - Tool Functions
@@ -165,6 +223,20 @@ class CalendarMCP: ObservableObject {
         outputFormatter.timeZone = TimeZone.current
         
         let eventList = events.map { event in
+            // Convert EKAlarms to CalendarAlarm format
+            let alarms = event.alarms?.map { ekAlarm -> [String: Any] in
+                var alarmDict: [String: Any] = [:]
+                
+                // Convert seconds to minutes
+                alarmDict["relative_offset"] = ekAlarm.relativeOffset / 60.0
+                
+                if let absoluteDate = ekAlarm.absoluteDate {
+                    alarmDict["absolute_date"] = outputFormatter.string(from: absoluteDate)
+                }
+                
+                return alarmDict
+            } ?? []
+            
             return [
                 "id": event.eventIdentifier ?? "",
                 "title": event.title ?? "No Title",
@@ -172,7 +244,8 @@ class CalendarMCP: ObservableObject {
                 "end_date": outputFormatter.string(from: event.endDate),
                 "location": event.location ?? "",
                 "notes": event.notes ?? "",
-                "is_all_day": event.isAllDay
+                "is_all_day": event.isAllDay,
+                "alarms": alarms
             ]
         }
         
@@ -181,14 +254,23 @@ class CalendarMCP: ObservableObject {
         let response = CalendarReadResponse(
             success: true,
             events: eventList.map { eventDict in
-                CalendarEvent(
+                let alarmsArray = eventDict["alarms"] as? [[String: Any]] ?? []
+                let calendarAlarms = alarmsArray.map { alarmDict in
+                    CalendarAlarm(
+                        relativeOffset: alarmDict["relative_offset"] as? Double,
+                        absoluteDate: alarmDict["absolute_date"] as? String
+                    )
+                }
+                
+                return CalendarEvent(
                     id: eventDict["id"] as? String ?? "",
                     title: eventDict["title"] as? String ?? "",
                     startDate: eventDict["start_date"] as? String ?? "",
                     endDate: eventDict["end_date"] as? String ?? "",
                     location: eventDict["location"] as? String ?? "",
                     notes: eventDict["notes"] as? String ?? "",
-                    isAllDay: eventDict["is_all_day"] as? Bool ?? false
+                    isAllDay: eventDict["is_all_day"] as? Bool ?? false,
+                    alarms: calendarAlarms
                 )
             },
             count: eventList.count,
@@ -236,6 +318,11 @@ class CalendarMCP: ObservableObject {
                 existingEvent.isAllDay = isAllDay
             }
             
+            // Handle alarms updates
+            if arguments["alarms"] != nil {
+                existingEvent.alarms = createAlarms(from: arguments["alarms"], useDefaultAlarm: false)
+            }
+            
             // Handle date/time updates
             guard let eventStartDate = existingEvent.startDate,
                   let eventEndDate = existingEvent.endDate else {
@@ -278,6 +365,14 @@ class CalendarMCP: ObservableObject {
                 let outputFormatter = ISO8601DateFormatter()
                 outputFormatter.timeZone = TimeZone.current
                 
+                // Convert EKAlarms to CalendarAlarm format
+                let calendarAlarms = existingEvent.alarms?.map { ekAlarm in
+                    CalendarAlarm(
+                        relativeOffset: ekAlarm.relativeOffset / 60.0, // Convert seconds to minutes
+                        absoluteDate: ekAlarm.absoluteDate != nil ? outputFormatter.string(from: ekAlarm.absoluteDate!) : nil
+                    )
+                } ?? []
+                
                 let event = CalendarEvent(
                     id: eventId,
                     title: existingEvent.title ?? "",
@@ -285,7 +380,8 @@ class CalendarMCP: ObservableObject {
                     endDate: outputFormatter.string(from: finalEndDate),
                     location: existingEvent.location ?? "",
                     notes: existingEvent.notes ?? "",
-                    isAllDay: existingEvent.isAllDay
+                    isAllDay: existingEvent.isAllDay,
+                    alarms: calendarAlarms
                 )
                 
                 let response = CalendarUpdateResponse(
@@ -317,6 +413,7 @@ class CalendarMCP: ObservableObject {
             let location = arguments["location"] as? String ?? ""
             let notes = arguments["notes"] as? String ?? ""
             let isAllDay = arguments["isAllDay"] as? Bool ?? false
+            let alarms = createAlarms(from: arguments["alarms"])
             
             // Parse dates
             let isoFormatter = ISO8601DateFormatter()
@@ -339,6 +436,7 @@ class CalendarMCP: ObservableObject {
             event.location = location
             event.notes = notes
             event.isAllDay = isAllDay
+            event.alarms = alarms
             event.calendar = eventStore.defaultCalendarForNewEvents
             
             // Save event
@@ -349,6 +447,14 @@ class CalendarMCP: ObservableObject {
                 let outputFormatter = ISO8601DateFormatter()
                 outputFormatter.timeZone = TimeZone.current
                 
+                // Convert EKAlarms to CalendarAlarm format
+                let calendarAlarms = event.alarms?.map { ekAlarm in
+                    CalendarAlarm(
+                        relativeOffset: ekAlarm.relativeOffset / 60.0, // Convert seconds to minutes
+                        absoluteDate: ekAlarm.absoluteDate != nil ? outputFormatter.string(from: ekAlarm.absoluteDate!) : nil
+                    )
+                } ?? []
+                
                 let calendarEvent = CalendarEvent(
                     id: event.eventIdentifier ?? "",
                     title: title,
@@ -356,7 +462,8 @@ class CalendarMCP: ObservableObject {
                     endDate: outputFormatter.string(from: finalEndDate),
                     location: location,
                     notes: notes,
-                    isAllDay: isAllDay
+                    isAllDay: isAllDay,
+                    alarms: calendarAlarms
                 )
                 
                 let response = CalendarUpdateResponse(
@@ -398,6 +505,7 @@ class CalendarMCP: ObservableObject {
         let location = arguments["location"] as? String ?? ""
         let notes = arguments["notes"] as? String ?? ""
         let isAllDay = arguments["isAllDay"] as? Bool ?? false
+        let alarms = createAlarms(from: arguments["alarms"])
         
         // Parse dates
         let isoFormatter = ISO8601DateFormatter()
@@ -416,6 +524,7 @@ class CalendarMCP: ObservableObject {
         event.location = location
         event.notes = notes
         event.isAllDay = isAllDay
+        event.alarms = alarms
         event.calendar = eventStore.defaultCalendarForNewEvents
         
         // Save event
@@ -426,6 +535,14 @@ class CalendarMCP: ObservableObject {
             let outputFormatter = ISO8601DateFormatter()
             outputFormatter.timeZone = TimeZone.current
             
+            // Convert EKAlarms to CalendarAlarm format
+            let calendarAlarms = event.alarms?.map { ekAlarm in
+                CalendarAlarm(
+                    relativeOffset: ekAlarm.relativeOffset / 60.0, // Convert seconds to minutes
+                    absoluteDate: ekAlarm.absoluteDate != nil ? outputFormatter.string(from: ekAlarm.absoluteDate!) : nil
+                )
+            } ?? []
+            
             let calendarEvent = CalendarEvent(
                 id: event.eventIdentifier ?? "",
                 title: title,
@@ -433,7 +550,8 @@ class CalendarMCP: ObservableObject {
                 endDate: outputFormatter.string(from: endDate),
                 location: location,
                 notes: notes,
-                isAllDay: isAllDay
+                isAllDay: isAllDay,
+                alarms: calendarAlarms
             )
             
             let response = CalendarAddResponse(
