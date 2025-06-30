@@ -13,7 +13,9 @@ struct WorkflowStepItemView: View {
 
     var body: some View {
         // Dynamic rendering based on toolName and status
-        if step.toolName == "read-calendar" && step.status == .result {
+        if step.toolName == "list-calendars" && step.status == .result {
+            CalendarMCP.createListResultView(step: step)
+        } else if step.toolName == "read-calendar" && step.status == .result {
             CalendarMCP.createReadResultView(
                 step: step,
                 showingCalendarDetail: $showingCalendarDetail,
@@ -158,143 +160,143 @@ struct WorkflowStepItemView: View {
 
 }
 
-// MARK: - Calendar Event Detail Row with Button
-struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
-    let event: CalendarEvent
-    let buttonContent: ButtonContent
+// // MARK: - Calendar Event Detail Row with Button
+// struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
+//     let event: CalendarEvent
+//     let buttonContent: ButtonContent
 
-    init(event: CalendarEvent, @ViewBuilder buttonContent: () -> ButtonContent) {
-        self.event = event
-        self.buttonContent = buttonContent()
-    }
+//     init(event: CalendarEvent, @ViewBuilder buttonContent: () -> ButtonContent) {
+//         self.event = event
+//         self.buttonContent = buttonContent()
+//     }
 
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Title and time
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(event.title)
-                            .font(.headline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                            .multilineTextAlignment(.leading)
+//     var body: some View {
+//         HStack(spacing: 12) {
+//             VStack(alignment: .leading, spacing: 12) {
+//                 // Title and time
+//                 HStack(alignment: .top, spacing: 12) {
+//                     VStack(alignment: .leading, spacing: 4) {
+//                         Text(event.title)
+//                             .font(.headline)
+//                             .fontWeight(.medium)
+//                             .foregroundColor(.white)
+//                             .lineLimit(1)
+//                             .multilineTextAlignment(.leading)
 
-                        HStack(spacing: 8) {
-                            Image(systemName: "clock")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+//                         HStack(spacing: 8) {
+//                             Image(systemName: "clock")
+//                                 .font(.caption)
+//                                 .foregroundColor(.white.opacity(0.7))
 
-                            if event.isAllDay {
-                                Text("All day")
-                                    .font(.subheadline)
-                                    .foregroundColor(.white.opacity(0.8))
-                            } else {
-                                Text(
-                                    "\(formatDateTime(event.startDate)) - \(formatTime(event.endDate))"
-                                )
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
-                            }
-                        }
-                    }
+//                             if event.isAllDay {
+//                                 Text("All day")
+//                                     .font(.subheadline)
+//                                     .foregroundColor(.white.opacity(0.8))
+//                             } else {
+//                                 Text(
+//                                     "\(formatDateTime(event.startDate)) - \(formatTime(event.endDate))"
+//                                 )
+//                                 .font(.subheadline)
+//                                 .foregroundColor(.white.opacity(0.8))
+//                             }
+//                         }
+//                     }
 
-                    Spacer()
-                }
+//                     Spacer()
+//                 }
 
-                // Location (if available)
-                if !event.location.isEmpty {
-                    HStack(spacing: 8) {
-                        Image(systemName: "location")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+//                 // Location (if available)
+//                 if !event.location.isEmpty {
+//                     HStack(spacing: 8) {
+//                         Image(systemName: "location")
+//                             .font(.caption)
+//                             .foregroundColor(.white.opacity(0.7))
 
-                        Text(event.location)
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
-                            .lineLimit(1)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
+//                         Text(event.location)
+//                             .font(.subheadline)
+//                             .foregroundColor(.white.opacity(0.8))
+//                             .lineLimit(1)
+//                             .multilineTextAlignment(.leading)
+//                     }
+//                 }
 
-                // Notes (if available)
-                if !event.notes.isEmpty {
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "note.text")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+//                 // Notes (if available)
+//                 if !event.notes.isEmpty {
+//                     HStack(alignment: .top, spacing: 8) {
+//                         Image(systemName: "note.text")
+//                             .font(.caption)
+//                             .foregroundColor(.white.opacity(0.7))
 
-                        Text(event.notes)
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
-                            .lineLimit(1)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-            }
+//                         Text(event.notes)
+//                             .font(.subheadline)
+//                             .foregroundColor(.white.opacity(0.8))
+//                             .lineLimit(1)
+//                             .multilineTextAlignment(.leading)
+//                     }
+//                 }
+//             }
             
-            // Button content from outside
-            buttonContent
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.1))
-        )
-    }
+//             // Button content from outside
+//             buttonContent
+//         }
+//         .padding(16)
+//         .background(
+//             RoundedRectangle(cornerRadius: 12)
+//                 .fill(Color.white.opacity(0.1))
+//         )
+//     }
 
-    private func formatDateTime(_ dateString: String) -> String {
-        // Try ISO8601DateFormatter first
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.timeZone = TimeZone.current
+//     private func formatDateTime(_ dateString: String) -> String {
+//         // Try ISO8601DateFormatter first
+//         let isoFormatter = ISO8601DateFormatter()
+//         isoFormatter.timeZone = TimeZone.current
 
-        if let date = isoFormatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "MMM d, HH:mm"
-            displayFormatter.timeZone = TimeZone.current
-            return displayFormatter.string(from: date)
-        }
+//         if let date = isoFormatter.date(from: dateString) {
+//             let displayFormatter = DateFormatter()
+//             displayFormatter.dateFormat = "MMM d, HH:mm"
+//             displayFormatter.timeZone = TimeZone.current
+//             return displayFormatter.string(from: date)
+//         }
 
-        // Fallback to manual DateFormatter
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
-        formatter.timeZone = TimeZone.current
+//         // Fallback to manual DateFormatter
+//         let formatter = DateFormatter()
+//         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+//         formatter.timeZone = TimeZone.current
 
-        if let date = formatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "MMM d, HH:mm"
-            displayFormatter.timeZone = TimeZone.current
-            return displayFormatter.string(from: date)
-        }
+//         if let date = formatter.date(from: dateString) {
+//             let displayFormatter = DateFormatter()
+//             displayFormatter.dateFormat = "MMM d, HH:mm"
+//             displayFormatter.timeZone = TimeZone.current
+//             return displayFormatter.string(from: date)
+//         }
 
-        return dateString
-    }
+//         return dateString
+//     }
 
-    private func formatTime(_ dateString: String) -> String {
-        // Try ISO8601DateFormatter first
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.timeZone = TimeZone.current
+//     private func formatTime(_ dateString: String) -> String {
+//         // Try ISO8601DateFormatter first
+//         let isoFormatter = ISO8601DateFormatter()
+//         isoFormatter.timeZone = TimeZone.current
 
-        if let date = isoFormatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "HH:mm"
-            displayFormatter.timeZone = TimeZone.current
-            return displayFormatter.string(from: date)
-        }
+//         if let date = isoFormatter.date(from: dateString) {
+//             let displayFormatter = DateFormatter()
+//             displayFormatter.dateFormat = "HH:mm"
+//             displayFormatter.timeZone = TimeZone.current
+//             return displayFormatter.string(from: date)
+//         }
 
-        // Fallback to manual DateFormatter
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
-        formatter.timeZone = TimeZone.current
+//         // Fallback to manual DateFormatter
+//         let formatter = DateFormatter()
+//         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+//         formatter.timeZone = TimeZone.current
 
-        if let date = formatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "HH:mm"
-            displayFormatter.timeZone = TimeZone.current
-            return displayFormatter.string(from: date)
-        }
+//         if let date = formatter.date(from: dateString) {
+//             let displayFormatter = DateFormatter()
+//             displayFormatter.dateFormat = "HH:mm"
+//             displayFormatter.timeZone = TimeZone.current
+//             return displayFormatter.string(from: date)
+//         }
 
-        return "Time"
-    }
-} 
+//         return "Time"
+//     }
+// } 

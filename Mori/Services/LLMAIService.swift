@@ -487,6 +487,8 @@ class LLMAIService: ObservableObject {
     
     private func executeTool(_ toolCall: ToolCall) async throws -> [String: Any] {
         switch toolCall.tool {
+        case "list-calendars":
+            return try await calendarMCP.listCalendars(arguments: toolCall.arguments)
         case "read-calendar":
             return try await calendarMCP.readCalendar(arguments: toolCall.arguments)
         case "update-calendar":

@@ -25,6 +25,8 @@ struct CalendarEvent: Codable {
     let location: String
     let notes: String
     let isAllDay: Bool
+    let calendarId: String
+    let calendarTitle: String
     let alarms: [CalendarAlarm]
     
     enum CodingKeys: String, CodingKey {
@@ -35,6 +37,8 @@ struct CalendarEvent: Codable {
         case location
         case notes
         case isAllDay = "is_all_day"
+        case calendarId = "calendar_id"
+        case calendarTitle = "calendar_title"
         case alarms
     }
 }
@@ -74,6 +78,28 @@ struct CalendarDeleteResponse: Codable {
     let eventId: String
 }
 
+struct CalendarInfo: Codable {
+    let id: String
+    let title: String
+    let type: String
+    let allowsContentModifications: Bool
+    let color: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case type
+        case allowsContentModifications = "allows_content_modifications"
+        case color
+    }
+}
+
+struct CalendarListResponse: Codable {
+    let success: Bool
+    let calendars: [CalendarInfo]
+    let count: Int
+}
+
 class CalendarMCP: ObservableObject {
     private let eventStore = EKEventStore()
     
@@ -92,11 +118,16 @@ class CalendarMCP: ObservableObject {
         let startString = formatter.string(from: start)
         let endString = formatter.string(from: end)
         return """
+        Tool: list-calendars
+        Description: List all available calendars with their IDs and properties.
+        Arguments: (no arguments required)
+        
         Tool: read-calendar
         Description: If user ask about calendar or events or meeting or something maybe in Calendar, use this tool to read calendar events.
         Arguments:
         - startDate: like \(startString) (required)
         - endDate: like \(endString) (required)
+        - calendarId: Specific calendar ID to read from (optional, if not provided will read from all calendars)
         
         Tool: add-calendar
         Description: Create a new calendar event.
@@ -107,6 +138,7 @@ class CalendarMCP: ObservableObject {
         - location: Event location (optional)
         - notes: Event notes (optional)
         - isAllDay: true/false for all day event (optional, default false)
+        - calendarId: Calendar ID to save the event to (optional, if not provided will use default calendar)
         - alarms: Array of alarm objects (optional). Each alarm can have:
           - relativeOffset: Minutes before/after event (e.g., -15 for 15 minutes before, 0 for event start time)
           - absoluteDate: Absolute date for alarm like \(startString)
@@ -122,6 +154,7 @@ class CalendarMCP: ObservableObject {
         - location: Event location (optional)
         - notes: Event notes (optional)
         - isAllDay: true/false for all day event (optional, default false)
+        - calendarId: Calendar ID to move the event to (optional, if not provided will keep in current calendar)
         - alarms: Array of alarm objects (optional, will keep existing alarms if not provided). Each alarm can have:
           - relativeOffset: Minutes before/after event (e.g., -15 for 15 minutes before, 0 for event start time)
           - absoluteDate: Absolute date for alarm like \(startString)
@@ -136,7 +169,7 @@ class CalendarMCP: ObservableObject {
     
     // MARK: - Available Tools List
     static func getAvailableTools() -> [String] {
-        return ["read-calendar", "add-calendar", "update-calendar", "remove-calendar"]
+        return ["list-calendars", "read-calendar", "add-calendar", "update-calendar", "remove-calendar"]
     }
     
     // MARK: - Calendar Access
@@ -191,6 +224,79 @@ class CalendarMCP: ObservableObject {
     }
     
     // MARK: - Tool Functions
+    func listCalendars(arguments: [String: Any]) async throws -> [String: Any] {
+        print("📅 Listing available calendars")
+        
+        // Check calendar access
+        let hasAccess = await requestCalendarAccess()
+        guard hasAccess else {
+            throw CalendarMCPError.accessDenied("Calendar access not granted")
+        }
+        
+        // Get all calendars for events
+        let calendars = eventStore.calendars(for: .event)
+        
+        // Convert to CalendarInfo objects
+        let calendarInfos = calendars.map { calendar in
+            // Get calendar type string
+            let typeString: String
+            switch calendar.type {
+            case .local:
+                typeString = "local"
+            case .calDAV:
+                typeString = "caldav"
+            case .exchange:
+                typeString = "exchange"
+            case .subscription:
+                typeString = "subscription"
+            case .birthday:
+                typeString = "birthday"
+            @unknown default:
+                typeString = "unknown"
+            }
+            
+            // Get color hex string
+            let colorHex: String?
+            if let cgColor = calendar.cgColor {
+                let color = UIColor(cgColor: cgColor)
+                var red: CGFloat = 0
+                var green: CGFloat = 0
+                var blue: CGFloat = 0
+                var alpha: CGFloat = 0
+                color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                colorHex = String(format: "#%02X%02X%02X", 
+                                Int(red * 255), 
+                                Int(green * 255), 
+                                Int(blue * 255))
+            } else {
+                colorHex = nil
+            }
+            
+            return CalendarInfo(
+                id: calendar.calendarIdentifier,
+                title: calendar.title,
+                type: typeString,
+                allowsContentModifications: calendar.allowsContentModifications,
+                color: colorHex
+            )
+        }
+        
+        print("📅 Found \(calendarInfos.count) calendars")
+        
+        let response = CalendarListResponse(
+            success: true,
+            calendars: calendarInfos,
+            count: calendarInfos.count
+        )
+        
+        // Convert to dictionary for compatibility
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let dictionary = try JSONSerialization.jsonObject(with: data, options: []) as! [String: Any]
+        
+        return dictionary
+    }
+
     func readCalendar(arguments: [String: Any]) async throws -> [String: Any] {
         print("📅 Reading calendar with arguments: \(arguments)")
         
@@ -199,6 +305,8 @@ class CalendarMCP: ObservableObject {
               let endDateString = arguments["endDate"] as? String else {
             throw CalendarMCPError.invalidArguments("startDate and endDate are required")
         }
+        
+        let calendarId = arguments["calendarId"] as? String
         
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.timeZone = TimeZone.current
@@ -214,8 +322,25 @@ class CalendarMCP: ObservableObject {
             throw CalendarMCPError.accessDenied("Calendar access not granted")
         }
         
+        // Get calendars to search
+        var calendarsToSearch: [EKCalendar]?
+        if let calendarId = calendarId {
+            // Find specific calendar
+            let allCalendars = eventStore.calendars(for: .event)
+            if let specificCalendar = allCalendars.first(where: { $0.calendarIdentifier == calendarId }) {
+                calendarsToSearch = [specificCalendar]
+                print("📅 Reading from specific calendar: \(specificCalendar.title)")
+            } else {
+                throw CalendarMCPError.invalidArguments("Calendar with ID '\(calendarId)' not found")
+            }
+        } else {
+            // Read from all calendars
+            calendarsToSearch = nil
+            print("📅 Reading from all calendars")
+        }
+        
         // Create predicate for date range
-        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: nil)
+        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: calendarsToSearch)
         let events = eventStore.events(matching: predicate)
         
         // Convert events to dictionary format
@@ -245,6 +370,8 @@ class CalendarMCP: ObservableObject {
                 "location": event.location ?? "",
                 "notes": event.notes ?? "",
                 "is_all_day": event.isAllDay,
+                "calendar_id": event.calendar?.calendarIdentifier ?? "",
+                "calendar_title": event.calendar?.title ?? "",
                 "alarms": alarms
             ]
         }
@@ -270,6 +397,8 @@ class CalendarMCP: ObservableObject {
                     location: eventDict["location"] as? String ?? "",
                     notes: eventDict["notes"] as? String ?? "",
                     isAllDay: eventDict["is_all_day"] as? Bool ?? false,
+                    calendarId: eventDict["calendar_id"] as? String ?? "",
+                    calendarTitle: eventDict["calendar_title"] as? String ?? "",
                     alarms: calendarAlarms
                 )
             },
@@ -321,6 +450,19 @@ class CalendarMCP: ObservableObject {
             // Handle alarms updates
             if arguments["alarms"] != nil {
                 existingEvent.alarms = createAlarms(from: arguments["alarms"], useDefaultAlarm: false)
+            }
+            
+            // Handle calendar change
+            if let calendarId = arguments["calendarId"] as? String {
+                let allCalendars = eventStore.calendars(for: .event)
+                guard let targetCalendar = allCalendars.first(where: { $0.calendarIdentifier == calendarId }) else {
+                    throw CalendarMCPError.invalidArguments("Calendar with ID '\(calendarId)' not found")
+                }
+                guard targetCalendar.allowsContentModifications else {
+                    throw CalendarMCPError.invalidArguments("Calendar '\(targetCalendar.title)' does not allow modifications")
+                }
+                existingEvent.calendar = targetCalendar
+                print("📅 Moving event to calendar: \(targetCalendar.title)")
             }
             
             // Handle date/time updates
@@ -381,6 +523,8 @@ class CalendarMCP: ObservableObject {
                     location: existingEvent.location ?? "",
                     notes: existingEvent.notes ?? "",
                     isAllDay: existingEvent.isAllDay,
+                    calendarId: existingEvent.calendar?.calendarIdentifier ?? "",
+                    calendarTitle: existingEvent.calendar?.title ?? "",
                     alarms: calendarAlarms
                 )
                 
@@ -413,6 +557,7 @@ class CalendarMCP: ObservableObject {
             let location = arguments["location"] as? String ?? ""
             let notes = arguments["notes"] as? String ?? ""
             let isAllDay = arguments["isAllDay"] as? Bool ?? false
+            let calendarId = arguments["calendarId"] as? String
             let alarms = createAlarms(from: arguments["alarms"])
             
             // Parse dates
@@ -428,6 +573,26 @@ class CalendarMCP: ObservableObject {
             let finalStartDate = startDate
             let finalEndDate = endDate
             
+            // Get target calendar
+            let targetCalendar: EKCalendar
+            if let calendarId = calendarId {
+                let allCalendars = eventStore.calendars(for: .event)
+                guard let specificCalendar = allCalendars.first(where: { $0.calendarIdentifier == calendarId }) else {
+                    throw CalendarMCPError.invalidArguments("Calendar with ID '\(calendarId)' not found")
+                }
+                guard specificCalendar.allowsContentModifications else {
+                    throw CalendarMCPError.invalidArguments("Calendar '\(specificCalendar.title)' does not allow modifications")
+                }
+                targetCalendar = specificCalendar
+                print("📅 Using specific calendar: \(targetCalendar.title)")
+            } else {
+                guard let defaultCalendar = eventStore.defaultCalendarForNewEvents else {
+                    throw CalendarMCPError.invalidArguments("No default calendar available")
+                }
+                targetCalendar = defaultCalendar
+                print("📅 Using default calendar: \(targetCalendar.title)")
+            }
+            
             // Create new event
             let event = EKEvent(eventStore: eventStore)
             event.title = title
@@ -437,7 +602,7 @@ class CalendarMCP: ObservableObject {
             event.notes = notes
             event.isAllDay = isAllDay
             event.alarms = alarms
-            event.calendar = eventStore.defaultCalendarForNewEvents
+            event.calendar = targetCalendar
             
             // Save event
             do {
@@ -463,6 +628,8 @@ class CalendarMCP: ObservableObject {
                     location: location,
                     notes: notes,
                     isAllDay: isAllDay,
+                    calendarId: event.calendar?.calendarIdentifier ?? "",
+                    calendarTitle: event.calendar?.title ?? "",
                     alarms: calendarAlarms
                 )
                 
@@ -505,6 +672,7 @@ class CalendarMCP: ObservableObject {
         let location = arguments["location"] as? String ?? ""
         let notes = arguments["notes"] as? String ?? ""
         let isAllDay = arguments["isAllDay"] as? Bool ?? false
+        let calendarId = arguments["calendarId"] as? String
         let alarms = createAlarms(from: arguments["alarms"])
         
         // Parse dates
@@ -516,6 +684,26 @@ class CalendarMCP: ObservableObject {
             throw CalendarMCPError.invalidDateFormat("Date format should be YYYY-MM-DDTHH:mm:ssZ")
         }
         
+        // Get target calendar
+        let targetCalendar: EKCalendar
+        if let calendarId = calendarId {
+            let allCalendars = eventStore.calendars(for: .event)
+            guard let specificCalendar = allCalendars.first(where: { $0.calendarIdentifier == calendarId }) else {
+                throw CalendarMCPError.invalidArguments("Calendar with ID '\(calendarId)' not found")
+            }
+            guard specificCalendar.allowsContentModifications else {
+                throw CalendarMCPError.invalidArguments("Calendar '\(specificCalendar.title)' does not allow modifications")
+            }
+            targetCalendar = specificCalendar
+            print("📅 Using specific calendar: \(targetCalendar.title)")
+        } else {
+            guard let defaultCalendar = eventStore.defaultCalendarForNewEvents else {
+                throw CalendarMCPError.invalidArguments("No default calendar available")
+            }
+            targetCalendar = defaultCalendar
+            print("📅 Using default calendar: \(targetCalendar.title)")
+        }
+        
         // Create new event
         let event = EKEvent(eventStore: eventStore)
         event.title = title
@@ -525,7 +713,7 @@ class CalendarMCP: ObservableObject {
         event.notes = notes
         event.isAllDay = isAllDay
         event.alarms = alarms
-        event.calendar = eventStore.defaultCalendarForNewEvents
+        event.calendar = targetCalendar
         
         // Save event
         do {
@@ -551,6 +739,8 @@ class CalendarMCP: ObservableObject {
                 location: location,
                 notes: notes,
                 isAllDay: isAllDay,
+                calendarId: event.calendar?.calendarIdentifier ?? "",
+                calendarTitle: event.calendar?.title ?? "",
                 alarms: calendarAlarms
             )
             
@@ -650,6 +840,61 @@ enum CalendarMCPError: Error, LocalizedError {
 
 // MARK: - SwiftUI View Extensions
 extension CalendarMCP {
+    
+    // MARK: - Calendar List Result View
+    static func createListResultView(step: WorkflowStep) -> some View {
+        Group {
+            if let resultValue = step.details["result"],
+               let jsonData = resultValue.data(using: .utf8),
+               let listResponse = try? JSONDecoder().decode(
+                   CalendarListResponse.self,
+                   from: jsonData
+               )
+            {
+                VStack(spacing: 16) {
+                    // Header
+                    HStack(spacing: 16) {
+                        Image(systemName: "calendar.badge.plus")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .frame(width: 24, height: 24)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Found \(listResponse.count) calendars")
+                                .font(.body)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                            
+                            Text("Available calendars on this device")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+
+                    // Calendars list
+                    if !listResponse.calendars.isEmpty {
+                        VStack(spacing: 12) {
+                            ForEach(listResponse.calendars, id: \.id) { calendar in
+                                CalendarInfoRow(calendar: calendar)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                }
+                .padding(.bottom, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.purple.opacity(0.2))
+                )
+                .padding(.horizontal, 20)
+            } else {
+                EmptyView()
+            }
+        }
+    }
     
     // MARK: - Calendar Read Result View
     static func createReadResultView(
