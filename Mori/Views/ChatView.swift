@@ -814,31 +814,47 @@ struct ChatView: View {
                     case "replace_response":
                         // Replace the last ChatMessage in messageList
                         if let lastIndex = messageList.lastIndex(where: {
-                            if case .chatMessage(_) = $0 { return true }
+                            if case .chatMessage(let chatMessage) = $0 { 
+                                return !chatMessage.isUser // Only replace assistant messages
+                            }
                             return false
                         }) {
-                            let replacementMessage = ChatMessage(
-                                content: content,
-                                isUser: false,
-                                timestamp: Date()
-                            )
-                            messageList[lastIndex] = .chatMessage(
-                                replacementMessage
-                            )
-                            print(
-                                "✅ Replaced assistant message: \(String(content.prefix(50)))..."
-                            )
+                            // Check if content is empty after trimming
+                            let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmedContent.isEmpty {
+                                // Remove the message if content is empty
+                                messageList.remove(at: lastIndex)
+                                print("🗑️ Removed empty assistant message")
+                            } else {
+                                // Replace with new content
+                                let replacementMessage = ChatMessage(
+                                    content: content,
+                                    isUser: false,
+                                    timestamp: Date()
+                                )
+                                messageList[lastIndex] = .chatMessage(
+                                    replacementMessage
+                                )
+                                print(
+                                    "✅ Replaced assistant message: \(String(content.prefix(50)))..."
+                                )
+                            }
                         } else {
-                            // If no ChatMessage found, add new one
-                            let assistantMessage = ChatMessage(
-                                content: content,
-                                isUser: false,
-                                timestamp: Date()
-                            )
-                            messageList.append(.chatMessage(assistantMessage))
-                            print(
-                                "✅ Added assistant message: \(String(content.prefix(50)))..."
-                            )
+                            // If no assistant ChatMessage found, add new one (only if content is not empty)
+                            let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmedContent.isEmpty {
+                                let assistantMessage = ChatMessage(
+                                    content: content,
+                                    isUser: false,
+                                    timestamp: Date()
+                                )
+                                messageList.append(.chatMessage(assistantMessage))
+                                print(
+                                    "✅ Added assistant message: \(String(content.prefix(50)))..."
+                                )
+                            } else {
+                                print("⚠️ Skipped adding empty assistant message")
+                            }
                         }
                     default:
                         print("Unknown status: \(status)")
