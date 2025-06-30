@@ -13,9 +13,7 @@ struct WorkflowStepItemView: View {
 
     var body: some View {
         // Dynamic rendering based on toolName and status
-        if step.toolName == "list-calendars" && step.status == .result {
-            CalendarMCP.createListResultView(step: step)
-        } else if step.toolName == "read-calendar" && step.status == .result {
+        if step.toolName == "read-calendar" && step.status == .result {
             CalendarMCP.createReadResultView(
                 step: step,
                 showingCalendarDetail: $showingCalendarDetail,

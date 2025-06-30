@@ -87,7 +87,7 @@ class LLMAIServiceTests: XCTestCase {
         let systemMessage = service.generateSystemMessage()
         
         // Then: Verify all expected tools are described
-        let expectedTools = ["list-calendars", "read-calendar", "update-calendar", "add-calendar", "remove-calendar"]
+        let expectedTools = ["read-calendar", "update-calendar", "add-calendar", "remove-calendar"]
         for tool in expectedTools {
             XCTAssertTrue(systemMessage.contains(tool), "Should contain description for \(tool) tool")
         }

@@ -501,7 +501,6 @@ final class CalendarMCPTests: XCTestCase {
         // Test that tool description is properly formatted
         let description = CalendarMCP.getToolDescription()
         
-        XCTAssertTrue(description.contains("list-calendars"), "Should contain list-calendars tool")
         XCTAssertTrue(description.contains("read-calendar"), "Should contain read-calendar tool")
         XCTAssertTrue(description.contains("add-calendar"), "Should contain add-calendar tool")
         XCTAssertTrue(description.contains("update-calendar"), "Should contain update-calendar tool")
@@ -514,8 +513,7 @@ final class CalendarMCPTests: XCTestCase {
         // Test that available tools list is correct
         let tools = CalendarMCP.getAvailableTools()
         
-        XCTAssertEqual(tools.count, 5, "Should have 5 available tools")
-        XCTAssertTrue(tools.contains("list-calendars"))
+        XCTAssertEqual(tools.count, 4, "Should have 4 available tools")
         XCTAssertTrue(tools.contains("read-calendar"))
         XCTAssertTrue(tools.contains("add-calendar"))
         XCTAssertTrue(tools.contains("update-calendar"))
@@ -524,52 +522,20 @@ final class CalendarMCPTests: XCTestCase {
         print("✅ Available tools list is correct")
     }
     
-    func testListCalendarsFunction() async throws {
-        // Test list calendars functionality
-        let arguments: [String: Any] = [:]
+    func testGetAvailableCalendarsInfo() {
+        // Test getting available calendars info
+        let calendars = CalendarMCP.getAvailableCalendarsInfo()
         
-        do {
-            let result = try await calendarMCP.listCalendars(arguments: arguments)
-            
-            // Verify the result structure
-            XCTAssertNotNil(result, "Result should not be nil")
-            
-            if let success = result["success"] as? Bool {
-                print("Calendar list operation success: \(success)")
-                
-                if success {
-                    // Verify result structure
-                    XCTAssertNotNil(result["calendars"], "Should have calendars array")
-                    XCTAssertNotNil(result["count"], "Should have count field")
-                    
-                    if let count = result["count"] as? Int {
-                        XCTAssertGreaterThanOrEqual(count, 0, "Count should be non-negative")
-                        print("✅ Successfully listed \(count) calendars")
-                    }
-                    
-                    if let calendars = result["calendars"] as? [[String: Any]] {
-                        print("✅ Retrieved calendars array with \(calendars.count) items")
-                        
-                        // Verify calendar structure if there are calendars
-                        for calendar in calendars {
-                            XCTAssertNotNil(calendar["id"], "Calendar should have id")
-                            XCTAssertNotNil(calendar["title"], "Calendar should have title")
-                            XCTAssertNotNil(calendar["type"], "Calendar should have type")
-                            XCTAssertNotNil(calendar["allows_content_modifications"], "Calendar should have allows_content_modifications")
-                        }
-                    }
-                } else {
-                    print("⚠️ Calendar access not granted - this is expected in test environment")
-                }
-            }
-            
-        } catch CalendarMCPError.accessDenied(let message) {
-            // This is expected in test environment without calendar access
-            print("⚠️ Calendar access denied (expected in test): \(message)")
-            XCTAssertTrue(message.contains("Calendar access not granted"))
-            
-        } catch {
-            XCTFail("Unexpected error: \(error.localizedDescription)")
+        // Should not fail even if no calendar access
+        XCTAssertNotNil(calendars, "Calendars array should not be nil")
+        
+        // Verify calendar structure if there are calendars
+        for calendar in calendars {
+            XCTAssertFalse(calendar.id.isEmpty, "Calendar should have non-empty id")
+            XCTAssertFalse(calendar.title.isEmpty, "Calendar should have non-empty title")
+            XCTAssertFalse(calendar.type.isEmpty, "Calendar should have non-empty type")
         }
+        
+        print("✅ Successfully retrieved \(calendars.count) calendars info")
     }
 } 
