@@ -2,7 +2,25 @@ import Foundation
 
 // MARK: - Simplified LLM Service
 class LLMAIService: ObservableObject {
-    private let calendarMCP = CalendarMCP()
+    private lazy var calendarMCP: CalendarMCP = {
+        if Thread.isMainThread {
+            return CalendarMCP()
+        } else {
+            return DispatchQueue.main.sync {
+                return CalendarMCP()
+            }
+        }
+    }()
+    
+    private lazy var memoryMCP: MemoryMCP = {
+        if Thread.isMainThread {
+            return MemoryMCP()
+        } else {
+            return DispatchQueue.main.sync {
+                return MemoryMCP()
+            }
+        }
+    }()
     
     // Task management for streaming cancellation
     private var currentStreamingTask: Task<Void, Never>?
@@ -37,7 +55,9 @@ class LLMAIService: ObservableObject {
             return getFallbackSystemMessage()
         }
         
-        let toolsDescription = CalendarMCP.getToolDescription()
+        let calendarToolsDescription = CalendarMCP.getToolDescription()
+        let memoryToolsDescription = MemoryMCP.getToolDescription()
+        let toolsDescription = "\(calendarToolsDescription)\n\n\(memoryToolsDescription)"
         
         // Format current date by iso
         let dateFormatter = ISO8601DateFormatter()
@@ -60,7 +80,9 @@ class LLMAIService: ObservableObject {
     
     // Fallback system message in case template file cannot be loaded
     internal func getFallbackSystemMessage() -> String {
-        let toolsDescription = CalendarMCP.getToolDescription()
+        let calendarToolsDescription = CalendarMCP.getToolDescription()
+        let memoryToolsDescription = MemoryMCP.getToolDescription()
+        let toolsDescription = "\(calendarToolsDescription)\n\n\(memoryToolsDescription)"
         
         // Format current date by iso
         let dateFormatter = ISO8601DateFormatter()
@@ -184,6 +206,13 @@ class LLMAIService: ObservableObject {
     
     // MARK: - Chat Completion with Streaming
     func sendChatMessage(conversationHistory: [MessageListItemType]) -> AsyncThrowingStream<String, Error> {
+        // Generate request body and call the overloaded method
+        let requestBodyJSON = generateRequestBodyJSON(from: conversationHistory)
+        return sendChatMessage(requestBodyJSON: requestBodyJSON)
+    }
+    
+    // New overloaded method that accepts requestBodyJSON directly
+    func sendChatMessage(requestBodyJSON: [String: Any]) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -203,11 +232,9 @@ class LLMAIService: ObservableObject {
                     request.setValue("keep-alive", forHTTPHeaderField: "Connection")
                     request.timeoutInterval = 60.0 // Set timeout duration
                     
-                    // Generate request body using the dedicated method
-                    let requestBody = generateRequestBodyJSON(from: conversationHistory)
-                    
+                    // Use the provided request body JSON
                     do {
-                        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+                        request.httpBody = try JSONSerialization.data(withJSONObject: requestBodyJSON)
                     } catch {
                         print("❌ JSON serialization failed: \(error)")
                         continuation.finish(throwing: error)
@@ -516,6 +543,8 @@ class LLMAIService: ObservableObject {
             return try await calendarMCP.addCalendar(arguments: toolCall.arguments)
         case "remove-calendar":
             return try await calendarMCP.removeCalendar(arguments: toolCall.arguments)
+        case "update-memory":
+            return try await memoryMCP.updateMemory(arguments: toolCall.arguments)
         default:
             throw LLMError.customError("Unknown tool: \(toolCall.tool)")
         }

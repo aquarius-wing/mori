@@ -134,7 +134,7 @@ Now you need to do the action according to what user say
 7. Notify all attendees and resource calendars.
 8. Log a change summary for audit or rollback.
 
-Single tool:
+Single tool(Must have ```json):
 
 ```json
 {
@@ -145,7 +145,7 @@ Single tool:
 }
 ```
 
-Multiple tools:
+Multiple tools(Must have ```json):
 ```json
 [{
     "tool": "tool-name-1",

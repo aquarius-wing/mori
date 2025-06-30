@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 
 // MARK: - Settings Views
 struct SettingsView: View {
@@ -8,6 +9,18 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Memory") {
+                    NavigationLink(destination: MemoryView()) {
+                        HStack {
+                            Image(systemName: "brain.head.profile")
+                                .foregroundColor(.purple)
+                                .frame(width: 24, height: 24)
+                            
+                            Text("Memory Management")
+                        }
+                    }
+                }
+                
                 Section("Calendar") {
                     NavigationLink(destination: CalendarSettingsView()) {
                         HStack {
@@ -250,9 +263,162 @@ struct DefaultCalendarRow: View {
     SettingsView()
 }
 
+struct MemoryView: View {
+    @StateObject private var memorySettings = MemorySettings.shared
+    @State private var isEditingMemory = false
+    @State private var editableMemory = ""
+    @State private var showingClearConfirmation = false
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                if memorySettings.userMemory.isEmpty {
+                    // Empty state
+                    VStack(spacing: 16) {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray)
+                        
+                        Text("No Memory Records")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                        
+                        Text("Your personal information and preferences will appear here as you interact with Mori.")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    if isEditingMemory {
+                        // Edit mode
+                        VStack(spacing: 0) {
+                            // Edit toolbar
+                            HStack {
+                                Button("Cancel") {
+                                    isEditingMemory = false
+                                    editableMemory = memorySettings.userMemory
+                                }
+                                .foregroundColor(.blue)
+                                
+                                Spacer()
+                                
+                                Button("Save") {
+                                    memorySettings.updateMemory(editableMemory)
+                                    isEditingMemory = false
+                                }
+                                .foregroundColor(.blue)
+                                .fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color(UIColor.systemBackground))
+                            .overlay(
+                                Rectangle()
+                                    .frame(height: 0.5)
+                                    .foregroundColor(Color(UIColor.separator)),
+                                alignment: .bottom
+                            )
+                            
+                            // Text editor
+                            TextEditor(text: $editableMemory)
+                                .font(.body)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                        }
+                    } else {
+                        // View mode with markdown rendering
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Markdown(memorySettings.userMemory)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Memory")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 16) {
+                        if !memorySettings.userMemory.isEmpty {
+                            Button(action: {
+                                showingClearConfirmation = true
+                            }) {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        
+                        if !memorySettings.userMemory.isEmpty {
+                            Button(action: {
+                                if isEditingMemory {
+                                    memorySettings.updateMemory(editableMemory)
+                                    isEditingMemory = false
+                                } else {
+                                    editableMemory = memorySettings.userMemory
+                                    isEditingMemory = true
+                                }
+                            }) {
+                                Image(systemName: isEditingMemory ? "checkmark" : "pencil")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+            }
+            .onAppear {
+                editableMemory = memorySettings.userMemory
+            }
+            .alert("Clear Memory", isPresented: $showingClearConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Clear", role: .destructive) {
+                    memorySettings.clearMemory()
+                    editableMemory = ""
+                }
+            } message: {
+                Text("Are you sure you want to clear all memory records? This action cannot be undone.")
+            }
+        }
+    }
+}
+
+
+
+#Preview("Settings") {
+    SettingsView()
+}
+
 #Preview("Calendar Settings") {
     NavigationStack {
         CalendarSettingsView()
+    }
+}
+
+#Preview("Memory View - Empty") {
+    NavigationStack {
+        MemoryView()
+    }
+}
+
+#Preview("Memory View - With Content") {
+    NavigationStack {
+        MemoryView()
+    }
+    .onAppear {
+        MemorySettings.shared.updateMemory("""
+        - 用户饮食偏好
+          - 用户喜欢吃辣但是无法接受非常辣的程度，比如火鸡面等
+        - 用户家庭信息
+          - 有一个女儿名叫Lucy
+          - 女儿就读于Bay Area Technology School
+        - 用户定义
+          - 当用户说mauri时，通常指的是Mori应用
+        """)
     }
 }
 

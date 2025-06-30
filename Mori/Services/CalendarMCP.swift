@@ -166,7 +166,9 @@ struct CalendarListResponse: Codable {
 }
 
 class CalendarMCP: ObservableObject {
-    private let eventStore = EKEventStore()
+    private lazy var eventStore: EKEventStore = {
+        return EKEventStore()
+    }()
     
     // MARK: - Tool Definition
     static func getToolDescription() -> String {
@@ -257,12 +259,19 @@ class CalendarMCP: ObservableObject {
     // MARK: - Calendar Access
     func requestCalendarAccess() async -> Bool {
         return await withCheckedContinuation { continuation in
-            eventStore.requestAccess(to: .event) { granted, error in
-                if let error = error {
-                    print("❌ Calendar access error: \(error.localizedDescription)")
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else {
+                    continuation.resume(returning: false)
+                    return
                 }
-                print("📅 Calendar access granted: \(granted)")
-                continuation.resume(returning: granted)
+                
+                self.eventStore.requestAccess(to: .event) { granted, error in
+                    if let error = error {
+                        print("❌ Calendar access error: \(error.localizedDescription)")
+                    }
+                    print("📅 Calendar access granted: \(granted)")
+                    continuation.resume(returning: granted)
+                }
             }
         }
     }
@@ -307,6 +316,13 @@ class CalendarMCP: ObservableObject {
     
     // MARK: - Calendar Information
     static func getAvailableCalendarsInfo() -> [CalendarInfo] {
+        // Ensure we're on main thread for EventKit operations
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.sync {
+                return getAvailableCalendarsInfo()
+            }
+        }
+        
         let eventStore = EKEventStore()
         let calendars = eventStore.calendars(for: .event)
         

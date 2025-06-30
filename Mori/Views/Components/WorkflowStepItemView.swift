@@ -36,6 +36,10 @@ struct WorkflowStepItemView: View {
             CalendarMCP.createRemoveResultView(
                 step: step
             )
+        } else if step.toolName == "update-memory" && step.status == .result {
+            MemoryMCP.createUpdateResultView(
+                step: step
+            )
         } else {
             renderDefaultWorkflowStep()
         }
