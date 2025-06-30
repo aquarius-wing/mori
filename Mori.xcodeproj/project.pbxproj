@@ -10,12 +10,15 @@
 		202D162C2E05535400493124 /* ChatView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162B2E05535400493124 /* ChatView2.swift */; };
 		202D162E2E06648800493124 /* ChatHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162D2E06648800493124 /* ChatHistoryManager.swift */; };
 		202D162F2E06648900493124 /* ChatHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D16302E06648900493124 /* ChatHistory.swift */; };
+		202D16A12E0FD7DD00493124 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 202D16A02E0FD7DD00493124 /* MarkdownUI */; };
+		209320552E126A05003AF64D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209320542E126A05003AF64D /* SettingsView.swift */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
 		20DE193D2E0049FD00CD902D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193C2E0049FD00CD902D /* MainView.swift */; };
 		20DE193F2E004C5600CD902D /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193E2E004C5600CD902D /* ChatView.swift */; };
 		20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */; };
 		20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */; };
+		683BC89D-7EA2-47F9-8986-4B26D5612374 /* MemoryMCP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBD625-41CD-4494-AB9D-A5080E29C31D /* MemoryMCP.swift */; };
 		30F224202E0665A000493124 /* ChatItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224212E0665A000493124 /* ChatItemView.swift */; };
 		30F224222E0665B000493124 /* WorkflowStepItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224232E0665B000493124 /* WorkflowStepItemView.swift */; };
 		30F224242E0665C000493124 /* CalendarEventComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F224252E0665C000493124 /* CalendarEventComponents.swift */; };
@@ -48,12 +51,14 @@
 		202D162B2E05535400493124 /* ChatView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView2.swift; sourceTree = "<group>"; };
 		202D162D2E06648800493124 /* ChatHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryManager.swift; sourceTree = "<group>"; };
 		202D16302E06648900493124 /* ChatHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistory.swift; sourceTree = "<group>"; };
+		209320542E126A05003AF64D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		20DE193E2E004C5600CD902D /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMCP.swift; sourceTree = "<group>"; };
 		20F224122DF1EAE40046CA52 /* MoriTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MoriTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		51BBD625-41CD-4494-AB9D-A5080E29C31D /* MemoryMCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryMCP.swift; sourceTree = "<group>"; };
 		20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViews.swift; sourceTree = "<group>"; };
 		30F224212E0665A000493124 /* ChatItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatItemView.swift; sourceTree = "<group>"; };
 		30F224232E0665B000493124 /* WorkflowStepItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowStepItemView.swift; sourceTree = "<group>"; };
@@ -90,6 +95,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				202D16A12E0FD7DD00493124 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -149,6 +155,7 @@
 				202D162B2E05535400493124 /* ChatView2.swift */,
 				20F2241D2DF2171A0046CA52 /* WorkflowViews.swift */,
 				A1000006000000000000001 /* OnboardingView.swift */,
+				209320542E126A05003AF64D /* SettingsView.swift */,
 				20DE190C2DF8578300CD902D /* FilesView.swift */,
 				20DE193A2E0046F900CD902D /* MenuView.swift */,
 				20DE193C2E0049FD00CD902D /* MainView.swift */,
@@ -164,6 +171,7 @@
 				A1000010000000000000001 /* AudioRecorder.swift */,
 				A1000012000000000000001 /* LLMAIService.swift */,
 				20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */,
+				51BBD625-41CD-4494-AB9D-A5080E29C31D /* MemoryMCP.swift */,
 				202D162D2E06648800493124 /* ChatHistoryManager.swift */,
 				A2000002000000000000001 /* AudioRecordingManager.swift */,
 			);
@@ -258,6 +266,9 @@
 				Base,
 			);
 			mainGroup = A1000022000000000000001;
+			packageReferences = (
+				202D169F2E0FD77300493124 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+			);
 			productRefGroup = A1000024000000000000001 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -318,9 +329,11 @@
 				A1000013000000000000001 /* ChatMessage.swift in Sources */,
 				202D162F2E06648900493124 /* ChatHistory.swift in Sources */,
 				20F223FD2DF1DF0B0046CA52 /* CalendarMCP.swift in Sources */,
+				683BC89D-7EA2-47F9-8986-4B26D5612374 /* MemoryMCP.swift in Sources */,
 				A1000001000000000000001 /* MoriApp.swift in Sources */,
 				A2000001000000000000001 /* AudioRecordingManager.swift in Sources */,
 				A2000003000000000000001 /* AudioRecordingButton.swift in Sources */,
+				209320552E126A05003AF64D /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -595,6 +608,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		202D169F2E0FD77300493124 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		202D16A02E0FD7DD00493124 /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 202D169F2E0FD77300493124 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1000033000000000000001 /* Project object */;
 }

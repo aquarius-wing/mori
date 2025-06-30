@@ -40,6 +40,7 @@ struct MenuView: View {
     @State private var showingDebugMenu = false
     @State private var showingActionAlert = false
     @State private var pendingAction: MenuAction?
+    @State private var showingSettings = false
     
     enum MenuAction {
         case email
@@ -121,6 +122,14 @@ struct MenuView: View {
                 
                 VStack(spacing: 2) {
                     MenuItemView(
+                        icon: "gear",
+                        title: "Settings",
+                        action: {
+                            showingSettings = true
+                        }
+                    )
+                    
+                    MenuItemView(
                         icon: "envelope",
                         title: "Email",
                         action: {
@@ -194,6 +203,9 @@ struct MenuView: View {
             }
         } message: {
             Text(pendingAction?.message ?? "")
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
     }
 }
@@ -335,6 +347,8 @@ struct ChatHistoryItemView: View {
         }
     }
 }
+
+
 
 #Preview {
     MenuView(
