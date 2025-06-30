@@ -4,6 +4,9 @@ import Foundation
 class LLMAIService: ObservableObject {
     private let calendarMCP = CalendarMCP()
     
+    // Task management for streaming cancellation
+    private var currentStreamingTask: Task<Void, Never>?
+    
     // Fixed API endpoints
     private let textCompletionURL = "https://mori-api-test.meogic.com/text"
     private let speechToTextURL = "https://mori-api-test.meogic.com/stt"
@@ -12,6 +15,18 @@ class LLMAIService: ObservableObject {
     
     init() {
         // Simple initialization - no configuration needed
+    }
+    
+    // MARK: - Streaming Control
+    func cancelStreaming() {
+        print("🛑 Cancelling streaming request...")
+        currentStreamingTask?.cancel()
+        currentStreamingTask = nil
+    }
+    
+    // Check if currently streaming
+    var isStreamingActive: Bool {
+        return currentStreamingTask != nil && !(currentStreamingTask?.isCancelled ?? true)
     }
     
     internal func generateSystemMessage() -> String {
@@ -248,6 +263,9 @@ class LLMAIService: ObservableObject {
                     var hasReceivedData = false
                     
                     for try await line in asyncBytes.lines {
+                        // Check for cancellation during streaming
+                        try Task.checkCancellation()
+                        
                         if line.hasPrefix("data: ") {
                             let jsonString = String(line.dropFirst(6))
                             
@@ -282,6 +300,9 @@ class LLMAIService: ObservableObject {
                         continuation.finish()
                     }
                     
+                } catch is CancellationError {
+                    print("🛑 Chat request was cancelled by user")
+                    continuation.finish()
                 } catch {
                     print("❌ Chat request failed: \(error.localizedDescription)")
                     
@@ -503,7 +524,7 @@ class LLMAIService: ObservableObject {
     // MARK: - Enhanced Chat with Tools
     func sendChatMessageWithTools(conversationHistory: [MessageListItemType]) -> AsyncThrowingStream<(String, String), Error> {
         return AsyncThrowingStream { continuation in
-            Task {
+            let streamingTask = Task {
                 do {
                     var currentMessages = conversationHistory
                     var accumulatedResponse = ""
@@ -515,13 +536,21 @@ class LLMAIService: ObservableObject {
                         continuation.yield(("status", "🧠 Processing request..."))
                     }
                     
+                    // Check for cancellation
+                    try Task.checkCancellation()
+                    
                     while toolExecutionCount < maxToolExecutions {
+                        // Check for cancellation
+                        try Task.checkCancellation()
+                        
                         // Emit thinking status
                         continuation.yield(("status", "💬 Streaming response..."))
                         
                         // Get response from LLM
                         var llmResponse = ""
                         for try await chunk in sendChatMessage(conversationHistory: currentMessages) {
+                            // Check for cancellation during streaming
+                            try Task.checkCancellation()
                             llmResponse += chunk
                             continuation.yield(("response", chunk))
                         }
@@ -551,6 +580,9 @@ class LLMAIService: ObservableObject {
                         // Execute tools and collect responses
                         var toolResponses: [String] = []
                         for toolCall in toolCalls {
+                            // Check for cancellation before each tool execution
+                            try Task.checkCancellation()
+                            
                             print("🔧 Executing tool: \(toolCall.tool) with arguments: \(toolCall.arguments)")
                             
                             // Emit tool call status
@@ -622,9 +654,24 @@ class LLMAIService: ObservableObject {
                     
                     continuation.finish()
                     
+                } catch is CancellationError {
+                    print("🛑 Streaming was cancelled by user")
+                    continuation.yield(("status", "Cancelled by user"))
+                    continuation.finish()
                 } catch {
                     print("❌ Chat with tools failed: \(error.localizedDescription)")
                     continuation.finish(throwing: error)
+                }
+            }
+            
+            // Store the streaming task for cancellation support
+            currentStreamingTask = streamingTask
+            
+            // Clean up when stream ends
+            Task.detached { [weak self] in
+                _ = await streamingTask.result
+                await MainActor.run {
+                    self?.currentStreamingTask = nil
                 }
             }
         }

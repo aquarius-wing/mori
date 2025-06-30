@@ -212,27 +212,30 @@ struct ChatView: View {
                                     .cornerRadius(16)
                                     .contentShape(Rectangle())
                                     
-                                    // Send Button
-                                    Button(action: sendMessage) {
+                                    // Send/Stop Button
+                                    Button(action: isStreaming ? stopStreaming : sendMessage) {
                                         Image(
-                                            systemName: isSending
-                                                ? "hourglass" : "arrow.up"
+                                            systemName: isStreaming ? "stop.fill" : (isSending ? "hourglass" : "arrow.up")
                                         )
                                         .foregroundColor(.white)
                                     }
                                     .frame(width: 32, height: 32)
                                     .background(
-                                        inputText.trimmingCharacters(
-                                            in: .whitespacesAndNewlines
-                                        ).isEmpty || isSending || isStreaming
-                                            ? Color.gray : Color.blue
+                                        isStreaming ? Color.red : (
+                                            inputText.trimmingCharacters(
+                                                in: .whitespacesAndNewlines
+                                            ).isEmpty || isSending
+                                                ? Color.gray : Color.blue
+                                        )
                                     )
                                     .cornerRadius(16)
                                     .contentShape(Rectangle())
                                     .disabled(
-                                        inputText.trimmingCharacters(
-                                            in: .whitespacesAndNewlines
-                                        ).isEmpty || isSending || isStreaming
+                                        !isStreaming && (
+                                            inputText.trimmingCharacters(
+                                                in: .whitespacesAndNewlines
+                                            ).isEmpty || isSending
+                                        )
                                     )
                                 }
                             }
@@ -616,6 +619,13 @@ struct ChatView: View {
                 // Process real tool calling workflow
                 await processRealToolWorkflow(for: messageText, using: service)
 
+            } catch is CancellationError {
+                await MainActor.run {
+                    print("🛑 Send message was cancelled by user")
+                    isSending = false
+                    isStreaming = false
+                    updateStatus("Cancelled by user", type: .finalStatus)
+                }
             } catch {
                 await MainActor.run {
                     // Create detailed error information
@@ -643,6 +653,19 @@ struct ChatView: View {
                 }
             }
         }
+    }
+    
+    private func stopStreaming() {
+        print("🛑 User requested to stop streaming")
+        llmService?.cancelStreaming()
+        
+        // Reset streaming state
+        isStreaming = false
+        isSending = false
+        updateStatus("Stopped by user", type: .finalStatus)
+        
+        // Save current chat history
+        saveCurrentChatHistory()
     }
 
     private func processRealToolWorkflow(
@@ -839,12 +862,21 @@ struct ChatView: View {
 
                 // Reset streaming state
                 isStreaming = false
+                isSending = false
 
                 print(
                     "🏁 Workflow completed. Final messageList count: \(messageList.count)"
                 )
 
                 // Auto-save current chat history
+                saveCurrentChatHistory()
+            }
+        } catch is CancellationError {
+            await MainActor.run {
+                print("🛑 Workflow was cancelled by user")
+                isStreaming = false
+                isSending = false
+                updateStatus("Cancelled by user", type: .finalStatus)
                 saveCurrentChatHistory()
             }
         } catch {
@@ -868,6 +900,7 @@ struct ChatView: View {
                     type: .error
                 )
                 isStreaming = false
+                isSending = false
                 showingError = true
                 errorMessage = shortErrorMessage
                 // Save complete error detail
