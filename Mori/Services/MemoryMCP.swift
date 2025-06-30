@@ -48,11 +48,20 @@ class MemoryMCP: ObservableObject {
     
     // MARK: - Tool Definition
     static func getToolDescription() -> String {
+        let currentMemory = MemorySettings.shared.userMemory
+        let memorySection = currentMemory.isEmpty ? 
+            "**Current Memory:** (No stored memories)" : 
+            "**Current Memory:**\n\(currentMemory)"
+        
         return """
+        You need follow the current memory to help user's command.
+        \(memorySection)
+
         Tool: update-memory
         Description: If user say something need to be remembered, this tool will be call.
         Arguments:
         - memory: String(required), a simple sentence, must be in user preferred language
+
 
         **Things need to be remembered:**
 
