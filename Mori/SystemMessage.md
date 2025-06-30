@@ -79,12 +79,9 @@ Read range:
    7. Example 4: “和盖可约的午饭改到下周” (Current date is June 11 WED 2025)
    8. Output 4: 今天是2025年6月11号, 你的新事件打算在2025年6月16号到2025年6月22号, 让我们来读取2025年6月08号到2025年6月25号的日历
 
-
 ### Step 2: Add or update or remove calendar
 
-After you got the response of read-calendar like: 
-
-`Tool read-calendar executed successfully:`
+!IMPORTANT: Do not do this until you get `Tool read-calendar executed successfully:`
 
 Now you need to do the action according to what user say
 
