@@ -89,74 +89,89 @@ struct CalendarEventsDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 16) {
-                    HStack {
-                        Image(systemName: "calendar")
-                            .font(.title2)
-                            .foregroundColor(.white)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(title)
-                                .font(.headline)
+        GeometryReader { geometry in
+            NavigationStack {
+                VStack(spacing: 0) {
+                    // Header - Fixed height
+                    VStack(spacing: 16) {
+                        HStack {
+                            Image(systemName: "calendar")
+                                .font(.title2)
                                 .foregroundColor(.white)
-                            Text("Found \(events.count) events")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
-                            
-                            // Add subtitle display
-                            Text(subtitle)
-                                .font(.caption2)
-                                .foregroundColor(.blue.opacity(0.8))
-                                .padding(.top, 2)
-                        }
 
-                        Spacer()
-
-                        Button("Close") {
-                            dismiss()
-                        }
-                        .foregroundColor(.blue)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-
-                    Divider()
-                        .background(Color.white.opacity(0.2))
-                }
-
-                // Events list
-                if !events.isEmpty {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(events, id: \.id) {
-                                event in
-                                CalendarEventDetailRow(event: event)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(title)
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                Text("Found \(events.count) events")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                                
+                                // Add subtitle display
+                                Text(subtitle)
+                                    .font(.caption2)
+                                    .foregroundColor(.blue.opacity(0.8))
+                                    .padding(.top, 2)
                             }
+
+                            Spacer()
+
+                            Button("Close") {
+                                dismiss()
+                            }
+                            .foregroundColor(.blue)
                         }
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
+                        .padding(.top, geometry.safeAreaInsets.top > 0 ? 20 : 40)
+
+                        Divider()
+                            .background(Color.white.opacity(0.2))
                     }
-                } else {
-                    VStack {
-                        Spacer()
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 50))
-                            .foregroundColor(.white.opacity(0.5))
-                        Text("No events found")
-                            .font(.title3)
-                            .foregroundColor(.white.opacity(0.7))
-                            .padding(.top, 16)
-                        Spacer()
+                    .frame(height: geometry.safeAreaInsets.top > 0 ? 120 : 140)
+                    .background(Color.black)
+
+                    // Events list - Takes remaining space
+                    if !events.isEmpty {
+                        ScrollView {
+                            LazyVStack(spacing: 16) {
+                                ForEach(events.indices, id: \.self) { index in
+                                    CalendarEventDetailRow(event: events[index])
+                                        .padding(.horizontal, 20)
+                                }
+                            }
+                            .padding(.top, 20)
+                            .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
+                        }
+                        .frame(maxHeight: .infinity)
+                        .background(Color.black)
+                    } else {
+                        VStack {
+                            Spacer()
+                            Image(systemName: "calendar.badge.exclamationmark")
+                                .font(.system(size: 50))
+                                .foregroundColor(.white.opacity(0.5))
+                            Text("No events found")
+                                .font(.title3)
+                                .foregroundColor(.white.opacity(0.7))
+                                .padding(.top, 16)
+                            Spacer()
+                        }
+                        .frame(maxHeight: .infinity)
+                        .background(Color.black)
                     }
                 }
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height,
+                    alignment: .top
+                )
+                .background(Color.black)
+                .preferredColorScheme(.dark)
+                .navigationBarHidden(true)
             }
-            .background(Color.black)
-            .preferredColorScheme(.dark)
-            .navigationBarHidden(true)
         }
+        .background(Color.black)
+        .ignoresSafeArea(.all, edges: [.top, .bottom])
     }
 }
 
@@ -168,12 +183,13 @@ struct CalendarEventDetailRow: View {
         VStack(alignment: .leading, spacing: 12) {
             // Title and time
             HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(event.title)
                         .font(.headline)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
                         Image(systemName: "clock")
@@ -203,11 +219,13 @@ struct CalendarEventDetailRow: View {
                     Image(systemName: "location")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 12, alignment: .leading)
 
                     Text(event.location)
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -217,11 +235,13 @@ struct CalendarEventDetailRow: View {
                     Image(systemName: "calendar.badge.plus")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 12, alignment: .leading)
 
                     Text(event.calendarTitle)
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -231,15 +251,18 @@ struct CalendarEventDetailRow: View {
                     Image(systemName: "note.text")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 12, alignment: .leading)
 
                     Text(event.notes)
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.white.opacity(0.1))
