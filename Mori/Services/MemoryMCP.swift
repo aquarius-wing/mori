@@ -205,7 +205,7 @@ class MemoryMCP: ObservableObject {
                                     return result
                                 }
                             } catch {
-                                print("⚠️ Failed to parse JSON from code block: \(error)")
+                                print("⚠️ MemoryMCP: Failed to parse JSON from code block: \(error)")
                             }
                         }
                     }
