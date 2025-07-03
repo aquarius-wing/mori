@@ -104,11 +104,14 @@ struct ChatView: View {
                                             }
                                         }
                                         
-                                        let retryAction = {
-                                            if case .message(let message) = item {
-                                                retryFromMessage(message)
-                                            }
-                                        }
+                                                                let retryAction = {
+                            // Find the corresponding MessageListItemType to retry from
+                            if let messageListItem = messageList.first(where: { listItem in
+                                listItem.id == item.id
+                            }) {
+                                retryFromItem(messageListItem)
+                            }
+                        }
                                         
                                         let showErrorAction = {
                                             showingErrorDetail = true
@@ -213,7 +216,7 @@ struct ChatView: View {
                                     .contentShape(Rectangle())
                                     
                                     // Send/Stop Button
-                                    Button(action: isStreaming ? stopStreaming : sendMessage) {
+                                    Button(action: isStreaming ? stopStreaming : handleSendMessage) {
                                         Image(
                                             systemName: isStreaming ? "stop.fill" : (isSending ? "hourglass" : "arrow.up")
                                         )
@@ -581,20 +584,28 @@ struct ChatView: View {
         print("✅ LLM Service initialized")
     }
 
-    private func sendMessage() {
+    private func appendChatMessage() -> Bool {
         let messageText = inputText.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
-        guard !messageText.isEmpty, let service = llmService else { return }
-
-        // Clear input field and reset state
-        inputText = ""
-        isSending = true
-        updateStatus("Processing request...", type: .llmThinking)
-
-        // Add user message
+        guard !messageText.isEmpty, llmService != nil else { return false }
         let userMessage = ChatMessage(content: messageText, isUser: true)
         messageList.append(.chatMessage(userMessage))
+        inputText = ""
+        return true
+    }
+
+    private func handleSendMessage() {
+        if appendChatMessage() {
+            sendMessage()
+        }
+    }
+
+    private func sendMessage() {
+        guard let service = llmService else { return }
+        
+        isSending = true
+        updateStatus("Processing request...", type: .llmThinking)
 
         // Ensure we have a chat ID for this session
         if currentChatId == nil {
@@ -617,7 +628,7 @@ struct ChatView: View {
                 )
 
                 // Process real tool calling workflow
-                await processRealToolWorkflow(for: messageText, using: service)
+                await processRealToolWorkflow(using: service)
 
             } catch is CancellationError {
                 await MainActor.run {
@@ -669,7 +680,6 @@ struct ChatView: View {
     }
 
     private func processRealToolWorkflow(
-        for messageText: String,
         using service: LLMAIService
     ) async {
         var toolCallCount = 0
@@ -1031,24 +1041,33 @@ struct ChatView: View {
         print("🆕 Created new chat with ID: \(currentChatId ?? "unknown")")
     }
 
-    private func retryFromMessage(_ message: ChatMessage) {
-        // Find the index of the message to retry from
-        guard let messageIndex = messageList.firstIndex(where: { item in
-            if case .chatMessage(let chatMessage) = item {
-                return chatMessage.id == message.id
-            }
-            return false
+    private func retryFromItem(_ item: MessageListItemType) {
+        // Find the index of the item to retry from
+        guard let itemIndex = messageList.firstIndex(where: { listItem in
+            listItem.id == item.id
         }) else {
-            print("⚠️ Message not found for retry")
+            print("⚠️ Item not found for retry")
             return
         }
 
-        // Store the message content before removal
-        let messageContent = message.content
+        // Determine removal strategy and find content to retry
+        let removalStartIndex: Int
+        switch item {
+        case .chatMessage(_):
+            // For chat messages, remove items after this message (> index)
+            removalStartIndex = itemIndex + 1
+        case .workflowStep(_):
+            // For workflow steps, find the preceding user message first
+            removalStartIndex = itemIndex
+        }
 
-        // Remove the message and all messages after it
-        messageList.removeSubrange(messageIndex...)
-        print("🔄 Removed \(messageList.count - messageIndex) messages for retry")
+        if removalStartIndex < messageList.count {
+            let removedCount = messageList.count - removalStartIndex
+            messageList.removeSubrange(removalStartIndex...)
+
+            print("🔄 Retrying from chat message, will remove items after index \(removalStartIndex)")
+            print("🔄 Removed \(removedCount) items for retry")
+        }
 
         // Reset state
         currentStatus = "Ready"
@@ -1056,8 +1075,7 @@ struct ChatView: View {
         isStreaming = false
         isSending = false
 
-        // Set the input text and trigger send
-        inputText = messageContent
+        // Trigger send
         sendMessage()
     }
 }

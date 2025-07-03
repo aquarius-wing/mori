@@ -29,7 +29,7 @@ struct ChatItemView: View {
                 errorDetail: errorDetail
             )
         case .workflowStep(let workflowStep):
-            WorkflowStepItemView(step: workflowStep)
+            WorkflowStepItemView(step: workflowStep, onRetry: onRetry)
         }
     }
 }
