@@ -230,7 +230,7 @@ class LLMAIService: ObservableObject {
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.setValue("keep-alive", forHTTPHeaderField: "Connection")
-                    request.timeoutInterval = 60.0 // Set timeout duration
+                    request.timeoutInterval = 300.0 // Set timeout duration
                     
                     // Use the provided request body JSON
                     do {
@@ -243,8 +243,8 @@ class LLMAIService: ObservableObject {
                     
                     // Configure URLSession
                     let config = URLSessionConfiguration.default
-                    config.timeoutIntervalForRequest = 60.0
-                    config.timeoutIntervalForResource = 120.0
+                    config.timeoutIntervalForRequest = 300.0
+                    config.timeoutIntervalForResource = 300.0
                     config.waitsForConnectivity = true
                     config.allowsCellularAccess = true
                     config.networkServiceType = .default
@@ -373,7 +373,7 @@ class LLMAIService: ObservableObject {
         
         var request = URLRequest(url: sttURL)
         request.httpMethod = "POST"
-        request.timeoutInterval = 30.0
+        request.timeoutInterval = 60.0
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")

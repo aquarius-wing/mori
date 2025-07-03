@@ -6,6 +6,7 @@ import EventKit
 
 struct WorkflowStepItemView: View {
     let step: WorkflowStep
+    let onRetry: () -> Void
     @State private var showingCalendarDetail = false
     @State private var showingErrorDetail = false
     @State private var showingCalendarConfirmation = false
@@ -67,15 +68,6 @@ struct WorkflowStepItemView: View {
                             .fontWeight(.medium)
                             .foregroundColor(.white)
                     }
-
-                    Spacer()
-
-                    // Add "Tap for details" hint for error status
-                    if step.status == .error {
-                        Text("Tap for details")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
-                    }
                 }
 
                 if !step.details.isEmpty {
@@ -106,6 +98,29 @@ struct WorkflowStepItemView: View {
             }
 
             Spacer()
+
+            // Add retry button for error status
+            if step.status == .error {
+                Button(action: onRetry) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.caption2)
+                        Text("Retry")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.white.opacity(0.8))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.white.opacity(0.1))
+                    )
+                }
+                .frame(maxHeight: .infinity)
+                .padding(.leading, 12)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
