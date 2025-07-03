@@ -138,6 +138,7 @@ class LLMAIService: ObservableObject {
         ```
         
         ## Response Guidelines:
+        - String value must be Backslash Escaped
         - After tool execution, provide natural, conversational responses
         - Focus on the most relevant information from tool results
         - Be concise but informative
@@ -501,7 +502,8 @@ class LLMAIService: ObservableObject {
                                     }
                                 }
                             } catch {
-                                print("⚠️ Failed to parse JSON from code block: \(error)")
+                                print("⚠️ LLMAIService: Failed to parse JSON from code block: \(error)")
+                                print("⚠️ LLMAIService: Raw JSON: \(jsonString)")
                             }
                         }
                     }
