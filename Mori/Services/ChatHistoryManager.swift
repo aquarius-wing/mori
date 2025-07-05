@@ -2,6 +2,14 @@ import Foundation
 
 class ChatHistoryManager: ObservableObject {
     
+    // MARK: - Published Properties
+    @Published var chatHistoryItems: [ChatHistoryItem] = []
+    
+    // MARK: - Initializer
+    init() {
+        loadChatHistoryItems()
+    }
+    
     // MARK: - Private Properties
     
     private func getChatHistoryDirectory() -> URL {
@@ -18,13 +26,18 @@ class ChatHistoryManager: ObservableObject {
     
     // MARK: - Public Methods
     
+    /// Load chat history items and update the published property
+    func loadChatHistoryItems() {
+        chatHistoryItems = getAllChatHistoryItems()
+    }
+    
     /// Save current chat and return the chat ID
     func saveCurrentChat(_ messages: [MessageListItemType], existingId: String? = nil) -> String {
         let chatHistory: ChatHistory
         
         if let id = existingId {
             // Update existing chat
-            if let existing = loadChatHistory(id: id) {
+            if let existing = loadChatHistoryPrivate(id: id) {
                 chatHistory = ChatHistory(
                     id: id,
                     title: existing.title,
@@ -40,18 +53,71 @@ class ChatHistoryManager: ObservableObject {
         }
         
         saveChatHistory(chatHistory)
+        // Refresh the chat history items list
+        loadChatHistoryItems()
         return chatHistory.id
     }
     
     /// Load chat messages by ID
     func loadChat(id: String) -> [MessageListItemType]? {
-        guard let chatHistory = loadChatHistory(id: id) else {
+        guard let chatHistory = loadChatHistoryPrivate(id: id) else {
             return nil
         }
         return chatHistory.messageList
     }
     
-    /// Get all chat histories sorted by update date
+    /// Load full ChatHistory by ID (for MenuView when selecting a chat)
+    func loadChatHistory(id: String) -> ChatHistory? {
+        return loadChatHistoryPrivate(id: id)
+    }
+    
+    /// Get all chat history items (lightweight for list display)
+    func getAllChatHistoryItems() -> [ChatHistoryItem] {
+        ensureChatHistoryDirectoryExists()
+        let chatHistoryDir = getChatHistoryDirectory()
+        
+        guard FileManager.default.fileExists(atPath: chatHistoryDir.path) else {
+            return []
+        }
+        
+        do {
+            let fileURLs = try FileManager.default.contentsOfDirectory(at: chatHistoryDir, includingPropertiesForKeys: nil)
+            let jsonFiles = fileURLs.filter { $0.pathExtension == "json" && $0.lastPathComponent.hasPrefix("chatHistory_") }
+            
+            var chatHistoryItems: [ChatHistoryItem] = []
+            
+            for fileURL in jsonFiles {
+                do {
+                    let data = try Data(contentsOf: fileURL)
+                    let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+                    
+                    if let dict = jsonObject as? [String: Any],
+                       let id = dict["id"] as? String,
+                       let title = dict["title"] as? String,
+                       let createDateString = dict["createDate"] as? String,
+                       let updateDateString = dict["updateDate"] as? String {
+                        
+                        let dateFormatter = ISO8601DateFormatter()
+                        if let createDate = dateFormatter.date(from: createDateString),
+                           let updateDate = dateFormatter.date(from: updateDateString) {
+                            let item = ChatHistoryItem(id: id, title: title, createDate: createDate, updateDate: updateDate)
+                            chatHistoryItems.append(item)
+                        }
+                    }
+                } catch {
+                    // Skip files that can't be parsed
+                }
+            }
+            
+            // Sort by update date descending
+            return chatHistoryItems.sorted { $0.updateDate > $1.updateDate }
+        } catch {
+            print("❌ Failed to read chat history directory: \(error)")
+            return []
+        }
+    }
+    
+    /// Get all chat histories sorted by update date (full data)
     func getAllChatHistories() -> [ChatHistory] {
         ensureChatHistoryDirectoryExists()
         let chatHistoryDir = getChatHistoryDirectory()
@@ -99,6 +165,8 @@ class ChatHistoryManager: ObservableObject {
         do {
             try FileManager.default.removeItem(at: filePath)
             print("🗑️ Deleted chat history: \(id)")
+            // Refresh the chat history items list
+            loadChatHistoryItems()
         } catch {
             print("❌ Failed to delete chat history: \(error)")
         }
@@ -112,7 +180,7 @@ class ChatHistoryManager: ObservableObject {
     
     /// Rename chat history
     func renameChat(id: String, newTitle: String) {
-        guard var chatHistory = loadChatHistory(id: id) else {
+        guard var chatHistory = loadChatHistoryPrivate(id: id) else {
             print("❌ Chat history not found for renaming: \(id)")
             return
         }
@@ -120,12 +188,14 @@ class ChatHistoryManager: ObservableObject {
         chatHistory.title = newTitle
         chatHistory.updateDate = Date()
         saveChatHistory(chatHistory)
+        // Refresh the chat history items list
+        loadChatHistoryItems()
         print("✏️ Renamed chat history to: \(newTitle)")
     }
     
     // MARK: - Private Helper Methods
     
-    private func loadChatHistory(id: String) -> ChatHistory? {
+    private func loadChatHistoryPrivate(id: String) -> ChatHistory? {
         ensureChatHistoryDirectoryExists()
         let chatHistoryDir = getChatHistoryDirectory()
         let filePath = chatHistoryDir.appendingPathComponent("chatHistory_\(id).json")
@@ -164,5 +234,7 @@ class ChatHistoryManager: ObservableObject {
             print("❌ Failed to save chat history: \(error)")
         }
     }
+}
 
-} 
+// MARK: - Global Shared Instance
+let sharedChatHistoryManager = ChatHistoryManager() 

@@ -62,6 +62,30 @@ enum MessageListItemType: Codable, Identifiable {
     }
 }
 
+// MARK: - ChatHistoryItem Model (Lightweight for list display)
+struct ChatHistoryItem: Codable, Identifiable {
+    let id: String
+    var title: String
+    let createDate: Date
+    var updateDate: Date
+    
+    // Initialize from ChatHistory
+    init(from chatHistory: ChatHistory) {
+        self.id = chatHistory.id
+        self.title = chatHistory.title
+        self.createDate = chatHistory.createDate
+        self.updateDate = chatHistory.updateDate
+    }
+    
+    // Direct initialization
+    init(id: String, title: String, createDate: Date, updateDate: Date) {
+        self.id = id
+        self.title = title
+        self.createDate = createDate
+        self.updateDate = updateDate
+    }
+}
+
 // MARK: - ChatHistory Model
 struct ChatHistory: Codable, Identifiable {
     let id: String

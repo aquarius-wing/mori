@@ -27,7 +27,7 @@ struct ChatView: View {
     @State private var isDraggedToCancel = false
 
     // Chat History Management
-    private let chatHistoryManager = ChatHistoryManager()
+    @ObservedObject private var chatHistoryManager = sharedChatHistoryManager
     @State private var currentChatId: String?
     @AppStorage("currentChatHistoryId") private var savedChatHistoryId: String?
 
