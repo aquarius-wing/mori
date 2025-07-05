@@ -182,6 +182,13 @@ struct ChatView: View {
                                 .accentColor(.white)
                                 .focused($isTextFieldFocused)
                                 .disabled(isSending || isStreaming)
+                                .submitLabel(.send)
+                                .onSubmit {
+                                    // Handle Enter key to send message
+                                    if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending && !isStreaming {
+                                        handleSendMessage()
+                                    }
+                                }
 
                                 HStack(spacing: 12) {
                                     Spacer()
