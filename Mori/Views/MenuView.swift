@@ -15,6 +15,7 @@ struct MenuView: View {
     @State private var showingActionAlert = false
     @State private var pendingAction: MenuAction?
     @State private var showingSettings = false
+    @Environment(\.colorScheme) var colorScheme
     
     enum MenuAction {
         case email
@@ -141,11 +142,11 @@ struct MenuView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.secondary.opacity(0.05))
+                .background(ThemeColors.secondaryBackground(for: colorScheme))
             }
         }
         .frame(maxWidth: .infinity)
-        .background(Color(UIColor.systemBackground))
+        .background(ThemeColors.background(for: colorScheme))
         .alert("Rename Chat", isPresented: $showingRenameAlert) {
             TextField("Chat Title", text: $renameText)
             Button("Cancel", role: .cancel) { }
@@ -196,6 +197,7 @@ struct MenuItemView: View {
     let title: String
     let action: () -> Void
     @State private var isHovered = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         Button(action: action) {
@@ -235,6 +237,7 @@ struct ChatHistoryItemView: View {
     let onRename: () -> Void
     let onDelete: () -> Void
     @State private var isHovered = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         Button(action: onSelect) {
@@ -322,7 +325,7 @@ struct ChatHistoryItemView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color(UIColor.systemBackground))
+            .background(ThemeColors.cardBackground(for: colorScheme))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
         }
@@ -339,4 +342,5 @@ struct ChatHistoryItemView: View {
         onSelectChatHistory: nil
     )
     .environmentObject(AppRouter())
+    .environmentObject(ThemeManager.shared)
 } 

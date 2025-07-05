@@ -5,6 +5,7 @@ import Foundation
 
 struct CalendarEventRow: View {
     let event: CalendarEvent
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -13,12 +14,12 @@ struct CalendarEventRow: View {
                 Text(formatTime(event.startDate))
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(ThemeColors.text(for: colorScheme))
 
                 if !event.isAllDay {
                     Text(formatTime(event.endDate))
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                 }
             }
             .frame(width: 45)
@@ -28,7 +29,7 @@ struct CalendarEventRow: View {
                 Text(event.title)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(ThemeColors.text(for: colorScheme))
                     .lineLimit(1)
 
                 if !event.location.isEmpty {
@@ -39,7 +40,7 @@ struct CalendarEventRow: View {
                             .font(.caption)
                             .lineLimit(1)
                     }
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                 }
             }
 
@@ -49,7 +50,7 @@ struct CalendarEventRow: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.white.opacity(0.1))
+                .fill(ThemeColors.cardBackground(for: colorScheme))
         )
     }
 
@@ -87,6 +88,10 @@ struct CalendarEventsDetailView: View {
     let subtitle: String 
     let events: [CalendarEvent]
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) var colorScheme
+    
+    @State private var showingCalendarConfirmation = false
+    @State private var selectedEvent: CalendarEvent?
 
     var body: some View {
         GeometryReader { geometry in
@@ -97,20 +102,20 @@ struct CalendarEventsDetailView: View {
                         HStack {
                             Image(systemName: "calendar")
                                 .font(.title2)
-                                .foregroundColor(.white)
+                                .foregroundColor(ThemeColors.text(for: colorScheme))
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(title)
                                     .font(.headline)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(ThemeColors.text(for: colorScheme))
                                 Text("Found \(events.count) events")
                                     .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
+                                    .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                                 
                                 // Add subtitle display
                                 Text(subtitle)
                                     .font(.caption2)
-                                    .foregroundColor(.blue.opacity(0.8))
+                                    .foregroundColor(.blue)
                                     .padding(.top, 2)
                             }
 
@@ -125,39 +130,42 @@ struct CalendarEventsDetailView: View {
                         .padding(.top, geometry.safeAreaInsets.top > 0 ? 20 : 40)
 
                         Divider()
-                            .background(Color.white.opacity(0.2))
+                            .background(ThemeColors.border(for: colorScheme))
                     }
                     .frame(height: geometry.safeAreaInsets.top > 0 ? 120 : 140)
-                    .background(Color.black)
+                    .background(ThemeColors.background(for: colorScheme))
 
                     // Events list - Takes remaining space
                     if !events.isEmpty {
                         ScrollView {
                             LazyVStack(spacing: 16) {
                                 ForEach(events.indices, id: \.self) { index in
-                                    CalendarEventDetailRow(event: events[index])
-                                        .padding(.horizontal, 20)
+                                    CalendarEventDetailRow(event: events[index]) {
+                                        selectedEvent = events[index]
+                                        showingCalendarConfirmation = true
+                                    }
+                                    .padding(.horizontal, 20)
                                 }
                             }
                             .padding(.top, 20)
                             .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
                         }
                         .frame(maxHeight: .infinity)
-                        .background(Color.black)
+                        .background(ThemeColors.background(for: colorScheme))
                     } else {
                         VStack {
                             Spacer()
                             Image(systemName: "calendar.badge.exclamationmark")
                                 .font(.system(size: 50))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                             Text("No events found")
                                 .font(.title3)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                                 .padding(.top, 16)
                             Spacer()
                         }
                         .frame(maxHeight: .infinity)
-                        .background(Color.black)
+                        .background(ThemeColors.background(for: colorScheme))
                     }
                 }
                 .frame(
@@ -165,19 +173,33 @@ struct CalendarEventsDetailView: View {
                     height: geometry.size.height,
                     alignment: .top
                 )
-                .background(Color.black)
-                .preferredColorScheme(.dark)
+                .background(ThemeColors.background(for: colorScheme))
                 .navigationBarHidden(true)
             }
         }
-        .background(Color.black)
+        .background(ThemeColors.background(for: colorScheme))
         .ignoresSafeArea(.all, edges: [.top, .bottom])
+        .alert("Open in Calendar", isPresented: $showingCalendarConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Open") {
+                if let event = selectedEvent {
+                    // Import CalendarMCP to access openEventInCalendar
+                    CalendarMCP.openEventInCalendar(event)
+                }
+            }
+        } message: {
+            if let event = selectedEvent {
+                Text("Do you want to open '\(event.title)' in the Calendar app?")
+            }
+        }
     }
 }
 
 // MARK: - Calendar Event Detail Row Component
 struct CalendarEventDetailRow: View {
     let event: CalendarEvent
+    var onTap: (() -> Void)? = nil
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -187,25 +209,25 @@ struct CalendarEventDetailRow: View {
                     Text(event.title)
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(ThemeColors.text(for: colorScheme))
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
                         Image(systemName: "clock")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
 
                         if event.isAllDay {
                             Text("All day")
                                 .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         } else {
                             Text(
                                 "\(formatDateTime(event.startDate)) - \(formatTime(event.endDate))"
                             )
                             .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         }
                     }
                 }
@@ -218,12 +240,12 @@ struct CalendarEventDetailRow: View {
                 HStack(spacing: 8) {
                     Image(systemName: "location")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .frame(width: 12, alignment: .leading)
 
                     Text(event.location)
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -234,12 +256,12 @@ struct CalendarEventDetailRow: View {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar.badge.plus")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .frame(width: 12, alignment: .leading)
 
                     Text(event.calendarTitle)
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -250,12 +272,12 @@ struct CalendarEventDetailRow: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "note.text")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .frame(width: 12, alignment: .leading)
 
                     Text(event.notes)
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -265,8 +287,11 @@ struct CalendarEventDetailRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.1))
+                .fill(ThemeColors.cardBackground(for: colorScheme))
         )
+        .onTapGesture {
+            onTap?()
+        }
     }
 
     private func formatDateTime(_ dateString: String) -> String {
@@ -328,6 +353,7 @@ struct CalendarEventDetailRow: View {
 struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
     let event: CalendarEvent
     let buttonContent: () -> ButtonContent
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -337,24 +363,24 @@ struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
                     Text(event.title)
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(ThemeColors.text(for: colorScheme))
                         .multilineTextAlignment(.leading)
 
                     HStack(spacing: 8) {
                         Image(systemName: "clock")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
 
                         if event.isAllDay {
                             Text("All day")
                                 .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         } else {
                             Text(
                                 "\(formatDateTime(event.startDate)) - \(formatTime(event.endDate))"
                             )
                             .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         }
                     }
                 }
@@ -369,11 +395,11 @@ struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
                 HStack(spacing: 8) {
                     Image(systemName: "location")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
 
                     Text(event.location)
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .multilineTextAlignment(.leading)
                 }
             }
@@ -383,11 +409,11 @@ struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar.badge.plus")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
 
                     Text(event.calendarTitle)
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .multilineTextAlignment(.leading)
                 }
             }
@@ -397,11 +423,11 @@ struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "note.text")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
 
                     Text(event.notes)
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .multilineTextAlignment(.leading)
                 }
             }
@@ -409,7 +435,7 @@ struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.1))
+                .fill(ThemeColors.cardBackground(for: colorScheme))
         )
     }
 
@@ -471,6 +497,7 @@ struct CalendarEventDetailRowWithButton<ButtonContent: View>: View {
 // MARK: - Calendar Info Row Component
 struct CalendarInfoRow: View {
     let calendar: CalendarInfo
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -484,24 +511,24 @@ struct CalendarInfoRow: View {
                 Text(calendar.title)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(ThemeColors.text(for: colorScheme))
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     Text(calendar.type.capitalized)
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.white.opacity(0.1))
+                                .fill(ThemeColors.cardBackground(for: colorScheme))
                         )
 
                     if !calendar.allowsContentModifications {
                         Image(systemName: "lock")
                             .font(.caption2)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                     }
                 }
             }
@@ -511,14 +538,14 @@ struct CalendarInfoRow: View {
             // Calendar ID (truncated)
             Text(String(calendar.id.prefix(8)) + "...")
                 .font(.caption2)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                 .monospaced()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.white.opacity(0.1))
+                .fill(ThemeColors.cardBackground(for: colorScheme))
         )
     }
 }

@@ -235,7 +235,7 @@ class MemoryMCP: ObservableObject {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 12)
                             .fill(Color.green.opacity(0.2))
                     )
                     .padding(.horizontal, 20)
@@ -262,7 +262,7 @@ class MemoryMCP: ObservableObject {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 12)
                             .fill(Color.red.opacity(0.2))
                     )
                     .padding(.horizontal, 20)

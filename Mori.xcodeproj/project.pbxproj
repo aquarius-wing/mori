@@ -34,6 +34,7 @@
 		A1000017000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000018000000000000001 /* Preview Assets.xcassets */; };
 		A2000001000000000000001 /* AudioRecordingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000002000000000000001 /* AudioRecordingManager.swift */; };
 		A2000003000000000000001 /* AudioRecordingButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000004000000000000001 /* AudioRecordingButton.swift */; };
+		A3000003000000000000001 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000001000000000000001 /* ThemeManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +78,7 @@
 		A1000020000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000002000000000000001 /* AudioRecordingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecordingManager.swift; sourceTree = "<group>"; };
 		A2000004000000000000001 /* AudioRecordingButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecordingButton.swift; sourceTree = "<group>"; };
+		A3000001000000000000001 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -183,6 +185,7 @@
 			children = (
 				A1000014000000000000001 /* ChatMessage.swift */,
 				202D16302E06648900493124 /* ChatHistory.swift */,
+				A3000001000000000000001 /* ThemeManager.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -334,6 +337,7 @@
 				A2000001000000000000001 /* AudioRecordingManager.swift in Sources */,
 				A2000003000000000000001 /* AudioRecordingButton.swift in Sources */,
 				209320552E126A05003AF64D /* SettingsView.swift in Sources */,
+				A3000003000000000000001 /* ThemeManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

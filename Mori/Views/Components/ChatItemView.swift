@@ -42,6 +42,7 @@ struct MessageItemView: View {
     let onRetry: () -> Void
     let onShowErrorDetail: () -> Void
     let errorDetail: String
+    @Environment(\.colorScheme) var colorScheme
 
     // Check if this is an error message
     private var isErrorMessage: Bool {
@@ -62,9 +63,9 @@ struct MessageItemView: View {
                         .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.1))
+                                .fill(ThemeColors.cardBackground(for: colorScheme))
                         )
-                        .foregroundColor(.white)
+                        .foregroundColor(ThemeColors.text(for: colorScheme))
                         .contextMenu {
                             Button(action: onCopy) {
                                 Label("Copy", systemImage: "doc.on.doc")
@@ -78,7 +79,7 @@ struct MessageItemView: View {
 
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                 }
                 .frame(
                     maxWidth: UIScreen.main.bounds.width * 0.75,
@@ -91,31 +92,31 @@ struct MessageItemView: View {
                     if isErrorMessage {
                         Text("Tap for details")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                     }
 
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
 
                     // Action buttons row
                     HStack(spacing: 16) {
                         Button(action: onCopy) {
                             Image(systemName: "doc.on.doc")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         }
 
                         Button(action: onLike) {
                             Image(systemName: "hand.thumbsup")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         }
 
                         Button(action: onDislike) {
                             Image(systemName: "hand.thumbsdown")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
                         }
 
                         Spacer()

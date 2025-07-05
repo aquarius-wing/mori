@@ -4,6 +4,8 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var router: AppRouter
+    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
     
     // Navigation state
     @State private var showingMenu = false
@@ -62,7 +64,7 @@ struct MainView: View {
 
                     // Side Menu Overlay
                     if showingMenu {
-                        Color.white
+                        ThemeColors.background(for: colorScheme)
                             .opacity(0.1)
                             .ignoresSafeArea()
                             .onTapGesture {
@@ -133,6 +135,7 @@ struct MessageBubble: View {
     let message: ChatMessage
     var isStreaming = false
     var onPlayTTS: ((String) -> Void)?
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         HStack {
@@ -158,7 +161,7 @@ struct MessageBubble: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(message.content)
                         .padding()
-                        .background(Color(UIColor.systemGray6))
+                        .background(ThemeColors.cardBackground(for: colorScheme))
                         .cornerRadius(16)
 
                     HStack {
@@ -229,4 +232,6 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 #Preview {
     MainView()
+        .environmentObject(AppRouter())
+        .environmentObject(ThemeManager.shared)
 }

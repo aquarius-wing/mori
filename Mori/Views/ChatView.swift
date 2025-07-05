@@ -30,6 +30,9 @@ struct ChatView: View {
     @ObservedObject private var chatHistoryManager = sharedChatHistoryManager
     @State private var currentChatId: String?
     @AppStorage("currentChatHistoryId") private var savedChatHistoryId: String?
+    
+    // Theme support
+    @Environment(\.colorScheme) var colorScheme
 
     // Legacy ChatItem support for UI compatibility
     private var chatItems: [ChatItem] {
@@ -134,14 +137,14 @@ struct ChatView: View {
                                             ProgressView()
                                                 .progressViewStyle(
                                                     CircularProgressViewStyle(
-                                                        tint: .white
+                                                        tint: ThemeColors.text(for: colorScheme)
                                                     )
                                                 )
                                                 .scaleEffect(0.8)
                                             Text(currentStatus)
                                                 .font(.caption)
                                                 .foregroundColor(
-                                                    .white.opacity(0.7)
+                                                    ThemeColors.text(for: colorScheme).opacity(0.7)
                                                 )
                                             Spacer()
                                         }
@@ -178,8 +181,8 @@ struct ChatView: View {
                                 )
                                 .textFieldStyle(.plain)
                                 .lineLimit(1...5)
-                                .foregroundColor(.white)
-                                .accentColor(.white)
+                                .foregroundColor(ThemeColors.text(for: colorScheme))
+                                .accentColor(ThemeColors.text(for: colorScheme))
                                 .focused($isTextFieldFocused)
                                 .disabled(isSending || isStreaming)
                                 .submitLabel(.send)
@@ -227,7 +230,7 @@ struct ChatView: View {
                                         Image(
                                             systemName: isStreaming ? "stop.fill" : (isSending ? "hourglass" : "arrow.up")
                                         )
-                                        .foregroundColor(.white)
+                                        .foregroundColor(ThemeColors.text(for: colorScheme))
                                     }
                                     .frame(width: 32, height: 32)
                                     .background(
@@ -257,7 +260,7 @@ struct ChatView: View {
                             .overlay(
                                 // Floating gray rectangle
                                 Rectangle()
-                                    .fill(Color.white.opacity(0.1))
+                                    .fill(colorScheme == .dark ? ThemeColors.cardBackground(for: colorScheme) : .white)
                                     .frame(height: geometry.safeAreaInsets.bottom)
                                     .frame(width: geometry.size.width)
                                     .offset(y: geometry.safeAreaInsets.bottom + 12),
@@ -273,7 +276,8 @@ struct ChatView: View {
                                     bottomTrailingRadius: 0,
                                     topTrailingRadius: 20
                                 )
-                                .fill(Color.white.opacity(0.1))
+                                .fill(colorScheme == .dark ? ThemeColors.cardBackground(for: colorScheme) : .white)
+                                .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                             )
                         }
                     }
@@ -309,7 +313,7 @@ struct ChatView: View {
                         }) {
                             Image(systemName: "sidebar.left")
                                 .font(.body)
-                                .foregroundColor(.white)
+                                .foregroundColor(ThemeColors.text(for: colorScheme))
                         }
                         .disabled(isStreaming || isSending)
                     }
@@ -330,12 +334,12 @@ struct ChatView: View {
                     }) {
                         Image(systemName: "message")
                             .font(.body)
-                            .foregroundColor(.white)
+                            .foregroundColor(ThemeColors.text(for: colorScheme))
                     }
                     .disabled(isStreaming || isSending)
                 }
             }
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(ThemeManager.shared.currentMode.colorScheme)
         }
         .onAppear {
             setupLLMService()
@@ -428,12 +432,12 @@ struct ChatView: View {
                     Text("Recording...")
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(isDraggedToCancel ? Color.orange : Color.white)
+                        .foregroundColor(isDraggedToCancel ? Color.orange : ThemeColors.text(for: colorScheme))
                         .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                     
                     Text("Drag here to cancel")
                         .font(.caption)
-                        .foregroundColor((isDraggedToCancel ? Color.orange : Color.white).opacity(0.7))
+                        .foregroundColor((isDraggedToCancel ? Color.orange : ThemeColors.text(for: colorScheme)).opacity(0.7))
                         .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                 }
             }
@@ -445,7 +449,7 @@ struct ChatView: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke((isDraggedToCancel ? Color.orange : Color.white).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
+                                .stroke((isDraggedToCancel ? Color.orange : ThemeColors.textContrast(for: colorScheme)).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
                                 .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                         )
                         .onAppear {
@@ -475,11 +479,11 @@ struct ChatView: View {
                     Text("Transcribing...")
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(ThemeColors.text(for: colorScheme))
                     
                     Text("Processing audio...")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.text(for: colorScheme).opacity(0.7))
                 }
             }
             .padding(.horizontal, 24)
@@ -489,7 +493,7 @@ struct ChatView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(ThemeColors.text(for: colorScheme).opacity(0.1), lineWidth: 1)
                     )
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
@@ -511,11 +515,11 @@ struct ChatView: View {
                     Text("Recording Error")
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(ThemeColors.text(for: colorScheme))
                     
                     Text(error)
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(ThemeColors.text(for: colorScheme).opacity(0.7))
                         .multilineTextAlignment(.center)
                 }
                 
@@ -541,7 +545,7 @@ struct ChatView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(ThemeColors.text(for: colorScheme).opacity(0.1), lineWidth: 1)
                     )
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
