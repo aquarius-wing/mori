@@ -86,8 +86,7 @@ struct ChatView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
+        ZStack {
                 // Main content
                 GeometryReader { geometry in
                     VStack(spacing: 0) {
@@ -291,43 +290,7 @@ struct ChatView: View {
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showRecordingError)
                 }
             }
-            .navigationTitle("Mori")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        isTextFieldFocused = false
-                        onShowMenu?()
-                    }) {
-                        Image(systemName: "sidebar.left")
-                            .font(.body)
-                            .foregroundColor(.white)
-                    }
-                    .disabled(isStreaming || isSending)
-                }
-
-#if DEBUG
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Debug") {
-                        debugActionSheet = true
-                    }
-                    .disabled(isStreaming || isSending)
-                }
-#endif
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        createNewChat()
-                    }) {
-                        Image(systemName: "message")
-                            .font(.body)
-                            .foregroundColor(.white)
-                    }
-                    .disabled(isStreaming || isSending)
-                }
-            }
             .preferredColorScheme(.dark)
-        }
         .onAppear {
             setupLLMService()
             loadCurrentChatHistory()
@@ -351,6 +314,24 @@ struct ChatView: View {
             ) { _ in
                 clearChat()
             }
+            
+            // Listen for debug action sheet notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ShowDebugActionSheet"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                debugActionSheet = true
+            }
+            
+            // Listen for create new chat notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("CreateNewChat"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                createNewChat()
+            }
         }
         .onDisappear {
             // Remove notification observers
@@ -362,6 +343,16 @@ struct ChatView: View {
             NotificationCenter.default.removeObserver(
                 self,
                 name: NSNotification.Name("ClearChat"),
+                object: nil
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("ShowDebugActionSheet"),
+                object: nil
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("CreateNewChat"),
                 object: nil
             )
         }
