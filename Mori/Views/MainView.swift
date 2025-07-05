@@ -4,88 +4,103 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var router: AppRouter
+    
+    // Navigation state
+    @State private var showingMenu = false
+    let rightPadding = 88.0
+    
     @State private var showingFilesView = false
     @State private var selectedChatHistory: ChatHistory?
-    @State private var columnVisibility = NavigationSplitViewVisibility.automatic
-    
+    @State private var columnVisibility = NavigationSplitViewVisibility
+        .automatic
+
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            // Sidebar - MenuView
-            MenuSidebarView(
-                onShowFiles: {
-                    showingFilesView = true
-                },
-                onSelectChatHistory: { chatHistory in
-                    selectedChatHistory = chatHistory
-                    // Notify ChatView to load the selected chat history
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("LoadChatHistory"),
-                        object: chatHistory
-                    )
-                    // On iPhone, hide sidebar after selection
-                    if UIDevice.current.userInterfaceIdiom == .phone {
-                        columnVisibility = .detailOnly
+        // Check if device is iPad or Mac
+        if UIDevice.current.userInterfaceIdiom == .pad
+            || ProcessInfo.processInfo.isMacCatalystApp
+        {
+            // iPad and macOS: Use NavigationSplitView
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                // Sidebar - MenuView
+                MenuSidebarView(
+                    onShowFiles: {
+                        showingFilesView = true
+                    },
+                    onSelectChatHistory: { chatHistory in
+                        selectedChatHistory = chatHistory
+                        // Notify ChatView to load the selected chat history
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("LoadChatHistory"),
+                            object: chatHistory
+                        )
                     }
-                }
-            )
-            .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
-        } detail: {
-            // Detail - ChatView
-            NavigationStack{
+                )
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+            } detail: {
+                // Detail - ChatView
                 ChatView()
-                    .navigationTitle("Chat")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        // Add menu button for iPhone only
-                        if UIDevice.current.userInterfaceIdiom == .phone {
-                            ToolbarItem(placement: .navigationBarLeading) {
-                                Button(action: {
-                                    columnVisibility = .all
-                                }) {
-                                    Image(systemName: "sidebar.left")
-                                        .foregroundColor(.white)
+            }
+            .navigationSplitViewStyle(.balanced)
+            .sheet(isPresented: $showingFilesView) {
+                FilesView()
+            }
+        } else {
+            // iPhone: Use NavigationStack with different layout
+            GeometryReader { geometry in
+                ZStack {
+                    NavigationView {
+                        ChatView(onShowMenu: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showingMenu.toggle()
+                            }
+                        })
+                    }
+                    .navigationBarHidden(true)
+                    .offset(
+                        x: showingMenu ? geometry.size.width - rightPadding : 0
+                    )
+
+                    // Side Menu Overlay
+                    if showingMenu {
+                        Color.white
+                            .opacity(0.1)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showingMenu = false
                                 }
                             }
-                        }
-                        
-                        #if DEBUG
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Debug") {
-                                // Trigger debug action in ChatView via notification
-                                NotificationCenter.default.post(
-                                    name: NSNotification.Name("ShowDebugActionSheet"),
-                                    object: nil
-                                )
-                            }
-                            .foregroundColor(.white)
-                        }
-                        #endif
 
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button(action: {
-                                // Trigger new chat creation via notification
-                                NotificationCenter.default.post(
-                                    name: NSNotification.Name("CreateNewChat"),
-                                    object: nil
-                                )
-                            }) {
-                                Image(systemName: "message")
-                                    .font(.body)
-                                    .foregroundColor(.white)
-                            }
+                        HStack {
+                            MenuView(
+                                isPresented: $showingMenu,
+                                onClearChat: {
+                                    // This will be handled by ChatView
+                                },
+                                onShowFiles: {
+                                    showingFilesView = true
+                                },
+                                onSelectChatHistory: { chatHistory in
+                                    // ChatView will handle loading the selected chat history
+                                    NotificationCenter.default.post(
+                                        name: NSNotification.Name(
+                                            "LoadChatHistory"
+                                        ),
+                                        object: chatHistory
+                                    )
+                                }
+                            )
+                            .frame(width: geometry.size.width - rightPadding)
+                            .transition(.move(edge: .leading))
+
+                            Spacer()
                         }
                     }
-            }
-        }
-        .navigationSplitViewStyle(.balanced)
-        .sheet(isPresented: $showingFilesView) {
-            FilesView()
-        }
-        .onAppear {
-            // On iPhone, start with detail view showing if we have content
-            // On iPad, show both sidebar and detail
-            if UIDevice.current.userInterfaceIdiom == .phone {
-                columnVisibility = .detailOnly
+                }
+                .sheet(isPresented: $showingFilesView) {
+                    FilesView()
+                }
+                .animation(.easeInOut(duration: 0.3), value: showingMenu)
             }
         }
     }
@@ -93,11 +108,11 @@ struct MainView: View {
 
 // Wrapper for MenuView to adapt it for NavigationSplitView
 struct MenuSidebarView: View {
-    @State private var isPresented = true // Always presented in split view
-    
+    @State private var isPresented = true  // Always presented in split view
+
     var onShowFiles: (() -> Void)?
     var onSelectChatHistory: ((ChatHistory) -> Void)?
-    
+
     var body: some View {
         MenuView(
             isPresented: $isPresented,
