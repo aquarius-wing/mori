@@ -94,6 +94,15 @@ struct MainView: View {
                             )
                             .frame(width: geometry.size.width - rightPadding)
                             .transition(.move(edge: .leading))
+                            .overlay(
+                                HStack {
+                                    Spacer()
+                                    Rectangle()
+                                        .fill(ThemeColors.border(for: colorScheme))
+                                        .frame(width: 1)
+                                        .ignoresSafeArea()
+                                }
+                            )
 
                             Spacer()
                         }
