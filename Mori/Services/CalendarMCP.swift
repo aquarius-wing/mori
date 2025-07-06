@@ -948,122 +948,10 @@ extension CalendarMCP {
         showingCalendarConfirmation: Binding<Bool>,
         eventToOpen: Binding<CalendarEvent?>
     ) -> some View {
-        Group {
-            if let resultValue = step.details["result"],
-               let jsonData = resultValue.data(using: .utf8),
-               let calendarResponse = try? JSONDecoder().decode(
-                   CalendarReadResponse.self,
-                   from: jsonData
-               )
-            {
-                VStack(spacing: 16) {
-                    // Header with open calendar button
-                    HStack(spacing: 16) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .frame(width: 24, height: 24)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Found \(calendarResponse.count) events")
-                                .font(.body)
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                            
-                            Text(formatDateRange(from: calendarResponse.dateRange))
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-
-                    // Events list - show at most 3 events
-                    if !calendarResponse.events.isEmpty {
-                        VStack(spacing: 12) {
-                            // Display first 3 events
-                            ForEach(Array(calendarResponse.events.prefix(3).enumerated()), id: \.offset) { index, event in
-                                CalendarEventDetailRowWithButton(event: event) {
-                                    Button(action: {
-                                        eventToOpen.wrappedValue = event
-                                        showingCalendarConfirmation.wrappedValue = true
-                                    }) {
-                                        Image(systemName: "calendar")
-                                            .font(.title3)
-                                            .foregroundColor(.blue)
-                                            .padding(8)
-                                    }
-                                }
-                            }
-                            
-                            // Show "more" button if there are more than 3 events
-                            if calendarResponse.events.count > 3 {
-                                Button(action: {
-                                    showingCalendarDetail.wrappedValue = true
-                                }) {
-                                    HStack {
-                                        Text("Show \(calendarResponse.events.count - 3) more events")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        
-                                        Image(systemName: "chevron.down")
-                                            .font(.caption)
-                                    }
-                                    .foregroundColor(.blue)
-                                    .padding(.vertical, 12)
-                                    .padding(.horizontal, 16)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.blue.opacity(0.1))
-                                    )
-                                }
-                                .padding(.top, 8)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    } else {
-                        VStack {
-                            Image(systemName: "calendar.badge.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundColor(.white.opacity(0.5))
-                            Text("No events found")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.7))
-                                .padding(.top, 8)
-                        }
-                        .padding(.vertical, 20)
-                    }
-                }
-                .padding(.bottom, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.blue.opacity(0.2))
-                )
-                .padding(.horizontal, 20)
-                .alert("Open in Calendar", isPresented: showingCalendarConfirmation) {
-                    Button("Cancel", role: .cancel) { }
-                    Button("Open") {
-                        if let event = eventToOpen.wrappedValue {
-                            openEventInCalendar(event)
-                        }
-                    }
-                } message: {
-                    if let event = eventToOpen.wrappedValue {
-                        Text("Do you want to open '\(event.title)' in the Calendar app?")
-                    }
-                }
-                .sheet(isPresented: showingCalendarDetail) {
-                    CalendarEventsDetailView(
-                        title: "Read Calendar",
-                        subtitle: formatDateRange(from: calendarResponse.dateRange),
-                        events: calendarResponse.events
-                    )
-                }
-            } else {
-                EmptyView()
-            }
-        }
+        CalendarReadResultView(
+            step: step,
+            showingCalendarDetail: showingCalendarDetail
+        )
     }
     
     // MARK: - Calendar Update Result View
@@ -1072,49 +960,11 @@ extension CalendarMCP {
         showingCalendarConfirmation: Binding<Bool>,
         eventToOpen: Binding<CalendarEvent?>
     ) -> some View {
-        Group {
-            if let resultValue = step.details["result"],
-               let jsonData = resultValue.data(using: .utf8),
-               let updateResponse = try? JSONDecoder().decode(
-                   CalendarUpdateResponse.self,
-                   from: jsonData
-               )
-            {
-                CalendarEventDetailRowWithButton(event: updateResponse.event) {
-                    Button(action: {
-                        eventToOpen.wrappedValue = updateResponse.event
-                        showingCalendarConfirmation.wrappedValue = true
-                    }) {
-                        Image(systemName: "calendar")
-                            .font(.title3)
-                            .foregroundColor(.blue)
-                            .padding(8)
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            (updateResponse.success ? Color.green : Color.red)
-                                .opacity(0.2)
-                        )
-                )
-                .padding(.horizontal, 20)
-                .alert("Open in Calendar", isPresented: showingCalendarConfirmation) {
-                    Button("Cancel", role: .cancel) { }
-                    Button("Open") {
-                        if let event = eventToOpen.wrappedValue {
-                            openEventInCalendar(event)
-                        }
-                    }
-                } message: {
-                    if let event = eventToOpen.wrappedValue {
-                        Text("Do you want to open '\(event.title)' in the Calendar app?")
-                    }
-                }
-            } else {
-                EmptyView()
-            }
-        }
+        CalendarUpdateResultView(
+            step: step,
+            showingCalendarConfirmation: showingCalendarConfirmation,
+            eventToOpen: eventToOpen
+        )
     }
     
     // MARK: - Calendar Add Result View
@@ -1123,113 +973,22 @@ extension CalendarMCP {
         showingCalendarConfirmation: Binding<Bool>,
         eventToOpen: Binding<CalendarEvent?>
     ) -> some View {
-        Group {
-            if let resultValue = step.details["result"],
-               let jsonData = resultValue.data(using: .utf8),
-               let addResponse = try? JSONDecoder().decode(
-                   CalendarAddResponse.self,
-                   from: jsonData
-               )
-            {
-                CalendarEventDetailRowWithButton(event: addResponse.event) {
-                    Button(action: {
-                        eventToOpen.wrappedValue = addResponse.event
-                        showingCalendarConfirmation.wrappedValue = true
-                    }) {
-                        Image(systemName: "calendar")
-                            .font(.title3)
-                            .foregroundColor(.blue)
-                            .padding(8)
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            (addResponse.success ? Color.green : Color.red)
-                                .opacity(0.2)
-                        )
-                )
-                .padding(.horizontal, 20)
-                .alert("Open in Calendar", isPresented: showingCalendarConfirmation) {
-                    Button("Cancel", role: .cancel) { }
-                    Button("Open") {
-                        if let event = eventToOpen.wrappedValue {
-                            openEventInCalendar(event)
-                        }
-                    }
-                } message: {
-                    if let event = eventToOpen.wrappedValue {
-                        Text("Do you want to open '\(event.title)' in the Calendar app?")
-                    }
-                }
-            } else {
-                EmptyView()
-            }
-        }
+        CalendarAddResultView(
+            step: step,
+            showingCalendarConfirmation: showingCalendarConfirmation,
+            eventToOpen: eventToOpen
+        )
     }
     
     // MARK: - Calendar Remove Result View
     static func createRemoveResultView(
         step: WorkflowStep
     ) -> some View {
-        Group {
-            if let resultValue = step.details["result"],
-               let jsonData = resultValue.data(using: .utf8),
-               let deleteResponse = try? JSONDecoder().decode(
-                   CalendarDeleteResponse.self,
-                   from: jsonData
-               )
-            {
-                VStack(spacing: 16) {
-                    // Header with success/failure indicator
-                    HStack(spacing: 16) {
-                        Image(systemName: deleteResponse.success ? "trash.circle" : "xmark.circle")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .frame(width: 24, height: 24)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(deleteResponse.success ? "Event Deleted Successfully" : "Failed to Delete Event")
-                                .font(.body)
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                            
-                            Text(deleteResponse.message)
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-
-                        Spacer()
-
-                        if deleteResponse.success {
-                            Button(action: {
-                                openCalendarApp()
-                            }) {
-                                Image(systemName: "calendar")
-                                    .font(.title3)
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            (deleteResponse.success ? Color.orange : Color.red)
-                                .opacity(0.2)
-                        )
-                )
-                .padding(.horizontal, 20)
-            } else {
-                EmptyView()
-            }
-        }
+        CalendarRemoveResultView(step: step)
     }
     
     // MARK: - Helper Functions
-    private static func openCalendarApp() {
+    static func openCalendarApp() {
         let schemes = ["calshow://", "x-apple-calendar://"]
         
         for scheme in schemes {
@@ -1251,7 +1010,7 @@ extension CalendarMCP {
         print("❌ No calendar URL schemes worked")
     }
     
-    private static func openEventInCalendar(_ event: CalendarEvent) {
+    static func openEventInCalendar(_ event: CalendarEvent) {
         // Debug logging
         print("🔍 Trying to open event: \(event.title)")
         print("🔍 Event ID: '\(event.id)'")
@@ -1306,8 +1065,60 @@ extension CalendarMCP {
         openCalendarApp()
     }
     
+    // MARK: - Calendar Color Helper
+    static func getCalendarColor(for calendarId: String) -> Color {
+        // Ensure we're on main thread for EventKit operations
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.sync {
+                return getCalendarColor(for: calendarId)
+            }
+        }
+        
+        let eventStore = EKEventStore()
+        let calendars = eventStore.calendars(for: .event)
+        
+        if let calendar = calendars.first(where: { $0.calendarIdentifier == calendarId }),
+           let cgColor = calendar.cgColor {
+            return Color(cgColor)
+        }
+        
+        // Default color if calendar not found
+        return Color.blue
+    }
+    
+    // MARK: - Event Time Formatting
+    static func formatEventTime(startDate: String, endDate: String, isAllDay: Bool) -> String {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.timeZone = TimeZone.current
+        
+        guard let start = isoFormatter.date(from: startDate),
+              let end = isoFormatter.date(from: endDate) else {
+            return "Invalid time"
+        }
+        
+        if isAllDay {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MMM d, yyyy"
+            return dateFormatter.string(from: start)
+        } else {
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "HH:mm"
+            
+            let calendar = Calendar.current
+            if calendar.isDate(start, inSameDayAs: end) {
+                // Same day
+                return "\(timeFormatter.string(from: start)) - \(timeFormatter.string(from: end))"
+            } else {
+                // Different days
+                let dateTimeFormatter = DateFormatter()
+                dateTimeFormatter.dateFormat = "MMM d, HH:mm"
+                return "\(dateTimeFormatter.string(from: start)) - \(dateTimeFormatter.string(from: end))"
+            }
+        }
+    }
+    
     // MARK: - Date Range Formatting
-    private static func formatDateRange(from dateRange: DateRange) -> String {
+    static func formatDateRange(from dateRange: DateRange) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
         formatter.timeZone = TimeZone.current
@@ -1376,5 +1187,304 @@ extension CalendarMCP {
         }
         
         return "Date range: \(dateRange.startDate) - \(dateRange.endDate)"
+    }
+}
+
+// MARK: - Calendar Result Views with Theme Support
+struct CalendarReadResultView: View {
+    let step: WorkflowStep
+    @Binding var showingCalendarDetail: Bool
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        Group {
+            if let resultValue = step.details["result"],
+               let jsonData = resultValue.data(using: .utf8),
+               let calendarResponse = try? JSONDecoder().decode(
+                   CalendarReadResponse.self,
+                   from: jsonData
+               )
+            {
+                // Simple compact view - clickable entire area
+                HStack(spacing: 16) {
+                    Image(systemName: calendarResponse.count > 0 ? "magnifyingglass" : "calendar.badge.exclamationmark")
+                        .font(.title2)
+                        .foregroundColor(ThemeColors.text(for: colorScheme))
+                        .frame(width: 24, height: 24)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(calendarResponse.count > 0 ? "Found \(calendarResponse.count) events in Calendar" : "No events found in Calendar")
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(ThemeColors.text(for: colorScheme))
+                        
+                        Text(CalendarMCP.formatDateRange(from: calendarResponse.dateRange))
+                            .font(.caption)
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                    }
+                    
+                    Spacer()
+                    
+                    // Tap to view indicator (only show if there are events)
+                    if calendarResponse.count > 0 {
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(ThemeColors.cardBackground(for: colorScheme))
+                )
+                .padding(.horizontal, 20)
+                .onTapGesture {
+                    // Only open detail if there are events
+                    if calendarResponse.count > 0 {
+                        showingCalendarDetail = true
+                    }
+                }
+                .sheet(isPresented: $showingCalendarDetail) {
+                    CalendarEventsDetailView(
+                        title: "Read Calendar",
+                        subtitle: CalendarMCP.formatDateRange(from: calendarResponse.dateRange),
+                        events: calendarResponse.events
+                    )
+                }
+            } else {
+                EmptyView()
+            }
+        }
+    }
+}
+
+struct CalendarUpdateResultView: View {
+    let step: WorkflowStep
+    @Binding var showingCalendarConfirmation: Bool
+    @Binding var eventToOpen: CalendarEvent?
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        Group {
+            if let resultValue = step.details["result"],
+               let jsonData = resultValue.data(using: .utf8),
+               let updateResponse = try? JSONDecoder().decode(
+                   CalendarUpdateResponse.self,
+                   from: jsonData
+               )
+            {
+                // Simple card layout similar to the reference image
+                HStack(spacing: 0) {
+                    // Left color bar
+                    Rectangle()
+                        .fill(CalendarMCP.getCalendarColor(for: updateResponse.event.calendarId))
+                        .frame(width: 4, height: 50)
+                        .cornerRadius(2)
+                        .padding(.leading, 12)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(updateResponse.event.title)
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(ThemeColors.text(for: colorScheme))
+                            .lineLimit(2)
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.caption)
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                            
+                            Text(CalendarMCP.formatEventTime(
+                                startDate: updateResponse.event.startDate,
+                                endDate: updateResponse.event.endDate,
+                                isAllDay: updateResponse.event.isAllDay
+                            ))
+                            .font(.caption)
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                        }
+                    }
+                    .padding(.leading, 16)
+                    .padding(.vertical, 16)
+                    
+                    Spacer()
+                    
+                    // Success indicator
+                    if updateResponse.success {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title3)
+                            .foregroundColor(.green)
+                            .padding(.trailing, 16)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(CalendarMCP.getCalendarColor(for: updateResponse.event.calendarId).opacity(0.25))
+                )
+                .padding(.horizontal, 20)
+                .onTapGesture {
+                    eventToOpen = updateResponse.event
+                    showingCalendarConfirmation = true
+                }
+                .alert("Open in Calendar", isPresented: $showingCalendarConfirmation) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Open") {
+                        if let event = eventToOpen {
+                            CalendarMCP.openEventInCalendar(event)
+                        }
+                    }
+                } message: {
+                    if let event = eventToOpen {
+                        Text("Do you want to open '\(event.title)' in the Calendar app?")
+                    }
+                }
+            } else {
+                EmptyView()
+            }
+        }
+    }
+}
+
+struct CalendarAddResultView: View {
+    let step: WorkflowStep
+    @Binding var showingCalendarConfirmation: Bool
+    @Binding var eventToOpen: CalendarEvent?
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        Group {
+            if let resultValue = step.details["result"],
+               let jsonData = resultValue.data(using: .utf8),
+               let addResponse = try? JSONDecoder().decode(
+                   CalendarAddResponse.self,
+                   from: jsonData
+               )
+            {
+                // Simple card layout similar to the reference image
+                HStack(spacing: 0) {
+                    // Left color bar
+                    Rectangle()
+                        .fill(CalendarMCP.getCalendarColor(for: addResponse.event.calendarId))
+                        .frame(width: 4, height: 50)
+                        .cornerRadius(2)
+                        .padding(.leading, 12)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(addResponse.event.title)
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(ThemeColors.text(for: colorScheme))
+                            .lineLimit(2)
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.caption)
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                            
+                            Text(CalendarMCP.formatEventTime(
+                                startDate: addResponse.event.startDate,
+                                endDate: addResponse.event.endDate,
+                                isAllDay: addResponse.event.isAllDay
+                            ))
+                            .font(.caption)
+                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                        }
+                    }
+                    .padding(.leading, 16)
+                    .padding(.vertical, 16)
+                    
+                    Spacer()
+                    
+                    // Success indicator
+                    if addResponse.success {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title3)
+                            .foregroundColor(.green)
+                            .padding(.trailing, 16)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(CalendarMCP.getCalendarColor(for: addResponse.event.calendarId).opacity(0.25))
+                )
+                .padding(.horizontal, 20)
+                .onTapGesture {
+                    eventToOpen = addResponse.event
+                    showingCalendarConfirmation = true
+                }
+                .alert("Open in Calendar", isPresented: $showingCalendarConfirmation) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Open") {
+                        if let event = eventToOpen {
+                            CalendarMCP.openEventInCalendar(event)
+                        }
+                    }
+                } message: {
+                    if let event = eventToOpen {
+                        Text("Do you want to open '\(event.title)' in the Calendar app?")
+                    }
+                }
+            } else {
+                EmptyView()
+            }
+        }
+    }
+}
+
+struct CalendarRemoveResultView: View {
+    let step: WorkflowStep
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        Group {
+            if let resultValue = step.details["result"],
+               let jsonData = resultValue.data(using: .utf8),
+               let deleteResponse = try? JSONDecoder().decode(
+                   CalendarDeleteResponse.self,
+                   from: jsonData
+               )
+            {
+                VStack(spacing: 16) {
+                    // Header with success/failure indicator
+                    HStack(spacing: 16) {
+                        Image(systemName: deleteResponse.success ? "trash.circle" : "xmark.circle")
+                            .font(.title2)
+                            .foregroundColor(ThemeColors.text(for: colorScheme))
+                            .frame(width: 24, height: 24)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(deleteResponse.success ? "Event Deleted Successfully" : "Failed to Delete Event")
+                                .font(.body)
+                                .fontWeight(.medium)
+                                .foregroundColor(ThemeColors.text(for: colorScheme))
+                            
+                            Text(deleteResponse.message)
+                                .font(.caption)
+                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                        }
+
+                        Spacer()
+
+                        if deleteResponse.success {
+                            Button(action: {
+                                CalendarMCP.openCalendarApp()
+                            }) {
+                                Image(systemName: "calendar")
+                                    .font(.title3)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 16)
+                }
+                .padding(.horizontal, 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(ThemeColors.cardBackground(for: colorScheme))
+                )
+            } else {
+                EmptyView()
+            }
+        }
     }
 }

@@ -61,20 +61,6 @@ class MemoryMCP: ObservableObject {
         Description: If user say something need to be remembered, this tool will be call.
         Arguments:
         - memory: String(required), a simple sentence, must be in user preferred language
-
-
-        **Things need to be remembered:**
-
-        1. User prefer something
-           1. Example: I like running around dusk
-        2. User define something
-           1. Example: When I say mauri or something, it usually mean Mori.
-        3. User information
-           1. Example 1: My daughter name Lucy, study at Bay Area Technology School
-           2. Example 2: I need pick up my daughter 4 pm at Bay Area Technology School
-              1. Remember: You have one daughter.
-              2. Remember: She's currently a student at Bay Area Technology School.
-        4. User routine
         """
     }
     
@@ -249,7 +235,7 @@ class MemoryMCP: ObservableObject {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 12)
                             .fill(Color.green.opacity(0.2))
                     )
                     .padding(.horizontal, 20)
@@ -276,7 +262,7 @@ class MemoryMCP: ObservableObject {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 12)
                             .fill(Color.red.opacity(0.2))
                     )
                     .padding(.horizontal, 20)

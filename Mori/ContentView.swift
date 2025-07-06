@@ -61,16 +61,14 @@ struct ContentView: View {
     @StateObject private var router = AppRouter()
     
     var body: some View {
-        NavigationStack {
-            Group {
-                switch router.currentRoute {
-                case .onboarding:
-                    OnboardingView()
-                        .environmentObject(router)
-                case .chat:
-                    MainView()
-                        .environmentObject(router)
-                }
+        Group {
+            switch router.currentRoute {
+            case .onboarding:
+                OnboardingView()
+                    .environmentObject(router)
+            case .chat:
+                MainView()
+                    .environmentObject(router)
             }
         }
         .environmentObject(router)

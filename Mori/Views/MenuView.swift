@@ -1,38 +1,12 @@
 import SwiftUI
 
 // MARK: - Menu Chat History Manager
-class MenuChatHistoryManager: ObservableObject {
-    @Published var chatHistories: [ChatHistory] = []
-    @AppStorage("currentChatHistoryId") var currentChatHistoryId: String?
-    private let chatHistoryManager = ChatHistoryManager()
-    
-    init() {
-        loadChatHistories()
-    }
-    
-    func loadChatHistories() {
-        chatHistories = chatHistoryManager.getAllChatHistories()
-    }
-    
-    func deleteChatHistory(_ historyId: String) {
-        chatHistoryManager.deleteChat(id: historyId)
-        loadChatHistories()
-        
-        // If the deleted chat is current, clear current ID
-        if currentChatHistoryId == historyId {
-            currentChatHistoryId = nil
-        }
-    }
-    
-    func renameChatHistory(_ historyId: String, to newTitle: String) {
-        chatHistoryManager.renameChat(id: historyId, newTitle: newTitle)
-        loadChatHistories()
-    }
-}
+// Using global shared ChatHistoryManager instance
 
 struct MenuView: View {
     @EnvironmentObject var router: AppRouter
-    @StateObject private var menuChatHistoryManager = MenuChatHistoryManager()
+    @ObservedObject private var chatHistoryManager = sharedChatHistoryManager
+    @AppStorage("currentChatHistoryId") private var currentChatHistoryId: String?
     @Binding var isPresented: Bool
     @State private var showingRenameAlert = false
     @State private var selectedHistoryId: String?
@@ -41,6 +15,7 @@ struct MenuView: View {
     @State private var showingActionAlert = false
     @State private var pendingAction: MenuAction?
     @State private var showingSettings = false
+    @Environment(\.colorScheme) var colorScheme
     
     enum MenuAction {
         case email
@@ -87,24 +62,31 @@ struct MenuView: View {
             // Chat History List
             ScrollView {
                 LazyVStack(spacing: 2) {
-                    ForEach(menuChatHistoryManager.chatHistories) { history in
+                    ForEach(chatHistoryManager.chatHistoryItems) { historyItem in
                         ChatHistoryItemView(
-                            history: history,
-                            isSelected: menuChatHistoryManager.currentChatHistoryId == history.id,
+                            historyItem: historyItem,
+                            isSelected: currentChatHistoryId == historyItem.id,
                             onSelect: {
-                                menuChatHistoryManager.currentChatHistoryId = history.id
-                                onSelectChatHistory?(history)
+                                currentChatHistoryId = historyItem.id
+                                // Need to load full ChatHistory for onSelectChatHistory
+                                if let fullHistory = chatHistoryManager.loadChatHistory(id: historyItem.id) {
+                                    onSelectChatHistory?(fullHistory)
+                                }
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     isPresented = false
                                 }
                             },
                             onRename: {
-                                selectedHistoryId = history.id
-                                renameText = history.title
+                                selectedHistoryId = historyItem.id
+                                renameText = historyItem.title
                                 showingRenameAlert = true
                             },
                             onDelete: {
-                                menuChatHistoryManager.deleteChatHistory(history.id)
+                                chatHistoryManager.deleteChat(id: historyItem.id)
+                                // If the deleted chat is current, clear current ID
+                                if currentChatHistoryId == historyItem.id {
+                                    currentChatHistoryId = nil
+                                }
                             }
                         )
                     }
@@ -160,17 +142,16 @@ struct MenuView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.secondary.opacity(0.05))
             }
         }
         .frame(maxWidth: .infinity)
-        .background(Color(UIColor.systemBackground))
+        .background(ThemeColors.background(for: colorScheme))
         .alert("Rename Chat", isPresented: $showingRenameAlert) {
             TextField("Chat Title", text: $renameText)
             Button("Cancel", role: .cancel) { }
             Button("Rename") {
                 if let historyId = selectedHistoryId {
-                    menuChatHistoryManager.renameChatHistory(historyId, to: renameText)
+                    chatHistoryManager.renameChat(id: historyId, newTitle: renameText)
                 }
             }
         }
@@ -215,6 +196,7 @@ struct MenuItemView: View {
     let title: String
     let action: () -> Void
     @State private var isHovered = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         Button(action: action) {
@@ -248,12 +230,13 @@ struct MenuItemView: View {
 }
 
 struct ChatHistoryItemView: View {
-    let history: ChatHistory
+    let historyItem: ChatHistoryItem
     let isSelected: Bool
     let onSelect: () -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
     @State private var isHovered = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         Button(action: onSelect) {
@@ -265,13 +248,13 @@ struct ChatHistoryItemView: View {
                     .frame(width: 14, height: 14)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(history.title)
+                    Text(historyItem.title)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(isSelected ? .white : .primary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     
-                    Text(history.updateDate.formatted(date: .abbreviated, time: .shortened))
+                    Text(historyItem.updateDate.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 11, weight: .regular))
                         .foregroundColor(isSelected ? .white.opacity(0.7) : .secondary.opacity(0.8))
                 }
@@ -326,13 +309,13 @@ struct ChatHistoryItemView: View {
                     .frame(width: 14, height: 14)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(history.title)
+                    Text(historyItem.title)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.primary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     
-                    Text(history.updateDate.formatted(date: .abbreviated, time: .shortened))
+                    Text(historyItem.updateDate.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 11, weight: .regular))
                         .foregroundColor(.secondary.opacity(0.8))
                 }
@@ -341,7 +324,7 @@ struct ChatHistoryItemView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color(UIColor.systemBackground))
+            .background(ThemeColors.cardBackground(for: colorScheme))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
         }
@@ -358,4 +341,5 @@ struct ChatHistoryItemView: View {
         onSelectChatHistory: nil
     )
     .environmentObject(AppRouter())
+    .environmentObject(ThemeManager.shared)
 } 

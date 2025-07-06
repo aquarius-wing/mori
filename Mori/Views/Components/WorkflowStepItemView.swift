@@ -11,6 +11,7 @@ struct WorkflowStepItemView: View {
     @State private var showingErrorDetail = false
     @State private var showingCalendarConfirmation = false
     @State private var eventToOpen: CalendarEvent?
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         // Dynamic rendering based on toolName and status
@@ -57,7 +58,6 @@ struct WorkflowStepItemView: View {
             // Status icon
             Image(systemName: iconForStatus)
                 .font(.title2)
-                .foregroundColor(step.status == .error ? .red : .white)
                 .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -66,7 +66,6 @@ struct WorkflowStepItemView: View {
                         Text(step.toolName)
                             .font(.body)
                             .fontWeight(.medium)
-                            .foregroundColor(.white)
                     }
                 }
 
@@ -76,12 +75,10 @@ struct WorkflowStepItemView: View {
                         if let shortMessage = step.details["short_message"], !shortMessage.isEmpty {
                             Text(shortMessage)
                                 .font(.body)
-                                .foregroundColor(.white)
                                 .lineLimit(2)
                         } else if let errorType = step.details["error_type"], !errorType.isEmpty {
                             Text(errorType)
                                 .font(.body)
-                                .foregroundColor(.white)
                         }
                     } else {
                         // For non-error status, show all details as before
@@ -90,7 +87,6 @@ struct WorkflowStepItemView: View {
                             if let value = step.details[key], !value.isEmpty {
                                 Text(value)
                                     .font(.body)
-                                    .foregroundColor(.white)
                             }
                         }
                     }
@@ -108,12 +104,11 @@ struct WorkflowStepItemView: View {
                         Text("Retry")
                             .font(.caption)
                     }
-                    .foregroundColor(.white.opacity(0.8))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.white.opacity(0.1))
+                            .fill(ThemeColors.border(for: colorScheme))
                     )
                 }
                 .frame(maxHeight: .infinity)
@@ -124,11 +119,12 @@ struct WorkflowStepItemView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
+        .foregroundColor(step.status == .error ? .white : ThemeColors.text(for: colorScheme))
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 12)
                 .fill(
                     step.status == .error
-                        ? Color.red.opacity(0.2) : Color.white.opacity(0.1)
+                        ? Color.red : ThemeColors.cardBackground(for: colorScheme)
                 )
         )
         .padding(.horizontal, 20)

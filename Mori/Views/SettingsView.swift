@@ -5,10 +5,28 @@ import MarkdownUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingCalendarSettings = false
+    @ObservedObject private var themeManager = ThemeManager.shared
     
     var body: some View {
         NavigationStack {
             List {
+                Section("Appearance") {
+                    NavigationLink(destination: ThemeSettingsView()) {
+                        HStack {
+                            Image(systemName: "paintbrush")
+                                .foregroundColor(.orange)
+                                .frame(width: 24, height: 24)
+                            
+                            VStack(alignment: .leading) {
+                                Text("Theme Settings")
+                                Text(themeManager.currentMode.displayName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                
                 Section("Memory") {
                     NavigationLink(destination: MemoryView()) {
                         HStack {
@@ -406,6 +424,81 @@ struct MemoryView: View {
     }
 }
 
+// MARK: - Theme Settings View
+struct ThemeSettingsView: View {
+    @ObservedObject private var themeManager = ThemeManager.shared
+    
+    var body: some View {
+        List {
+            Section {
+                ForEach(ThemeMode.allCases, id: \.self) { mode in
+                    ThemeSelectionRow(
+                        mode: mode,
+                        isSelected: themeManager.currentMode == mode,
+                        onSelect: {
+                            themeManager.setTheme(mode)
+                        }
+                    )
+                }
+            } header: {
+                Text("Select Theme")
+            } footer: {
+                Text("Choose the appearance theme for the app. System will automatically switch based on your system settings.")
+            }
+        }
+        .navigationTitle("Theme Settings")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct ThemeSelectionRow: View {
+    let mode: ThemeMode
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: {
+            // Add haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+            
+            onSelect()
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: mode.icon)
+                    .foregroundColor(iconColor)
+                    .frame(width: 24, height: 24)
+                
+                Text(mode.displayName)
+                    .foregroundColor(.primary)
+                    .font(.body)
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.blue)
+                        .font(.body)
+                }
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var iconColor: Color {
+        switch mode {
+        case .system:
+            return .primary
+        case .light:
+            return .orange
+        case .dark:
+            return .indigo
+        }
+    }
+}
+
 #Preview("Memory View - With Content") {
     NavigationStack {
         MemoryView()
@@ -420,6 +513,12 @@ struct MemoryView: View {
         - 用户定义
           - 当用户说mauri时，通常指的是Mori应用
         """)
+    }
+}
+
+#Preview("Theme Settings") {
+    NavigationStack {
+        ThemeSettingsView()
     }
 }
 
