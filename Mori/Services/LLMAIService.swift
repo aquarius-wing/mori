@@ -374,7 +374,7 @@ class LLMAIService: ObservableObject {
         
         var request = URLRequest(url: sttURL)
         request.httpMethod = "POST"
-        request.timeoutInterval = 60.0
+        request.timeoutInterval = 300.0
         
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -393,7 +393,7 @@ class LLMAIService: ObservableObject {
         // Add model parameter
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
-        body.append("whisper-1\r\n".data(using: .utf8)!)
+        body.append("gpt-4o-mini-transcribe\r\n".data(using: .utf8)!)
         
         // Add language parameter (ISO-639-1 format)
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
