@@ -142,7 +142,6 @@ struct MenuView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(ThemeColors.secondaryBackground(for: colorScheme))
             }
         }
         .frame(maxWidth: .infinity)

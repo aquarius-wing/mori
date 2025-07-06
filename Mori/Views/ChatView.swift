@@ -230,7 +230,7 @@ struct ChatView: View {
                                         Image(
                                             systemName: isStreaming ? "stop.fill" : (isSending ? "hourglass" : "arrow.up")
                                         )
-                                        .foregroundColor(ThemeColors.text(for: colorScheme))
+                                        .foregroundColor(.white)
                                     }
                                     .frame(width: 32, height: 32)
                                     .background(
