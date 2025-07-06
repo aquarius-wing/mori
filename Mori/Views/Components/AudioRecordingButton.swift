@@ -9,6 +9,7 @@ struct AudioRecordingButton: View {
     let onTranscriptionComplete: (String) -> Void
     let onError: (String) -> Void
     let isDisabled: Bool
+    let isStreaming: Bool
     let cancelZoneFrame: CGRect
     
     // Recording states from parent
@@ -32,11 +33,13 @@ struct AudioRecordingButton: View {
                 Image(systemName: isRecording ? "mic.fill" : "mic")
                     .foregroundColor(buttonColor)
                     .font(.body)
-                    .scaleEffect(isRecording ? 1.2 : 1.0)
+                    .scaleEffect(isRecording ? 1.2 : (isDisabled || isStreaming ? 0.8 : 1.0))
                     .animation(.easeInOut(duration: 0.1), value: isRecording)
+                    .animation(.easeInOut(duration: 0.2), value: isDisabled)
+                    .animation(.easeInOut(duration: 0.2), value: isStreaming)
                     .frame(width: 32, height: 32)
             }
-            .disabled(isDisabled || isTranscribing || !recordingPermissionGranted)
+            .disabled(isDisabled || isTranscribing || !recordingPermissionGranted || isStreaming)
             .onLongPressGesture(
                 minimumDuration: 0.5,
                 maximumDistance: .infinity, // Allow unlimited movement
@@ -44,6 +47,11 @@ struct AudioRecordingButton: View {
                     // This will rarely be called because we handle in onPressingChanged
                 },
                 onPressingChanged: { pressing in
+                    // Block all interactions during streaming
+                    guard !isStreaming && !isDisabled && !isTranscribing && recordingPermissionGranted else {
+                        return
+                    }
+                    
                     if pressing {
                         // Long press started - start recording
                         handleStartRecording()
@@ -62,6 +70,11 @@ struct AudioRecordingButton: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
+                        // Block drag interactions during streaming
+                        guard !isStreaming && !isDisabled && !isTranscribing && recordingPermissionGranted else {
+                            return
+                        }
+                        
                         if isRecording {
                             isDragging = true
                             dragOffset = value.translation
@@ -81,7 +94,11 @@ struct AudioRecordingButton: View {
                         }
                     }
                     .onEnded { value in
-                    // will trigger better than
+                        // Block drag end interactions during streaming
+                        guard !isStreaming && !isDisabled && !isTranscribing && recordingPermissionGranted else {
+                            return
+                        }
+                        
                         isDragging = false
                         dragOffset = .zero
                         print("🛑 DragGesture onEnded isRecording: \(isRecording) isDraggedToCancel: \(isDraggedToCancel)")
@@ -126,14 +143,14 @@ struct AudioRecordingButton: View {
     // MARK: - Computed Properties
     
     private var buttonColor: Color {
-        if isDisabled || isTranscribing {
-            return .gray
+        if isDisabled || isTranscribing || isStreaming {
+            return .gray.opacity(0.5)
         } else if isRecording {
             return .red
         } else if recordingPermissionGranted {
             return .white
         } else {
-            return .gray
+            return .gray.opacity(0.5)
         }
     }
     
@@ -227,7 +244,7 @@ struct AudioRecordingButton: View {
 // MARK: - Preview
 #Preview {
     VStack(spacing: 20) {
-        Text("Normal State")
+        Text("Normal State").foregroundColor(.white)
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -237,6 +254,7 @@ struct AudioRecordingButton: View {
                 print("Error: \(error)")
             },
             isDisabled: false,
+            isStreaming: false,
             cancelZoneFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
             isRecording: .constant(false),
             isTranscribing: .constant(false),
@@ -244,7 +262,7 @@ struct AudioRecordingButton: View {
             isDraggedToCancel: .constant(false)
         )
         
-        Text("Recording State")
+        Text("Recording State").foregroundColor(.white)
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -254,6 +272,7 @@ struct AudioRecordingButton: View {
                 print("Error: \(error)")
             },
             isDisabled: false,
+            isStreaming: false,
             cancelZoneFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
             isRecording: .constant(true),
             isTranscribing: .constant(false),
@@ -261,7 +280,7 @@ struct AudioRecordingButton: View {
             isDraggedToCancel: .constant(false)
         )
         
-        Text("Transcribing State")
+        Text("Transcribing State").foregroundColor(.white)
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -271,9 +290,28 @@ struct AudioRecordingButton: View {
                 print("Error: \(error)")
             },
             isDisabled: false,
+            isStreaming: false,
             cancelZoneFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
             isRecording: .constant(false),
             isTranscribing: .constant(true),
+            recordingPermissionGranted: .constant(true),
+            isDraggedToCancel: .constant(false)
+        )
+        
+        Text("Disabled State (Streaming)").foregroundColor(.white)
+        AudioRecordingButton(
+            llmService: nil,
+            onTranscriptionComplete: { text in
+                print("Transcribed: \(text)")
+            },
+            onError: { error in
+                print("Error: \(error)")
+            },
+            isDisabled: false,
+            isStreaming: true,
+            cancelZoneFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
+            isRecording: .constant(false),
+            isTranscribing: .constant(false),
             recordingPermissionGranted: .constant(true),
             isDraggedToCancel: .constant(false)
         )

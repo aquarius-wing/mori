@@ -196,7 +196,7 @@ struct ChatView: View {
                                 HStack(spacing: 12) {
                                     Spacer()
                                     
-                                    // Audio Recording Button
+                                                                        // Audio Recording Button
                                     HStack(spacing: 12) {
                                         AudioRecordingButton(
                                             llmService: llmService,
@@ -214,6 +214,7 @@ struct ChatView: View {
                                                 }
                                             },
                                             isDisabled: isSending || isStreaming,
+                                            isStreaming: isStreaming,
                                             cancelZoneFrame: cancelZoneFrame,
                                             isRecording: $isRecording,
                                             isTranscribing: $isTranscribing,
@@ -1332,4 +1333,17 @@ struct ChatView: View {
         isDraggedToCancel: true
     )
     .preferredColorScheme(.dark)
+}
+
+#Preview("Streaming State - Microphone Disabled") {
+    ChatView(
+        initialMessages: [
+            .chatMessage(ChatMessage(content: "Tell me about AI", isUser: true))
+        ]
+    )
+    .preferredColorScheme(.dark)
+    .onAppear {
+        // Simulate streaming state to show disabled microphone
+        // Note: This is for preview purposes only
+    }
 }
