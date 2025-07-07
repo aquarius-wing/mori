@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingCalendarSettings = false
     @ObservedObject private var themeManager = ThemeManager.shared
+    @ObservedObject private var calendarSyncManager = CalendarSyncManager.shared
     
     var body: some View {
         NavigationStack {
@@ -39,6 +40,28 @@ struct SettingsView: View {
                     }
                 }
                 
+                Section("Data Sync") {
+                    NavigationLink(destination: CalendarSyncView()) {
+                        HStack {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .foregroundColor(.green)
+                                .frame(width: 24, height: 24)
+                            
+                            Text("Calendar Sync")
+                            
+                            Spacer()
+                            
+                            Text("\(calendarSyncManager.eventCount)")
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                
                 Section("Calendar") {
                     NavigationLink(destination: CalendarSettingsView()) {
                         HStack {
@@ -60,6 +83,9 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+        .onAppear {
+            calendarSyncManager.loadEventData()
         }
     }
 }
@@ -514,6 +540,145 @@ struct ThemeSelectionRow: View {
           - 当用户说mauri时，通常指的是Mori应用
         """)
     }
+}
+
+struct CalendarSyncView: View {
+    @ObservedObject private var calendarSyncManager = CalendarSyncManager.shared
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Sync Status") {
+                    HStack {
+                        Image(systemName: syncStatusIcon)
+                            .foregroundColor(syncStatusColor)
+                            .frame(width: 24, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Status")
+                                .font(.body)
+                            Text(calendarSyncManager.syncStatus.displayString)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    HStack {
+                        Image(systemName: "calendar.badge.clock")
+                            .foregroundColor(.blue)
+                            .frame(width: 24, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Last Sync")
+                                .font(.body)
+                            Text(lastSyncTimeText)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    HStack {
+                        Image(systemName: "number.circle")
+                            .foregroundColor(.purple)
+                            .frame(width: 24, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Events Synced")
+                                .font(.body)
+                            Text("\(calendarSyncManager.eventCount)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                // Section("Recent Events") {
+                //    if calendarSyncManager.recentEventsAsLocal.isEmpty {
+                //        Text("No recent events")
+                //            .foregroundColor(.secondary)
+                //            .font(.caption)
+                //    } else {
+                //        ForEach(calendarSyncManager.recentEventsAsLocal.indices, id: \.self) { index in
+                //            let event = calendarSyncManager.recentEventsAsLocal[index]
+                //            VStack(alignment: .leading, spacing: 4) {
+                //                Text(event.title)
+                //                    .font(.body)
+                //                HStack {
+                //                    Text(event.startDate, style: .date)
+                //                        .font(.caption)
+                //                        .foregroundColor(.secondary)
+                //                    Spacer()
+                //                    Text(event.startDate, style: .time)
+                //                        .font(.caption)
+                //                        .foregroundColor(.secondary)
+                //                }
+                //            }
+                //        }
+                //    }
+                // }
+                
+                if let error = calendarSyncManager.errorMessage {
+                    Section("Error") {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+            }
+            .navigationTitle("Calendar Sync")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Sync Now") {
+                        calendarSyncManager.performSync()
+                    }
+                    .disabled(calendarSyncManager.isActive)
+                }
+            }
+            .onAppear {
+                calendarSyncManager.loadEventData()
+            }
+        }
+    }
+    
+    private var syncStatusIcon: String {
+        switch calendarSyncManager.syncStatus {
+        case .syncing:
+            return "arrow.triangle.2.circlepath"
+        case .idle:
+            return "checkmark.circle"
+        case .error:
+            return "exclamationmark.triangle"
+        default:
+            return "circle"
+        }
+    }
+    
+    private var syncStatusColor: Color {
+        switch calendarSyncManager.syncStatus {
+        case .syncing:
+            return .blue
+        case .idle:
+            return .green
+        case .error:
+            return .red
+        default:
+            return .gray
+        }
+    }
+    
+    private var lastSyncTimeText: String {
+        if let lastSync = calendarSyncManager.lastSyncTime {
+            return DateFormatter.localizedString(from: lastSync, dateStyle: .short, timeStyle: .short)
+        } else {
+            return "Never"
+        }
+    }
+}
+
+
+#Preview("Calendar Sync") {
+    CalendarSyncView()
 }
 
 #Preview("Theme Settings") {
