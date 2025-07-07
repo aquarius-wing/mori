@@ -7,11 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		20020FE72E1A36A80053950E /* CalendarSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20020FE62E1A36A80053950E /* CalendarSyncManager.swift */; };
 		202D162C2E05535400493124 /* ChatView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162B2E05535400493124 /* ChatView2.swift */; };
 		202D162E2E06648800493124 /* ChatHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D162D2E06648800493124 /* ChatHistoryManager.swift */; };
 		202D162F2E06648900493124 /* ChatHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D16302E06648900493124 /* ChatHistory.swift */; };
 		202D16A12E0FD7DD00493124 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 202D16A02E0FD7DD00493124 /* MarkdownUI */; };
 		209320552E126A05003AF64D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209320542E126A05003AF64D /* SettingsView.swift */; };
+		20CA7B492E1A2BE200C5479F /* PersonalSync in Frameworks */ = {isa = PBXBuildFile; productRef = 20CA7B482E1A2BE200C5479F /* PersonalSync */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
 		20DE193D2E0049FD00CD902D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193C2E0049FD00CD902D /* MainView.swift */; };
@@ -48,6 +50,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		20020FE62E1A36A80053950E /* CalendarSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncManager.swift; sourceTree = "<group>"; };
 		202D16182E051A9E00493124 /* Mori.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mori.entitlements; sourceTree = "<group>"; };
 		202D162B2E05535400493124 /* ChatView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView2.swift; sourceTree = "<group>"; };
 		202D162D2E06648800493124 /* ChatHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryManager.swift; sourceTree = "<group>"; };
@@ -98,6 +101,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				202D16A12E0FD7DD00493124 /* MarkdownUI in Frameworks */,
+				20CA7B492E1A2BE200C5479F /* PersonalSync in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -176,6 +180,7 @@
 				"51BBD625-41CD-4494-AB9D-A5080E29C31D" /* MemoryMCP.swift */,
 				202D162D2E06648800493124 /* ChatHistoryManager.swift */,
 				A2000002000000000000001 /* AudioRecordingManager.swift */,
+				20020FE62E1A36A80053950E /* CalendarSyncManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -271,6 +276,7 @@
 			mainGroup = A1000022000000000000001;
 			packageReferences = (
 				202D169F2E0FD77300493124 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				20020FE82E1A36C20053950E /* XCRemoteSwiftPackageReference "personal-sync" */,
 			);
 			productRefGroup = A1000024000000000000001 /* Products */;
 			projectDirPath = "";
@@ -326,6 +332,7 @@
 				20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */,
 				30F224202E0665A000493124 /* ChatItemView.swift in Sources */,
 				30F224222E0665B000493124 /* WorkflowStepItemView.swift in Sources */,
+				20020FE72E1A36A80053950E /* CalendarSyncManager.swift in Sources */,
 				30F224242E0665C000493124 /* CalendarEventComponents.swift in Sources */,
 				30F224262E0665D000493124 /* ErrorDetailView.swift in Sources */,
 				20DE193B2E0046F900CD902D /* MenuView.swift in Sources */,
@@ -614,12 +621,28 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		20020FE82E1A36C20053950E /* XCRemoteSwiftPackageReference "personal-sync" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/aquarius-wing/personal-sync";
+			requirement = {
+				kind = revision;
+				revision = 6c4dba7ab486993216ddd0115ececf4a8d4df761;
+			};
+		};
 		202D169F2E0FD77300493124 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.4.1;
+			};
+		};
+		20CA7B472E1A2BE200C5479F /* XCRemoteSwiftPackageReference "personal-sync" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/aquarius-wing/personal-sync";
+			requirement = {
+				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -629,6 +652,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 202D169F2E0FD77300493124 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
+		};
+		20CA7B482E1A2BE200C5479F /* PersonalSync */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 20CA7B472E1A2BE200C5479F /* XCRemoteSwiftPackageReference "personal-sync" */;
+			productName = PersonalSync;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

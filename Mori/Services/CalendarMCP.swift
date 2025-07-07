@@ -1,6 +1,7 @@
 import Foundation
 import EventKit
 import SwiftUI
+import PersonalSync
 
 // MARK: - Calendar Settings Manager
 class CalendarSettings: ObservableObject {
@@ -170,6 +171,15 @@ class CalendarMCP: ObservableObject {
         return EKEventStore()
     }()
     
+    private lazy var calendarSync: PersonalSync.CalendarSync? = {
+        do {
+            return try PersonalSync.CalendarSync()
+        } catch {
+            print("❌ Failed to initialize PersonalSync.CalendarSync: \(error.localizedDescription)")
+            return nil
+        }
+    }()
+    
     // MARK: - Tool Definition
     static func getToolDescription() -> String {
         // current time zone as +08:00
@@ -210,6 +220,7 @@ class CalendarMCP: ObservableObject {
         Arguments:
         - startDate: like \(startString) (required)
         - endDate: like \(endString) (required)
+        - keyword: Keyword to search for events (optional)
         - calendarId: Specific calendar ID to read from (optional, if not provided will read from user's enabled calendars)
         
         Tool: add-calendar
@@ -382,6 +393,7 @@ class CalendarMCP: ObservableObject {
         }
         
         let calendarId = arguments["calendarId"] as? String
+        let keyword = arguments["keyword"] as? String ?? ""
         
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.timeZone = TimeZone.current
@@ -397,64 +409,78 @@ class CalendarMCP: ObservableObject {
             throw CalendarMCPError.accessDenied("Calendar access not granted")
         }
         
-        // Get calendars to search
-        var calendarsToSearch: [EKCalendar]?
+        // Use PersonalSync CalendarSync for reading events
+        guard let calendarSync = calendarSync else {
+            throw CalendarMCPError.accessDenied("PersonalSync CalendarSync not available")
+        }
+        
+        // Prepare calendar identifiers list
+        var calendarIdentifierList: [String]?
         if let calendarId = calendarId {
-            // Find specific calendar
-            let allCalendars = eventStore.calendars(for: .event)
-            if let specificCalendar = allCalendars.first(where: { $0.calendarIdentifier == calendarId }) {
-                calendarsToSearch = [specificCalendar]
-                print("📅 Reading from specific calendar: \(specificCalendar.title)")
-            } else {
-                throw CalendarMCPError.invalidArguments("Calendar with ID '\(calendarId)' not found")
-            }
+            // Use specific calendar
+            calendarIdentifierList = [calendarId]
+            print("📅 Reading from specific calendar: \(calendarId)")
         } else {
             // Read from user's enabled calendars
             let calendarSettings = CalendarSettings.shared
-            let allCalendars = eventStore.calendars(for: .event)
-            let enabledCalendars = allCalendars.filter { calendarSettings.isCalendarEnabled($0.calendarIdentifier) }
-            calendarsToSearch = enabledCalendars.isEmpty ? nil : enabledCalendars
-            print("📅 Reading from \(enabledCalendars.count) enabled calendars")
+            let enabledCalendarIds = Array(calendarSettings.enabledCalendarIds)
+            calendarIdentifierList = enabledCalendarIds.isEmpty ? nil : enabledCalendarIds
+            print("📅 Reading from \(enabledCalendarIds.count) enabled calendars")
         }
         
-        // Create predicate for date range
-        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: calendarsToSearch)
-        let events = eventStore.events(matching: predicate)
+        // Use PersonalSync searchEvents method
+        let personalSyncEvents: [PersonalSync.CalendarEvent]
+        do {
+            personalSyncEvents = try calendarSync.searchEvents(
+                keyword: keyword,
+                from: startDate,
+                to: endDate,
+                calendarIdentifierList: calendarIdentifierList
+            )
+            if !keyword.isEmpty {
+                print("📅 Searched with keyword: '\(keyword)'")
+            }
+        } catch {
+            print("❌ PersonalSync searchEvents failed: \(error.localizedDescription)")
+            throw CalendarMCPError.accessDenied("Failed to search events: \(error.localizedDescription)")
+        }
         
-        // Convert events to dictionary format
+        // Convert PersonalSync events to dictionary format
         let outputFormatter = ISO8601DateFormatter()
         outputFormatter.timeZone = TimeZone.current
         
-        let eventList = events.map { event in
-            // Convert EKAlarms to CalendarAlarm format
-            let alarms = event.alarms?.map { ekAlarm -> [String: Any] in
-                var alarmDict: [String: Any] = [:]
-                
-                // Convert seconds to minutes
-                alarmDict["relative_offset"] = ekAlarm.relativeOffset / 60.0
-                
-                if let absoluteDate = ekAlarm.absoluteDate {
-                    alarmDict["absolute_date"] = outputFormatter.string(from: absoluteDate)
-                }
-                
-                return alarmDict
-            } ?? []
+        let eventList = personalSyncEvents.map { event in
+            // Convert PersonalSync event to local format using extension
+            let localEvent = event.toLocalCalendarEvent()
             
             return [
-                "id": event.eventIdentifier ?? "",
-                "title": event.title ?? "No Title",
-                "start_date": outputFormatter.string(from: event.startDate),
-                "end_date": outputFormatter.string(from: event.endDate),
-                "location": event.location ?? "",
-                "notes": event.notes ?? "",
-                "is_all_day": event.isAllDay,
-                "calendar_id": event.calendar?.calendarIdentifier ?? "",
-                "calendar_title": event.calendar?.title ?? "",
-                "alarms": alarms
+                "id": localEvent.id,
+                "title": localEvent.title,
+                "start_date": localEvent.startDate,
+                "end_date": localEvent.endDate,
+                "location": localEvent.location,
+                "notes": localEvent.notes,
+                "is_all_day": localEvent.isAllDay,
+                "calendar_id": localEvent.calendarId,
+                "calendar_title": localEvent.calendarTitle,
+                "alarms": localEvent.alarms.map { alarm in
+                    var alarmDict: [String: Any] = [:]
+                    if let relativeOffset = alarm.relativeOffset {
+                        alarmDict["relative_offset"] = relativeOffset
+                    }
+                    if let absoluteDate = alarm.absoluteDate {
+                        alarmDict["absolute_date"] = absoluteDate
+                    }
+                    return alarmDict
+                }
             ]
         }
         
-        print("📅 Found \(eventList.count) events")
+        if !keyword.isEmpty {
+            print("📅 Found \(eventList.count) events matching keyword '\(keyword)'")
+        } else {
+            print("📅 Found \(eventList.count) events")
+        }
         
         let response = CalendarReadResponse(
             success: true,
@@ -905,6 +931,31 @@ class CalendarMCP: ObservableObject {
             print("❌ Failed to delete event: \(error.localizedDescription)")
             throw CalendarMCPError.deletionFailed("Failed to delete event: \(error.localizedDescription)")
         }
+    }
+}
+
+// MARK: - PersonalSync Extensions
+extension PersonalSync.CalendarEvent {
+    /// Convert PersonalSync.CalendarEvent to local CalendarEvent for CalendarMCP compatibility
+    func toLocalCalendarEvent() -> CalendarEvent {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = TimeZone.current
+        
+        // TODO: Convert PersonalSync alarms to CalendarAlarm format when available
+        let calendarAlarms: [CalendarAlarm] = []
+        
+        return CalendarEvent(
+            id: self.eventIdentifier ?? UUID().uuidString,
+            title: self.title ?? "No Title",
+            startDate: formatter.string(from: self.startDate),
+            endDate: formatter.string(from: self.endDate),
+            location: self.location ?? "",
+            notes: self.notes ?? "",
+            isAllDay: self.isAllDay,
+            calendarId: self.calendarIdentifier ?? "",
+            calendarTitle: self.calendarTitle ?? "",
+            alarms: calendarAlarms
+        )
     }
 }
 

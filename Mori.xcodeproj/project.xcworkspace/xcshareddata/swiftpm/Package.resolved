@@ -1,6 +1,15 @@
 {
-  "originHash" : "04d9e4d8045a6310349928a2f8d2e6c6fe1c41e0c952a800e312800fac9624f9",
+  "originHash" : "ee153a188e5da29c0769ed112b76d9096bf1b5918bea9656a11c93e688251290",
   "pins" : [
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift.git",
+      "state" : {
+        "revision" : "2cf6c756e1e5ef6901ebae16576a7e4e4b834622",
+        "version" : "6.29.3"
+      }
+    },
     {
       "identity" : "networkimage",
       "kind" : "remoteSourceControl",
@@ -8,6 +17,14 @@
       "state" : {
         "revision" : "2849f5323265386e200484b0d0f896e73c3411b9",
         "version" : "6.0.1"
+      }
+    },
+    {
+      "identity" : "personal-sync",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aquarius-wing/personal-sync",
+      "state" : {
+        "revision" : "6c4dba7ab486993216ddd0115ececf4a8d4df761"
       }
     },
     {
