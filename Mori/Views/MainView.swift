@@ -13,15 +13,12 @@ struct MainView: View {
     
     @State private var showingFilesView = false
     @State private var selectedChatHistory: ChatHistory?
-    @State private var columnVisibility = NavigationSplitViewVisibility
-        .automatic
+    @State private var columnVisibility = NavigationSplitViewVisibility.automatic
 
     var body: some View {
         // Check if device is iPad or Mac
-        if UIDevice.current.userInterfaceIdiom == .pad
-            || ProcessInfo.processInfo.isMacCatalystApp
-        {
-            // iPad and macOS: Use NavigationSplitView
+        if UIDevice.current.userInterfaceIdiom == .pad || ProcessInfo.processInfo.isMacCatalystApp {
+            // iPad and macOS: Use NavigationSplitView with TabView
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 // Sidebar - MenuView
                 MenuSidebarView(
@@ -39,79 +36,81 @@ struct MainView: View {
                 )
                 .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
             } detail: {
-                // Detail - ChatView
-                ChatView()
+                // Detail - Use TabContainerView
+                TabContainerView()
             }
             .navigationSplitViewStyle(.balanced)
             .sheet(isPresented: $showingFilesView) {
                 FilesView()
             }
         } else {
-            // iPhone: Use NavigationStack with different layout
-            GeometryReader { geometry in
-                ZStack {
-                    NavigationView {
-                        ChatView(onShowMenu: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showingMenu.toggle()
+            // iPhone: Use TabContainerView with custom chat content for menu functionality
+            TabContainerView {
+                AnyView(
+                    GeometryReader { geometry in
+                        ZStack {
+                            NavigationView {
+                                ChatView(onShowMenu: {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showingMenu.toggle()
+                                    }
+                                })
                             }
-                        })
-                    }
-                    .navigationBarHidden(true)
-                    .offset(
-                        x: showingMenu ? geometry.size.width - rightPadding : 0
-                    )
-
-                    // Side Menu Overlay
-                    if showingMenu {
-                        ThemeColors.background(for: colorScheme)
-                            .opacity(0.1)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    showingMenu = false
-                                }
-                            }
-
-                        HStack {
-                            MenuView(
-                                isPresented: $showingMenu,
-                                onClearChat: {
-                                    // This will be handled by ChatView
-                                },
-                                onShowFiles: {
-                                    showingFilesView = true
-                                },
-                                onSelectChatHistory: { chatHistory in
-                                    // ChatView will handle loading the selected chat history
-                                    NotificationCenter.default.post(
-                                        name: NSNotification.Name(
-                                            "LoadChatHistory"
-                                        ),
-                                        object: chatHistory
-                                    )
-                                }
+                            .navigationBarHidden(true)
+                            .offset(
+                                x: showingMenu ? geometry.size.width - rightPadding : 0
                             )
-                            .frame(width: geometry.size.width - rightPadding)
-                            .transition(.move(edge: .leading))
-                            .overlay(
+
+                            // Side Menu Overlay
+                            if showingMenu {
+                                ThemeColors.background(for: colorScheme)
+                                    .opacity(0.1)
+                                    .ignoresSafeArea()
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            showingMenu = false
+                                        }
+                                    }
+
                                 HStack {
-                                    Spacer()
-                                    Rectangle()
-                                        .fill(ThemeColors.border(for: colorScheme))
-                                        .frame(width: 1)
-                                        .ignoresSafeArea()
-                                }
-                            )
+                                    MenuView(
+                                        isPresented: $showingMenu,
+                                        onClearChat: {
+                                            // This will be handled by ChatView
+                                        },
+                                        onShowFiles: {
+                                            showingFilesView = true
+                                        },
+                                        onSelectChatHistory: { chatHistory in
+                                            // ChatView will handle loading the selected chat history
+                                            NotificationCenter.default.post(
+                                                name: NSNotification.Name("LoadChatHistory"),
+                                                object: chatHistory
+                                            )
+                                        }
+                                    )
+                                    .frame(width: geometry.size.width - rightPadding)
+                                    .transition(.move(edge: .leading))
+                                    .overlay(
+                                        HStack {
+                                            Spacer()
+                                            Rectangle()
+                                                .fill(ThemeColors.border(for: colorScheme))
+                                                .frame(width: 1)
+                                                .ignoresSafeArea()
+                                        }
+                                    )
 
-                            Spacer()
+                                    Spacer()
+                                }
+                            }
                         }
+                        .animation(.easeInOut(duration: 0.3), value: showingMenu)
                     }
-                }
-                .sheet(isPresented: $showingFilesView) {
-                    FilesView()
-                }
-                .animation(.easeInOut(duration: 0.3), value: showingMenu)
+                )
+            }
+            .sheet(isPresented: $showingFilesView) {
+                FilesView()
             }
         }
     }

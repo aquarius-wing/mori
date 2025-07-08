@@ -4,6 +4,7 @@ import SwiftUI
 enum AppRoute: String, CaseIterable {
     case onboarding = "onboarding"
     case chat = "chat"
+    case chart = "chart"
 }
 
 // MARK: - App Router
@@ -29,6 +30,10 @@ class AppRouter: ObservableObject {
     
     func navigateToChat() {
         currentRoute = .chat
+    }
+    
+    func navigateToChart() {
+        currentRoute = .chart
     }
     
     func completeOnboarding() {
@@ -66,7 +71,7 @@ struct ContentView: View {
             case .onboarding:
                 OnboardingView()
                     .environmentObject(router)
-            case .chat:
+            case .chat, .chart:
                 MainView()
                     .environmentObject(router)
             }
