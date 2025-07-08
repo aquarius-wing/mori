@@ -1,6 +1,15 @@
 {
-  "originHash" : "ee153a188e5da29c0769ed112b76d9096bf1b5918bea9656a11c93e688251290",
+  "originHash" : "8c5b291c5d346e7a6c65d6dd8b85adabbebcbd89bf9f12977929e7d366894f2b",
   "pins" : [
+    {
+      "identity" : "axiscontribution",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jasudev/AxisContribution.git",
+      "state" : {
+        "revision" : "dd794264fe7f4c265e05bc0867370ed587e27279",
+        "version" : "0.5.0"
+      }
+    },
     {
       "identity" : "grdb.swift",
       "kind" : "remoteSourceControl",
