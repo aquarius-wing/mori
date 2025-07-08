@@ -5,7 +5,11 @@ struct CustomContributionGridView: View {
     
     let activities: [GameActivityData]
     
-    private var dateHoursMap: [Date: Double] {
+    // Use @State to cache the computed result and avoid recalculation
+    @State private var dateHoursMap: [Date: Double] = [:]
+    
+    // Helper function to compute dateHoursMap
+    private func computeDateHoursMap() -> [Date: Double] {
         var calendar = Calendar.current
         // time zone is UTC
         calendar.timeZone = TimeZone.current
@@ -37,7 +41,7 @@ struct CustomContributionGridView: View {
         }
     }
     
-        var body: some View {
+    var body: some View {
         GeometryReader { geometry in
             let availableWidth = geometry.size.width // Account for padding
             let weekdayLabelWidth: CGFloat = 15
@@ -69,6 +73,14 @@ struct CustomContributionGridView: View {
             // )
         }
         .frame(height: 150) // Fixed height for the contribution grid
+        .onAppear {
+            // Compute dateHoursMap when view appears
+            dateHoursMap = computeDateHoursMap()
+        }
+        .onChange(of: activities) { _ in
+            // Recompute when activities change
+            dateHoursMap = computeDateHoursMap()
+        }
     }
 
     // MARK: - Subviews
