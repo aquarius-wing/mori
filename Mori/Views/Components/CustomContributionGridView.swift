@@ -1,44 +1,127 @@
 import SwiftUI
 
+// MARK: - Color Extension for Chart Colors
+extension ChartColorScheme {
+    // Asset-based color system for contribution charts
+    func getContributionColors() -> [Color] {
+        switch self {
+        case .blue:
+            return [
+                Color("blue-50"),   // Empty
+                Color("blue-100"),  // Low
+                Color("blue-300"),  // Medium
+                Color("blue-500"),  // High
+                Color("blue-600")   // Very High
+            ]
+            
+        case .green:
+            return [
+                Color("green-50"),   // Empty
+                Color("green-100"),  // Low
+                Color("green-300"),  // Medium
+                Color("green-500"),  // High
+                Color("green-700")   // Very High
+            ]
+            
+        case .amber:
+            return [
+                Color("amber-50"),   // Empty
+                Color("amber-100"),  // Low
+                Color("amber-300"),  // Medium
+                Color("amber-500"),  // High
+                Color("amber-600")   // Very High
+            ]
+            
+        case .rose:
+            return [
+                Color("rose-50"),    // Empty
+                Color("rose-100"),   // Low
+                Color("rose-300"),   // Medium
+                Color("rose-500"),   // High
+                Color("rose-600")    // Very High
+            ]
+            
+        case .purple:
+            return [
+                Color("purple-50"),  // Empty
+                Color("purple-100"), // Low
+                Color("purple-300"), // Medium
+                Color("purple-500"), // High
+                Color("purple-600")  // Very High
+            ]
+            
+        case .orange:
+            return [
+                Color("orange-50"),  // Empty
+                Color("orange-100"), // Low
+                Color("orange-300"), // Medium
+                Color("orange-500"), // High
+                Color("orange-600")  // Very High
+            ]
+            
+        case .teal:
+            return [
+                Color("teal-50"),    // Empty
+                Color("teal-100"),   // Low
+                Color("teal-300"),   // Medium
+                Color("teal-500"),   // High
+                Color("teal-600")    // Very High
+            ]
+            
+        case .slate:
+            return [
+                Color("slate-50"),   // Empty
+                Color("slate-100"),  // Low
+                Color("slate-300"),  // Medium
+                Color("slate-500"),  // High
+                Color("slate-600")   // Very High
+            ]
+            
+        case .red:
+            return [
+                Color("red-50"),     // Empty
+                Color("red-100"),    // Low
+                Color("red-300"),    // Medium
+                Color("red-500"),    // High
+                Color("red-600")     // Very High
+            ]
+            
+        case .indigo:
+            return [
+                Color("indigo-50"),  // Empty
+                Color("indigo-100"), // Low
+                Color("indigo-300"), // Medium
+                Color("indigo-500"), // High
+                Color("indigo-600")  // Very High
+            ]
+        }
+    }
+}
+
 struct CustomContributionGridView: View {
     @Environment(\.colorScheme) var colorScheme
     
-    let activities: [GameActivityData]
+    let activities: [ContributionGridData]
+    let chartColorScheme: ChartColorScheme
     
     // Use @State to cache the computed result and avoid recalculation
-    @State private var dateHoursMap: [Date: Double] = [:]
+    @State private var dateCountMap: [Date: Double] = [:]
     
-    // Helper function to compute dateHoursMap
-    private func computeDateHoursMap() -> [Date: Double] {
+    // Helper function to compute dateCountMap
+    private func computeDateCountMap() -> [Date: Double] {
         var calendar = Calendar.current
         // time zone is UTC
         calendar.timeZone = TimeZone.current
         var map: [Date: Double] = [:]
         for activity in activities {
             let dayStart = calendar.startOfDay(for: activity.date)
-            map[dayStart, default: 0] += activity.hours
+            map[dayStart, default: 0] += activity.count
         }
         return map
     }
     
     private var contributionColors: [Color] {
-        if colorScheme == .dark {
-            return [
-                Color(red: 0.12, green: 0.16, blue: 0.20), // Empty/0 hours - darker background
-                Color(red: 0.0, green: 0.45, blue: 0.25),  // Low (< 1 hour)
-                Color(red: 0.0, green: 0.6, blue: 0.35),   // Medium (1-3 hours)
-                Color(red: 0.15, green: 0.75, blue: 0.45), // High (3-5 hours)
-                Color(red: 0.3, green: 0.9, blue: 0.55)    // Very High (5+ hours)
-            ]
-        } else {
-            return [
-                Color(red: 0.92, green: 0.92, blue: 0.92), // Empty/0 hours
-                Color(red: 0.76, green: 0.91, blue: 0.83),  // Low (< 1 hour)
-                Color(red: 0.51, green: 0.83, blue: 0.66),  // Medium (1-3 hours)
-                Color(red: 0.23, green: 0.66, blue: 0.40),  // High (3-5 hours)
-                Color(red: 0.11, green: 0.53, blue: 0.23)   // Very High (5+ hours)
-            ]
-        }
+        return chartColorScheme.getContributionColors()
     }
     
     var body: some View {
@@ -61,25 +144,26 @@ struct CustomContributionGridView: View {
                     weekdayLabelsView(squareSize: squareSize, spacing: spacing)
                     contributionGridView(columns: actualColumns, squareSize: squareSize, spacing: spacing)
                 }
+
                 
                 // Legend
                 legendView(squareSize: squareSize)
             }
-            // .padding()
             // .background(
             //     RoundedRectangle(cornerRadius: 12)
             //         .fill(colorScheme == .dark ? Color(red: 0.08, green: 0.08, blue: 0.10) : Color.white)
             //         .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             // )
         }
+        .padding(.trailing, 4)
         .frame(height: 150) // Fixed height for the contribution grid
         .onAppear {
-            // Compute dateHoursMap when view appears
-            dateHoursMap = computeDateHoursMap()
+            // Compute dateCountMap when view appears
+            dateCountMap = computeDateCountMap()
         }
         .onChange(of: activities) { _ in
             // Recompute when activities change
-            dateHoursMap = computeDateHoursMap()
+            dateCountMap = computeDateCountMap()
         }
     }
 
@@ -148,8 +232,8 @@ struct CustomContributionGridView: View {
         return VStack(spacing: spacing) {
             ForEach(0..<7, id: \.self) { day in
                 let date = calendar.date(byAdding: .day, value: (week * 7) + day, to: startDate)!
-                let hours = dateHoursMap[date] ?? 0
-                let level = getContributionLevel(hours: hours)
+                let count = dateCountMap[date] ?? 0
+                let level = getContributionLevel(count: count)
                 
                 Rectangle()
                     .fill(contributionColors[level])
@@ -205,8 +289,8 @@ struct CustomContributionGridView: View {
         return calendar.startOfDay(for: startDate)
     }
     
-    private func getContributionLevel(hours: Double) -> Int {
-        switch hours {
+    private func getContributionLevel(count: Double) -> Int {
+        switch count {
         case 0: return 0
         case 0..<1: return 1
         case 1..<3: return 2
@@ -218,23 +302,53 @@ struct CustomContributionGridView: View {
 
 #if DEBUG
 struct CustomContributionGridView_Previews: PreviewProvider {
-    static func generatePreviewData() -> [GameActivityData] {
-        var data: [GameActivityData] = []
+    static func generatePreviewData() -> [ContributionGridData] {
+        var data: [ContributionGridData] = []
         let calendar = Calendar.current
         for i in 0..<365 {
             if Bool.random() {
                 let date = calendar.date(byAdding: .day, value: -i, to: Date())!
-                let hours = Double.random(in: 0.1...8.0)
-                data.append(GameActivityData(date: date, hours: hours))
+                let count = Double.random(in: 0.1...8.0)
+                data.append(ContributionGridData(date: date, count: count))
             }
         }
         return data
     }
     
     static var previews: some View {
-        CustomContributionGridView(activities: generatePreviewData())
-            .padding()
-            .background(Color.gray.opacity(0.1))
+        VStack(spacing: 20) {
+            // Blue theme
+            VStack(alignment: .leading) {
+                Text("Blue Theme")
+                    .font(.headline)
+                CustomContributionGridView(
+                    activities: generatePreviewData(),
+                    chartColorScheme: .blue
+                )
+            }
+            
+            // Green theme
+            VStack(alignment: .leading) {
+                Text("Green Theme")
+                    .font(.headline)
+                CustomContributionGridView(
+                    activities: generatePreviewData(),
+                    chartColorScheme: .green
+                )
+            }
+            
+            // Amber theme
+            VStack(alignment: .leading) {
+                Text("Amber Theme")
+                    .font(.headline)
+                CustomContributionGridView(
+                    activities: generatePreviewData(),
+                    chartColorScheme: .amber
+                )
+            }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
     }
 }
 #endif

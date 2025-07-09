@@ -15,6 +15,8 @@
 		202D162F2E06648900493124 /* ChatHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D16302E06648900493124 /* ChatHistory.swift */; };
 		202D16A12E0FD7DD00493124 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 202D16A02E0FD7DD00493124 /* MarkdownUI */; };
 		209320552E126A05003AF64D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209320542E126A05003AF64D /* SettingsView.swift */; };
+		209DFDBF2E1E5FA7004BFCD8 /* ChartItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDBE2E1E5FA7004BFCD8 /* ChartItemView.swift */; };
+		209DFDC12E1E6162004BFCD8 /* ChartItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC02E1E6162004BFCD8 /* ChartItem.swift */; };
 		20CA7B492E1A2BE200C5479F /* PersonalSync in Frameworks */ = {isa = PBXBuildFile; productRef = 20CA7B482E1A2BE200C5479F /* PersonalSync */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
@@ -63,6 +65,8 @@
 		202D162D2E06648800493124 /* ChatHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryManager.swift; sourceTree = "<group>"; };
 		202D16302E06648900493124 /* ChatHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistory.swift; sourceTree = "<group>"; };
 		209320542E126A05003AF64D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		209DFDBE2E1E5FA7004BFCD8 /* ChartItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartItemView.swift; sourceTree = "<group>"; };
+		209DFDC02E1E6162004BFCD8 /* ChartItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartItem.swift; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -123,6 +127,7 @@
 		30F224282E0665E000493124 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				209DFDBE2E1E5FA7004BFCD8 /* ChartItemView.swift */,
 				200210642E1D3AB10053950E /* CustomContributionGridView.swift */,
 				30F224212E0665A000493124 /* ChatItemView.swift */,
 				30F224232E0665B000493124 /* WorkflowStepItemView.swift */,
@@ -204,6 +209,7 @@
 		A1000027000000000000001 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				209DFDC02E1E6162004BFCD8 /* ChartItem.swift */,
 				A1000014000000000000001 /* ChatMessage.swift */,
 				202D16302E06648900493124 /* ChatHistory.swift */,
 				A3000001000000000000001 /* ThemeManager.swift */,
@@ -347,6 +353,7 @@
 				20DE193F2E004C5600CD902D /* ChatView.swift in Sources */,
 				20DE194A2E004D5600CD902D /* ChartView.swift in Sources */,
 				20DE195A2E004E5600CD903D /* TabContainerView.swift in Sources */,
+				209DFDC12E1E6162004BFCD8 /* ChartItem.swift in Sources */,
 				20DE190D2DF8578400CD902D /* FilesView.swift in Sources */,
 				A1000011000000000000001 /* LLMAIService.swift in Sources */,
 				20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */,
@@ -363,6 +370,7 @@
 				"683BC89D-7EA2-47F9-8986-4B26D5612374" /* MemoryMCP.swift in Sources */,
 				A1000001000000000000001 /* MoriApp.swift in Sources */,
 				A2000001000000000000001 /* AudioRecordingManager.swift in Sources */,
+				209DFDBF2E1E5FA7004BFCD8 /* ChartItemView.swift in Sources */,
 				A2000003000000000000001 /* AudioRecordingButton.swift in Sources */,
 				209320552E126A05003AF64D /* SettingsView.swift in Sources */,
 				A3000003000000000000001 /* ThemeManager.swift in Sources */,

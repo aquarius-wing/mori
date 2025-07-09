@@ -3,13 +3,19 @@ import PersonalSync
 import GRDB
 
 // MARK: - Game Data Models
-struct GameActivityData: Codable {
+struct GameActivityData: Codable, Equatable, Identifiable {
+    let id = UUID()
     let date: Date
     let hours: Double
     
     init(date: Date, hours: Double) {
         self.date = date
         self.hours = hours
+    }
+    
+    // Custom Equatable implementation to compare by date and hours only
+    static func == (lhs: GameActivityData, rhs: GameActivityData) -> Bool {
+        return lhs.date == rhs.date && lhs.hours == rhs.hours
     }
 }
 
