@@ -3,7 +3,7 @@ import SwiftUI
 struct ChartItemView: View {
     @Environment(\.colorScheme) var colorScheme
     
-    let chartItem: ChartItem
+    let chartItem: ChartItemViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -54,7 +54,7 @@ struct ChartItemView: View {
                 )
                 .padding(16)
                 
-            case .line, .bar, .pie:
+            case .line, .bar, .pie, .progress:
                 // Placeholder for other chart types
                 chartPlaceholderView
             }
@@ -125,7 +125,7 @@ struct ChartItemView: View {
     ScrollView {
         LazyVStack(spacing: 20) {
             // Show different chart items with various color schemes
-            ForEach(ChartItem.sampleData.prefix(6), id: \.id) { chartItem in
+            ForEach(ChartItemViewModel.sampleData.prefix(6), id: \.id) { chartItem in
                 ChartItemView(chartItem: chartItem)
             }
         }

@@ -1,0 +1,119 @@
+---
+alwaysApply: false
+---
+Here are the **best practices for using GRDB with Swift**, gathered from official documentation, community discussions, and real-world usage:
+
+---
+
+## 1. Design Record Types Thoughtfully 🛠️
+
+* Define your model types to conform to `Codable`, `FetchableRecord`, and `PersistableRecord`.
+* Use nested `enum Columns` with typed `Column(...)` to avoid string literal mistakes.
+* Prefer strong types (e.g., `Int`, `Date`) over generic `String` for clarity and safety ([GitHub][1]).
+
+---
+
+## 2. Choose the Right Connection Pattern
+
+* Use a **single shared** `DatabaseQueue` for simple apps.
+* For multi-threaded contexts (e.g. UI + background), use `DatabasePool` (with WAL mode) for concurrency and smoother UX ([Netguru][2]).
+
+---
+
+## 3. Manage Migrations with Care
+
+* Maintain schema with `DatabaseMigrator`, registering migrations in version order.
+* Always test migrations thoroughly.
+* When upgrading major versions (e.g. GRDB 6 → 7), follow the official migration guide to handle API changes ([Stack Overflow][3], [GitHub][1]).
+
+---
+
+## 4. Observe Data Changes Reliably
+
+* Use `ValueObservation.tracking { db in ... }` to observe queries.
+* For related tables, run **all reads in a single DB access** to maintain invariants ([Swift Forums][4]).
+* Merged observations can cause inconsistent snapshots; always group your read logic within one closure.
+
+---
+
+## 5. Handle Associations Cleanly
+
+* Define associations (e.g. `.hasOne`, `.hasMany`) on your record types.
+* Use `.including(...)` with typed requests to fetch joined data into composite types.
+* This approach integrates well with observations for clean and consistent results ([Swift Forums][4]).
+
+---
+
+## 6. Embrace Swift Concurrency
+
+* GRDB 7 supports Swift 6 concurrency—use `async/await` with `DatabaseQueue.read/write` and `withDatabase`.
+* Consult the “Swift Concurrency and GRDB” guide for best practices ([The Swift Package Index][5]).
+
+---
+
+## 7. Execute Raw SQL When Needed
+
+* Although high-level APIs cover most scenarios, GRDB allows raw SQL through `db.execute(sql:)`, `Row.fetchCursor`, etc.
+* Useful for advanced queries or fine-tuned performance ([GitHub][1]).
+
+---
+
+## 8. Handle Pre‑populated Databases
+
+* Ship a read-only `.sqlite` in your bundle, then copy it to app documents directory at launch.
+* After copying, initialize GRDB on the copied file.
+* GRDB doesn’t automate this, but supports custom paths ([Stack Overflow][3]).
+
+---
+
+## 9. Keep SQLite Knowledge Sharp
+
+* Understanding schema design, normalization, indexing, and collations—especially Unicode-aware options—is essential.
+* GRDB adds Swift-powered collations (`unicodeCompare`, `localizedCaseInsensitiveCompare`, etc.) beyond SQLite's defaults ([GitHub][1]).
+
+---
+
+## 📝 Sample Workflow
+
+```swift
+// 1. Setup
+let dbQueue = try DatabaseQueue(path: dbURL.path)
+
+// 2. Migrations
+let migrator = DatabaseMigrator()
+// register your migrations...
+try migrator.migrate(dbQueue)
+
+// 3. Define Record
+struct Player: Codable, FetchableRecord, PersistableRecord, Identifiable {
+  var id: Int64; var name: String; var score: Int
+  enum Columns { static let score = Column(CodingKeys.score) }
+  static let scores = hasMany(Score.self)
+}
+
+// 4. Fetch with Observation & Association
+let obs = ValueObservation.tracking { db in
+  try Player
+    .including(all: Player.scores)
+    .filtered(...)
+    .fetchAll(db)
+}
+obs.start(in: dbQueue) { results in
+  // Update UI
+}
+
+// 5. Async Write
+try await dbQueue.write { db in
+  ...
+}
+```
+
+---
+
+By following these guidelines, you’ll build **robust**, **concurrent-safe**, and **observable** data layers with GRDB, while keeping full access to the power of SQLite. If you'd like code examples for migrations, observations, or associations, feel free to ask!
+
+[1]: https://github.com/groue/GRDB.swift?utm_source=chatgpt.com "groue/GRDB.swift: A toolkit for SQLite databases, with a ... - GitHub"
+[2]: https://www.netguru.com/blog/grdb.swift-as-a-solution-for-ios-database?utm_source=chatgpt.com "GRDB.swift as a Solution for iOS Database - Netguru"
+[3]: https://stackoverflow.com/questions/68336282/cleanest-safest-way-to-include-prepopulated-sqlite-file-in-swift-app?utm_source=chatgpt.com "Cleanest & safest way to include prepopulated .sqlite file in Swift app"
+[4]: https://forums.swift.org/t/associations-observation-best-practices/64332?utm_source=chatgpt.com "Associations / Observation best practices - GRDB - Swift Forums"
+[5]: https://swiftpackageindex.com/groue/GRDB.swift/v7.5.0/documentation/grdb/swiftconcurrency?utm_source=chatgpt.com "Swift Concurrency and GRDB | Documentation"

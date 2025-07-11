@@ -17,6 +17,8 @@
 		209320552E126A05003AF64D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209320542E126A05003AF64D /* SettingsView.swift */; };
 		209DFDBF2E1E5FA7004BFCD8 /* ChartItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDBE2E1E5FA7004BFCD8 /* ChartItemView.swift */; };
 		209DFDC12E1E6162004BFCD8 /* ChartItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC02E1E6162004BFCD8 /* ChartItem.swift */; };
+		209DFDC52E20CBD5004BFCD8 /* DatabaseMigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC32E20CBD5004BFCD8 /* DatabaseMigrationManager.swift */; };
+		209DFDC72E20D273004BFCD8 /* MoriDatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC62E20D273004BFCD8 /* MoriDatabaseManager.swift */; };
 		20CA7B492E1A2BE200C5479F /* PersonalSync in Frameworks */ = {isa = PBXBuildFile; productRef = 20CA7B482E1A2BE200C5479F /* PersonalSync */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
@@ -67,6 +69,8 @@
 		209320542E126A05003AF64D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		209DFDBE2E1E5FA7004BFCD8 /* ChartItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartItemView.swift; sourceTree = "<group>"; };
 		209DFDC02E1E6162004BFCD8 /* ChartItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartItem.swift; sourceTree = "<group>"; };
+		209DFDC32E20CBD5004BFCD8 /* DatabaseMigrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseMigrationManager.swift; sourceTree = "<group>"; };
+		209DFDC62E20D273004BFCD8 /* MoriDatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoriDatabaseManager.swift; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -194,6 +198,8 @@
 		A1000026000000000000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				209DFDC62E20D273004BFCD8 /* MoriDatabaseManager.swift */,
+				209DFDC32E20CBD5004BFCD8 /* DatabaseMigrationManager.swift */,
 				A1000010000000000000001 /* AudioRecorder.swift */,
 				A1000012000000000000001 /* LLMAIService.swift */,
 				20F223FC2DF1DF0B0046CA52 /* CalendarMCP.swift */,
@@ -353,8 +359,10 @@
 				20DE193F2E004C5600CD902D /* ChatView.swift in Sources */,
 				20DE194A2E004D5600CD902D /* ChartView.swift in Sources */,
 				20DE195A2E004E5600CD903D /* TabContainerView.swift in Sources */,
+				209DFDC52E20CBD5004BFCD8 /* DatabaseMigrationManager.swift in Sources */,
 				209DFDC12E1E6162004BFCD8 /* ChartItem.swift in Sources */,
 				20DE190D2DF8578400CD902D /* FilesView.swift in Sources */,
+				209DFDC72E20D273004BFCD8 /* MoriDatabaseManager.swift in Sources */,
 				A1000011000000000000001 /* LLMAIService.swift in Sources */,
 				20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */,
 				30F224202E0665A000493124 /* ChatItemView.swift in Sources */,
