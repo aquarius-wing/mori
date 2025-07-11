@@ -7,92 +7,92 @@ extension ChartColorScheme {
         switch self {
         case .blue:
             return [
-                Color("blue-50"),   // Empty
-                Color("blue-100"),  // Low
-                Color("blue-300"),  // Medium
-                Color("blue-500"),  // High
-                Color("blue-600")   // Very High
+                Color("blue-100"),  // Empty
+                Color("blue-300"),  // Low
+                Color("blue-500"),  // Medium
+                Color("blue-600"),  // High
+                Color("blue-700")   // Very High
             ]
             
         case .green:
             return [
-                Color("green-50"),   // Empty
-                Color("green-100"),  // Low
-                Color("green-300"),  // Medium
-                Color("green-500"),  // High
+                Color("green-100"),  // Empty
+                Color("green-300"),  // Low
+                Color("green-500"),  // Medium
+                Color("green-600"),  // High
                 Color("green-700")   // Very High
             ]
             
         case .amber:
             return [
-                Color("amber-50"),   // Empty
-                Color("amber-100"),  // Low
-                Color("amber-300"),  // Medium
-                Color("amber-500"),  // High
-                Color("amber-600")   // Very High
+                Color("amber-100"),  // Empty
+                Color("amber-300"),  // Low
+                Color("amber-500"),  // Medium
+                Color("amber-600"),  // High
+                Color("amber-700")   // Very High
             ]
             
         case .rose:
             return [
-                Color("rose-50"),    // Empty
-                Color("rose-100"),   // Low
-                Color("rose-300"),   // Medium
-                Color("rose-500"),   // High
-                Color("rose-600")    // Very High
+                Color("rose-100"),   // Empty
+                Color("rose-300"),   // Low
+                Color("rose-500"),   // Medium
+                Color("rose-600"),   // High
+                Color("rose-700")    // Very High
             ]
             
         case .purple:
             return [
-                Color("purple-50"),  // Empty
-                Color("purple-100"), // Low
-                Color("purple-300"), // Medium
-                Color("purple-500"), // High
-                Color("purple-600")  // Very High
+                Color("purple-100"), // Empty
+                Color("purple-300"), // Low
+                Color("purple-500"), // Medium
+                Color("purple-600"), // High
+                Color("purple-700")  // Very High
             ]
             
         case .orange:
             return [
-                Color("orange-50"),  // Empty
-                Color("orange-100"), // Low
-                Color("orange-300"), // Medium
-                Color("orange-500"), // High
-                Color("orange-600")  // Very High
+                Color("orange-100"), // Empty
+                Color("orange-300"), // Low
+                Color("orange-500"), // Medium
+                Color("orange-600"), // High
+                Color("orange-700")  // Very High
             ]
             
         case .teal:
             return [
-                Color("teal-50"),    // Empty
-                Color("teal-100"),   // Low
-                Color("teal-300"),   // Medium
-                Color("teal-500"),   // High
-                Color("teal-600")    // Very High
+                Color("teal-100"),   // Empty
+                Color("teal-300"),   // Low
+                Color("teal-500"),   // Medium
+                Color("teal-600"),   // High
+                Color("teal-700")    // Very High
             ]
             
         case .slate:
             return [
-                Color("slate-50"),   // Empty
-                Color("slate-100"),  // Low
-                Color("slate-300"),  // Medium
-                Color("slate-500"),  // High
-                Color("slate-600")   // Very High
+                Color("slate-100"),  // Empty
+                Color("slate-300"),  // Low
+                Color("slate-500"),  // Medium
+                Color("slate-600"),  // High
+                Color("slate-700")   // Very High
             ]
             
         case .red:
             return [
-                Color("red-50"),     // Empty
-                Color("red-100"),    // Low
-                Color("red-300"),    // Medium
-                Color("red-500"),    // High
-                Color("red-600")     // Very High
+                Color("red-100"),    // Empty
+                Color("red-300"),    // Low
+                Color("red-500"),    // Medium
+                Color("red-600"),    // High
+                Color("red-700")     // Very High
             ]
             
         case .indigo:
             return [
-                Color("indigo-50"),  // Empty
-                Color("indigo-100"), // Low
-                Color("indigo-300"), // Medium
-                Color("indigo-500"), // High
-                Color("indigo-600")  // Very High
+                Color("indigo-100"), // Empty
+                Color("indigo-300"), // Low
+                Color("indigo-500"), // Medium
+                Color("indigo-600"), // High
+                Color("indigo-700")  // Very High
             ]
         }
     }
@@ -316,38 +316,101 @@ struct CustomContributionGridView_Previews: PreviewProvider {
     }
     
     static var previews: some View {
-        VStack(spacing: 20) {
-            // Blue theme
-            VStack(alignment: .leading) {
-                Text("Blue Theme")
-                    .font(.headline)
-                CustomContributionGridView(
-                    activities: generatePreviewData(),
-                    chartColorScheme: .blue
-                )
+        ScrollView {
+            VStack(spacing: 20) {
+                // Original themes
+                VStack(alignment: .leading) {
+                    Text("Blue Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .blue
+                    )
+                }
+                
+                VStack(alignment: .leading) {
+                    Text("Green Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .green
+                    )
+                }
+                
+                VStack(alignment: .leading) {
+                    Text("Amber Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .amber
+                    )
+                }
+                
+                VStack(alignment: .leading) {
+                    Text("Rose Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .rose
+                    )
+                }
+                
+                VStack(alignment: .leading) {
+                    Text("Purple Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .purple
+                    )
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Orange Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .orange
+                    )
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Teal Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .teal
+                    )
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Slate Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .slate
+                    )
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Red Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .red
+                    )
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Indigo Theme")
+                        .font(.headline)
+                    CustomContributionGridView(
+                        activities: generatePreviewData(),
+                        chartColorScheme: .indigo
+                    )
+                }
             }
-            
-            // Green theme
-            VStack(alignment: .leading) {
-                Text("Green Theme")
-                    .font(.headline)
-                CustomContributionGridView(
-                    activities: generatePreviewData(),
-                    chartColorScheme: .green
-                )
-            }
-            
-            // Amber theme
-            VStack(alignment: .leading) {
-                Text("Amber Theme")
-                    .font(.headline)
-                CustomContributionGridView(
-                    activities: generatePreviewData(),
-                    chartColorScheme: .amber
-                )
-            }
+            .padding()
         }
-        .padding()
         .background(Color.gray.opacity(0.1))
     }
 }
