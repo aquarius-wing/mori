@@ -7,7 +7,7 @@ extension ChartColorScheme {
         switch self {
         case .blue:
             return [
-                Color("blue-100"),  // Empty
+                Color("blue-50"),  // Empty
                 Color("blue-300"),  // Low
                 Color("blue-500"),  // Medium
                 Color("blue-600"),  // High
@@ -16,7 +16,7 @@ extension ChartColorScheme {
             
         case .green:
             return [
-                Color("green-100"),  // Empty
+                Color("green-50"),  // Empty
                 Color("green-300"),  // Low
                 Color("green-500"),  // Medium
                 Color("green-600"),  // High
@@ -25,7 +25,7 @@ extension ChartColorScheme {
             
         case .amber:
             return [
-                Color("amber-100"),  // Empty
+                Color("amber-50"),  // Empty
                 Color("amber-300"),  // Low
                 Color("amber-500"),  // Medium
                 Color("amber-600"),  // High
@@ -34,7 +34,7 @@ extension ChartColorScheme {
             
         case .rose:
             return [
-                Color("rose-100"),   // Empty
+                Color("rose-50"),   // Empty
                 Color("rose-300"),   // Low
                 Color("rose-500"),   // Medium
                 Color("rose-600"),   // High
@@ -43,7 +43,7 @@ extension ChartColorScheme {
             
         case .purple:
             return [
-                Color("purple-100"), // Empty
+                Color("purple-50"), // Empty
                 Color("purple-300"), // Low
                 Color("purple-500"), // Medium
                 Color("purple-600"), // High
@@ -52,7 +52,7 @@ extension ChartColorScheme {
             
         case .orange:
             return [
-                Color("orange-100"), // Empty
+                Color("orange-50"), // Empty
                 Color("orange-300"), // Low
                 Color("orange-500"), // Medium
                 Color("orange-600"), // High
@@ -61,7 +61,7 @@ extension ChartColorScheme {
             
         case .teal:
             return [
-                Color("teal-100"),   // Empty
+                Color("teal-50"),   // Empty
                 Color("teal-300"),   // Low
                 Color("teal-500"),   // Medium
                 Color("teal-600"),   // High
@@ -70,7 +70,7 @@ extension ChartColorScheme {
             
         case .slate:
             return [
-                Color("slate-100"),  // Empty
+                Color("slate-50"),  // Empty
                 Color("slate-300"),  // Low
                 Color("slate-500"),  // Medium
                 Color("slate-600"),  // High
@@ -79,7 +79,7 @@ extension ChartColorScheme {
             
         case .red:
             return [
-                Color("red-100"),    // Empty
+                Color("red-50"),    // Empty
                 Color("red-300"),    // Low
                 Color("red-500"),    // Medium
                 Color("red-600"),    // High
@@ -88,7 +88,7 @@ extension ChartColorScheme {
             
         case .indigo:
             return [
-                Color("indigo-100"), // Empty
+                Color("indigo-50"), // Empty
                 Color("indigo-300"), // Low
                 Color("indigo-500"), // Medium
                 Color("indigo-600"), // High
@@ -125,19 +125,20 @@ struct CustomContributionGridView: View {
     }
     
     var body: some View {
+        let heightOfMonthHeader: CGFloat = 24
+        let weekdayLabelWidth: CGFloat = 15
+        let squareSize: CGFloat = 12
+        let spacing: CGFloat = 3
+        let heightOfGrid: CGFloat = 7 * squareSize + 6 * spacing
         GeometryReader { geometry in
             let availableWidth = geometry.size.width // Account for padding
-            let weekdayLabelWidth: CGFloat = 15
-            let squareSize: CGFloat = 11
-            let spacing: CGFloat = 3
             let gridWidth = availableWidth - weekdayLabelWidth - spacing
             let maxColumns = Int((gridWidth + spacing) / (squareSize + spacing))
             let actualColumns = min(maxColumns, 53) // Don't exceed 53 weeks
-            let monthSpan: Int = 4 // Each month label spans 4 columns
             
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 // Month labels using grid layout
-                monthHeaderGridView(columns: actualColumns, squareSize: squareSize, spacing: spacing, monthSpan: monthSpan)
+                monthHeaderGridView(columns: actualColumns, squareSize: squareSize, spacing: spacing)
                 
                 // Main grid with weekday labels
                 HStack(alignment: .top, spacing: spacing) {
@@ -145,14 +146,9 @@ struct CustomContributionGridView: View {
                     contributionGridView(columns: actualColumns, squareSize: squareSize, spacing: spacing)
                 }
             }
-            // .background(
-            //     RoundedRectangle(cornerRadius: 12)
-            //         .fill(colorScheme == .dark ? Color(red: 0.08, green: 0.08, blue: 0.10) : Color.white)
-            //         .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-            // )
         }
         .padding(.trailing, 4)
-        .frame(height: 120) // Fixed height for the contribution grid
+        .frame(height: heightOfMonthHeader + 4 + heightOfGrid)
         .onAppear {
             // Compute dateCountMap when view appears
             dateCountMap = computeDateCountMap()
@@ -165,42 +161,86 @@ struct CustomContributionGridView: View {
 
     // MARK: - Subviews
     
-    private func monthHeaderGridView(columns: Int, squareSize: CGFloat, spacing: CGFloat, monthSpan: Int) -> some View {
+    private func monthHeaderGridView(columns: Int, squareSize: CGFloat, spacing: CGFloat) -> some View {
         let calendar = Calendar.current
         let startDate = getStartDate(actualColumns: columns)
         let monthSymbols = calendar.shortMonthSymbols
-        let spanWidth = CGFloat(monthSpan) * squareSize + CGFloat(monthSpan - 1) * spacing
+        
+        // Calculate month segments with actual spans
+        let monthSegments = calculateMonthSegments(columns: columns, startDate: startDate, calendar: calendar)
         
         return HStack(spacing: 0) {
-            Spacer().frame(width: 24) // Space for weekday labels
+            Spacer().frame(width: 24 + spacing) // Space for weekday labels
             
             HStack(spacing: spacing) {
-                // Create month headers with 4-column spans
-                ForEach(Array(stride(from: 0, to: columns, by: monthSpan)), id: \.self) { startColumn in
-                    if startColumn < columns {
-                        let weekDate = calendar.date(byAdding: .weekOfYear, value: startColumn, to: startDate)!
-                        let monthOfWeek = calendar.component(.month, from: weekDate)
-                        
-                        Text(monthSymbols[monthOfWeek - 1])
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .frame(width: spanWidth, alignment: .leading)
-                    }
-                }
-                
-                // Fill remaining space if needed
-                let remainingColumns = columns % monthSpan
-                if remainingColumns > 0 {
-                    let remainingWidth = CGFloat(remainingColumns) * squareSize + CGFloat(max(0, remainingColumns - 1)) * spacing
-                    Spacer()
-                        .frame(width: remainingWidth)
+                ForEach(monthSegments.indices, id: \.self) { index in
+                    let segment = monthSegments[index]
+                    let spanWidth = CGFloat(segment.columnCount) * squareSize + CGFloat(max(0, segment.columnCount - 1)) * spacing
+                    
+                    Text(monthSymbols[segment.month - 1])
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .frame(width: spanWidth, alignment: .leading)
                 }
             }
         }
     }
     
+    // Helper struct for month segments
+    private struct MonthSegment {
+        let month: Int
+        let startColumn: Int
+        let columnCount: Int
+    }
+    
+    // Calculate actual month spans
+    private func calculateMonthSegments(columns: Int, startDate: Date, calendar: Calendar) -> [MonthSegment] {
+        var segments: [MonthSegment] = []
+        var currentMonth: Int? = nil
+        var currentStartColumn = 0
+        var currentColumnCount = 0
+        
+        for column in 0..<columns {
+            let weekDate = calendar.date(byAdding: .weekOfYear, value: column, to: startDate)!
+            let monthOfWeek = calendar.component(.month, from: weekDate)
+            
+            if currentMonth == nil {
+                // First month
+                currentMonth = monthOfWeek
+                currentStartColumn = column
+                currentColumnCount = 1
+            } else if currentMonth == monthOfWeek {
+                // Same month, increment count
+                currentColumnCount += 1
+            } else {
+                // New month, save previous segment
+                segments.append(MonthSegment(
+                    month: currentMonth!,
+                    startColumn: currentStartColumn,
+                    columnCount: currentColumnCount
+                ))
+                
+                // Start new month
+                currentMonth = monthOfWeek
+                currentStartColumn = column
+                currentColumnCount = 1
+            }
+        }
+        
+        // Add the last segment
+        if let month = currentMonth {
+            segments.append(MonthSegment(
+                month: month,
+                startColumn: currentStartColumn,
+                columnCount: currentColumnCount
+            ))
+        }
+        
+        return segments
+    }
+    
     private func weekdayLabelsView(squareSize: CGFloat, spacing: CGFloat) -> some View {
-        let weekdays = ["", "Mon", "", "Wed", "", "Fri", ""]
+        let weekdays = ["Mon", "Wed", "Fri"]
         
         return VStack(spacing: spacing) {
             ForEach(weekdays.indices, id: \.self) { index in
@@ -208,6 +248,7 @@ struct CustomContributionGridView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .frame(width: 24, alignment: .leading)
+                    .frame(height: squareSize * 2 + 3, alignment: .bottom)
             }
         }
     }
@@ -234,8 +275,7 @@ struct CustomContributionGridView: View {
                 Rectangle()
                     .fill(contributionColors[level])
                     .frame(width: squareSize, height: squareSize)
-                    .cornerRadius(2)
-                    .opacity(date > Date() ? 0.3 : 1.0)
+                    .cornerRadius(12)
             }
         }
     }
