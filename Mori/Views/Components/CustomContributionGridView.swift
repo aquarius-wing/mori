@@ -144,10 +144,6 @@ struct CustomContributionGridView: View {
                     weekdayLabelsView(squareSize: squareSize, spacing: spacing)
                     contributionGridView(columns: actualColumns, squareSize: squareSize, spacing: spacing)
                 }
-
-                
-                // Legend
-                legendView(squareSize: squareSize)
             }
             // .background(
             //     RoundedRectangle(cornerRadius: 12)
@@ -156,7 +152,7 @@ struct CustomContributionGridView: View {
             // )
         }
         .padding(.trailing, 4)
-        .frame(height: 150) // Fixed height for the contribution grid
+        .frame(height: 120) // Fixed height for the contribution grid
         .onAppear {
             // Compute dateCountMap when view appears
             dateCountMap = computeDateCountMap()
@@ -244,29 +240,6 @@ struct CustomContributionGridView: View {
         }
     }
     
-    private func legendView(squareSize: CGFloat) -> some View {
-        return HStack(spacing: 8) {
-            Spacer()
-            
-            Text("Less")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            
-            HStack(spacing: 3) {
-                ForEach(0..<5, id: \.self) { level in
-                    Rectangle()
-                        .fill(contributionColors[level])
-                        .frame(width: squareSize, height: squareSize)
-                        .cornerRadius(2)
-                }
-            }
-            
-            Text("More")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-    }
-    
     // MARK: - Helper Functions
     
     private func getStartDate(actualColumns: Int) -> Date {
@@ -318,100 +291,38 @@ struct CustomContributionGridView_Previews: PreviewProvider {
     static var previews: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Original themes
-                VStack(alignment: .leading) {
-                    Text("Blue Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .blue
-                    )
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Green Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .green
-                    )
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Amber Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .amber
-                    )
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Rose Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .rose
-                    )
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Purple Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .purple
-                    )
-                }
-
-                VStack(alignment: .leading) {
-                    Text("Orange Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .orange
-                    )
-                }
-
-                VStack(alignment: .leading) {
-                    Text("Teal Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .teal
-                    )
-                }
-
-                VStack(alignment: .leading) {
-                    Text("Slate Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .slate
-                    )
-                }
-
-                VStack(alignment: .leading) {
-                    Text("Red Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .red
-                    )
-                }
-
-                VStack(alignment: .leading) {
-                    Text("Indigo Theme")
-                        .font(.headline)
-                    CustomContributionGridView(
-                        activities: generatePreviewData(),
-                        chartColorScheme: .indigo
-                    )
+                // Show all available color schemes
+                ForEach(ChartColorScheme.allCases.indices, id: \.self) { index in
+                    previewCard(for: index)
                 }
             }
             .padding()
         }
         .background(Color.gray.opacity(0.1))
+    }
+    
+    // Break down complex expression into separate view
+    private static func previewCard(for index: Int) -> some View {
+        let colorScheme = ChartColorScheme.allCases[index]
+        let title = colorScheme.displayName
+        
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+            
+            CustomContributionGridView(
+                activities: generatePreviewData(),
+                chartColorScheme: colorScheme
+            )
+        }
+        .padding(16)
+        .background(cardBackground)
+    }
+    
+    private static var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(Color.white)
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
 }
 #endif

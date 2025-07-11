@@ -124,8 +124,8 @@ struct ChartItemView: View {
 #Preview {
     ScrollView {
         LazyVStack(spacing: 20) {
-            // Show different chart items with various color schemes
-            ForEach(ChartItemViewModel.sampleData.prefix(6), id: \.id) { chartItem in
+            // Show different chart items with various color schemes and data patterns
+            ForEach(ChartItemViewModel.sampleDataWithVariousPatterns.prefix(6), id: \.id) { chartItem in
                 ChartItemView(chartItem: chartItem)
             }
         }

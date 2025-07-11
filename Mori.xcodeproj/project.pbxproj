@@ -19,6 +19,13 @@
 		209DFDC12E1E6162004BFCD8 /* ChartItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC02E1E6162004BFCD8 /* ChartItem.swift */; };
 		209DFDC52E20CBD5004BFCD8 /* DatabaseMigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC32E20CBD5004BFCD8 /* DatabaseMigrationManager.swift */; };
 		209DFDC72E20D273004BFCD8 /* MoriDatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC62E20D273004BFCD8 /* MoriDatabaseManager.swift */; };
+		209DFDCB2E20D4A3004BFCD8 /* ChartItemRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC82E20D4A3004BFCD8 /* ChartItemRowView.swift */; };
+		209DFDCC2E20D4A3004BFCD8 /* CollectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDC92E20D4A3004BFCD8 /* CollectionCardView.swift */; };
+		209DFDCD2E20D4A3004BFCD8 /* DebugActionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDCA2E20D4A3004BFCD8 /* DebugActionRow.swift */; };
+		209DFDD22E20D4AC004BFCD8 /* AddCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDCF2E20D4AC004BFCD8 /* AddCollectionView.swift */; };
+		209DFDD32E20D4AC004BFCD8 /* AddChartItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDCE2E20D4AC004BFCD8 /* AddChartItemView.swift */; };
+		209DFDD42E20D4AC004BFCD8 /* DebugMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDD12E20D4AC004BFCD8 /* DebugMenuView.swift */; };
+		209DFDD52E20D4AC004BFCD8 /* CollectionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDD02E20D4AC004BFCD8 /* CollectionDetailView.swift */; };
 		20CA7B492E1A2BE200C5479F /* PersonalSync in Frameworks */ = {isa = PBXBuildFile; productRef = 20CA7B482E1A2BE200C5479F /* PersonalSync */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
@@ -71,6 +78,13 @@
 		209DFDC02E1E6162004BFCD8 /* ChartItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartItem.swift; sourceTree = "<group>"; };
 		209DFDC32E20CBD5004BFCD8 /* DatabaseMigrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseMigrationManager.swift; sourceTree = "<group>"; };
 		209DFDC62E20D273004BFCD8 /* MoriDatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoriDatabaseManager.swift; sourceTree = "<group>"; };
+		209DFDC82E20D4A3004BFCD8 /* ChartItemRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartItemRowView.swift; sourceTree = "<group>"; };
+		209DFDC92E20D4A3004BFCD8 /* CollectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCardView.swift; sourceTree = "<group>"; };
+		209DFDCA2E20D4A3004BFCD8 /* DebugActionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugActionRow.swift; sourceTree = "<group>"; };
+		209DFDCE2E20D4AC004BFCD8 /* AddChartItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChartItemView.swift; sourceTree = "<group>"; };
+		209DFDCF2E20D4AC004BFCD8 /* AddCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCollectionView.swift; sourceTree = "<group>"; };
+		209DFDD02E20D4AC004BFCD8 /* CollectionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionDetailView.swift; sourceTree = "<group>"; };
+		209DFDD12E20D4AC004BFCD8 /* DebugMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuView.swift; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		20DE193C2E0049FD00CD902D /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -138,6 +152,9 @@
 				30F224252E0665C000493124 /* CalendarEventComponents.swift */,
 				30F224272E0665D000493124 /* ErrorDetailView.swift */,
 				A2000004000000000000001 /* AudioRecordingButton.swift */,
+				209DFDC82E20D4A3004BFCD8 /* ChartItemRowView.swift */,
+				209DFDC92E20D4A3004BFCD8 /* CollectionCardView.swift */,
+				209DFDCA2E20D4A3004BFCD8 /* DebugActionRow.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -191,6 +208,10 @@
 				20DE194B2E004D5600CD902D /* ChartView.swift */,
 				20DE195B2E004E5600CD903D /* TabContainerView.swift */,
 				30F224282E0665E000493124 /* Components */,
+				209DFDCE2E20D4AC004BFCD8 /* AddChartItemView.swift */,
+				209DFDCF2E20D4AC004BFCD8 /* AddCollectionView.swift */,
+				209DFDD02E20D4AC004BFCD8 /* CollectionDetailView.swift */,
+				209DFDD12E20D4AC004BFCD8 /* DebugMenuView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -367,6 +388,10 @@
 				20F2241E2DF2171A0046CA52 /* WorkflowViews.swift in Sources */,
 				30F224202E0665A000493124 /* ChatItemView.swift in Sources */,
 				30F224222E0665B000493124 /* WorkflowStepItemView.swift in Sources */,
+				209DFDD22E20D4AC004BFCD8 /* AddCollectionView.swift in Sources */,
+				209DFDD32E20D4AC004BFCD8 /* AddChartItemView.swift in Sources */,
+				209DFDD42E20D4AC004BFCD8 /* DebugMenuView.swift in Sources */,
+				209DFDD52E20D4AC004BFCD8 /* CollectionDetailView.swift in Sources */,
 				20020FE72E1A36A80053950E /* CalendarSyncManager.swift in Sources */,
 				30F224242E0665C000493124 /* CalendarEventComponents.swift in Sources */,
 				30F224262E0665D000493124 /* ErrorDetailView.swift in Sources */,
@@ -380,6 +405,9 @@
 				A2000001000000000000001 /* AudioRecordingManager.swift in Sources */,
 				209DFDBF2E1E5FA7004BFCD8 /* ChartItemView.swift in Sources */,
 				A2000003000000000000001 /* AudioRecordingButton.swift in Sources */,
+				209DFDCB2E20D4A3004BFCD8 /* ChartItemRowView.swift in Sources */,
+				209DFDCC2E20D4A3004BFCD8 /* CollectionCardView.swift in Sources */,
+				209DFDCD2E20D4A3004BFCD8 /* DebugActionRow.swift in Sources */,
 				209320552E126A05003AF64D /* SettingsView.swift in Sources */,
 				A3000003000000000000001 /* ThemeManager.swift in Sources */,
 			);

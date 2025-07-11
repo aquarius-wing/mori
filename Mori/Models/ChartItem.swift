@@ -297,4 +297,100 @@ struct ChartItemViewModel: Identifiable {
         ChartItemViewModel(title: "Red Scheme", type: .contribution, colorScheme: .red, data: Array(repeating: 0, count: 365).enumerated().map { index, _ in Int.random(in: 0...4) }),
         ChartItemViewModel(title: "Indigo Style", type: .contribution, colorScheme: .indigo, data: Array(repeating: 0, count: 365).enumerated().map { index, _ in Int.random(in: 0...4) })
     ]
+    
+    // Sample data with various realistic patterns for better preview
+    static let sampleDataWithVariousPatterns: [ChartItemViewModel] = [
+        // High activity pattern - busy developer
+        ChartItemViewModel(
+            title: "High Activity Developer",
+            type: .contribution,
+            colorScheme: .blue,
+            data: Array(0..<365).map { day in
+                let dayOfWeek = day % 7
+                // Weekend less activity
+                if dayOfWeek == 0 || dayOfWeek == 6 {
+                    return Int.random(in: 0...2)
+                } else {
+                    return Int.random(in: 2...4)
+                }
+            }
+        ),
+        
+        // Learning curve pattern - gradual improvement
+        ChartItemViewModel(
+            title: "Learning Journey",
+            type: .contribution,
+            colorScheme: .green,
+            data: Array(0..<365).map { day in
+                let progress = Double(day) / 365.0
+                let baseActivity = Int(progress * 3) // 0 to 3 based on progress
+                let randomVariation = Int.random(in: -1...1)
+                return max(0, min(4, baseActivity + randomVariation))
+            }
+        ),
+        
+        // Sprint pattern - intense bursts followed by rest
+        ChartItemViewModel(
+            title: "Sprint Work Pattern",
+            type: .contribution,
+            colorScheme: .amber,
+            data: Array(0..<365).map { day in
+                let sprintCycle = day % 14 // 2-week sprints
+                if sprintCycle < 10 {
+                    return Int.random(in: 2...4) // Active sprint days
+                } else {
+                    return Int.random(in: 0...1) // Rest/planning days
+                }
+            }
+        ),
+        
+        // Declining activity - burnout pattern
+        ChartItemViewModel(
+            title: "Declining Activity",
+            type: .contribution,
+            colorScheme: .rose,
+            data: Array(0..<365).map { day in
+                let progress = 1.0 - (Double(day) / 365.0)
+                let baseActivity = Int(progress * 4)
+                let randomVariation = Int.random(in: -1...1)
+                return max(0, min(4, baseActivity + randomVariation))
+            }
+        ),
+        
+        // Seasonal pattern - more active in certain months
+        ChartItemViewModel(
+            title: "Seasonal Activity",
+            type: .contribution,
+            colorScheme: .purple,
+            data: Array(0..<365).map { day in
+                let month = (day / 30) % 12
+                let seasonalMultiplier: Double
+                // More active in winter months (coding season)
+                if month >= 10 || month <= 2 {
+                    seasonalMultiplier = 1.0
+                } else if month >= 6 && month <= 8 {
+                    seasonalMultiplier = 0.3 // Summer break
+                } else {
+                    seasonalMultiplier = 0.7
+                }
+                let baseActivity = Int(Double.random(in: 0...4) * seasonalMultiplier)
+                return baseActivity
+            }
+        ),
+        
+        // Sparse but consistent pattern
+        ChartItemViewModel(
+            title: "Consistent Light Activity",
+            type: .contribution,
+            colorScheme: .teal,
+            data: Array(0..<365).map { day in
+                let probability = Double.random(in: 0...1)
+                if probability < 0.3 {
+                    return Int.random(in: 1...2)
+                } else {
+                    return 0
+                }
+            }
+        )
+    ]
 } 
