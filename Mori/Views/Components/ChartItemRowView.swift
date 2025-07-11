@@ -50,11 +50,11 @@ struct ChartItemRowView: View {
             // Chart content
             if item.type == "contribution" {
                 let dataToShow = previewMode ? Self.generateSampleContributionData() : contributionData
-                
+                let chartColorScheme = getChartColorScheme(from: item.colorTheme)
                 if !dataToShow.isEmpty {
                     CustomContributionGridView(
                         activities: dataToShow,
-                        chartColorScheme: getChartColorScheme(from: item.colorTheme)
+                        chartColorScheme: chartColorScheme
                     )
                 } else if let errorMessage = errorMessage, !previewMode {
                     HStack {
@@ -226,7 +226,8 @@ struct ChartItemRowView: View {
     // MARK: - Sample Data for Preview
     
     static func generateSampleContributionData() -> [ContributionGridData] {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.timeZone = TimeZone.current
         let today = Date()
         let dayCount = 365 // Last year of data
         

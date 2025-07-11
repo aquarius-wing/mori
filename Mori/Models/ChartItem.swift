@@ -219,7 +219,7 @@ struct ChartCollection: Codable, FetchableRecord, PersistableRecord {
 }
 
 // Chart Item - Database Model
-struct ChartItem: Codable, FetchableRecord, PersistableRecord {
+struct ChartItem: Codable, FetchableRecord, PersistableRecord, Identifiable {
     var id: String
     var title: String
     var type: String

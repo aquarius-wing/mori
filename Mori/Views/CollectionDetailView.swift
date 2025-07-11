@@ -6,6 +6,7 @@ struct CollectionDetailView: View {
     @State private var chartItems: [ChartItem] = []
     @State private var showingAddChart = false
     @State private var showingDebugMenu = false
+    @State private var chartItemToEdit: ChartItem?
     @State private var errorMessage: String?
     private let previewMode: Bool
     private let previewItems: [ChartItem]
@@ -60,7 +61,12 @@ struct CollectionDetailView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(chartItems.indices, id: \.self) { index in
-                            ChartItemRowView(item: chartItems[index])
+                            Button(action: {
+                                chartItemToEdit = chartItems[index]
+                            }) {
+                                ChartItemRowView(item: chartItems[index])
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     }
                     .padding(.horizontal, 16)
@@ -80,6 +86,7 @@ struct CollectionDetailView: View {
         .navigationTitle(collection.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            #if DEBUG
             ToolbarItem(placement: .navigationBarLeading) {
                 Button("Debug") {
                     showingDebugMenu = true
@@ -87,7 +94,7 @@ struct CollectionDetailView: View {
                 .font(.caption)
                 .foregroundColor(.orange)
             }
-            
+            #endif
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     showingAddChart = true
@@ -101,6 +108,11 @@ struct CollectionDetailView: View {
         .sheet(isPresented: $showingAddChart) {
             AddChartItemView(collectionId: collection.id) { chartItem in
                 saveChartItem(chartItem)
+            }
+        }
+        .sheet(item: $chartItemToEdit) { chartItem in
+            ChartItemEditView(chartItem: chartItem, databaseManager: databaseManager) {
+                loadChartItems()
             }
         }
         .sheet(isPresented: $showingDebugMenu) {

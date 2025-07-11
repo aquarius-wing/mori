@@ -26,6 +26,7 @@
 		209DFDD32E20D4AC004BFCD8 /* AddChartItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDCE2E20D4AC004BFCD8 /* AddChartItemView.swift */; };
 		209DFDD42E20D4AC004BFCD8 /* DebugMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDD12E20D4AC004BFCD8 /* DebugMenuView.swift */; };
 		209DFDD52E20D4AC004BFCD8 /* CollectionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209DFDD02E20D4AC004BFCD8 /* CollectionDetailView.swift */; };
+		465FC5A71A4743C7822EEBA6 /* ChartItemEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20E0A4A24F241D091798C58 /* ChartItemEditView.swift */; };
 		20CA7B492E1A2BE200C5479F /* PersonalSync in Frameworks */ = {isa = PBXBuildFile; productRef = 20CA7B482E1A2BE200C5479F /* PersonalSync */; };
 		20DE190D2DF8578400CD902D /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE190C2DF8578300CD902D /* FilesView.swift */; };
 		20DE193B2E0046F900CD902D /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE193A2E0046F900CD902D /* MenuView.swift */; };
@@ -84,6 +85,7 @@
 		209DFDCE2E20D4AC004BFCD8 /* AddChartItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChartItemView.swift; sourceTree = "<group>"; };
 		209DFDCF2E20D4AC004BFCD8 /* AddCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCollectionView.swift; sourceTree = "<group>"; };
 		209DFDD02E20D4AC004BFCD8 /* CollectionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionDetailView.swift; sourceTree = "<group>"; };
+		B20E0A4A24F241D091798C58 /* ChartItemEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartItemEditView.swift; sourceTree = "<group>"; };
 		209DFDD12E20D4AC004BFCD8 /* DebugMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuView.swift; sourceTree = "<group>"; };
 		20DE190C2DF8578300CD902D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		20DE193A2E0046F900CD902D /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
@@ -211,6 +213,7 @@
 				209DFDCE2E20D4AC004BFCD8 /* AddChartItemView.swift */,
 				209DFDCF2E20D4AC004BFCD8 /* AddCollectionView.swift */,
 				209DFDD02E20D4AC004BFCD8 /* CollectionDetailView.swift */,
+				B20E0A4A24F241D091798C58 /* ChartItemEditView.swift */,
 				209DFDD12E20D4AC004BFCD8 /* DebugMenuView.swift */,
 			);
 			path = Views;
@@ -392,6 +395,7 @@
 				209DFDD32E20D4AC004BFCD8 /* AddChartItemView.swift in Sources */,
 				209DFDD42E20D4AC004BFCD8 /* DebugMenuView.swift in Sources */,
 				209DFDD52E20D4AC004BFCD8 /* CollectionDetailView.swift in Sources */,
+				465FC5A71A4743C7822EEBA6 /* ChartItemEditView.swift in Sources */,
 				20020FE72E1A36A80053950E /* CalendarSyncManager.swift in Sources */,
 				30F224242E0665C000493124 /* CalendarEventComponents.swift in Sources */,
 				30F224262E0665D000493124 /* ErrorDetailView.swift in Sources */,

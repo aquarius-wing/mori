@@ -105,10 +105,17 @@ struct CustomContributionGridView: View {
     let chartColorScheme: ChartColorScheme
     
     // Use @State to cache the computed result and avoid recalculation
-    @State private var dateCountMap: [Date: Double] = [:]
+    @State private var dateCountMap: [Date: Double]
+    
+    // Initialize with computed dateCountMap
+    init(activities: [ContributionGridData], chartColorScheme: ChartColorScheme) {
+        self.activities = activities
+        self.chartColorScheme = chartColorScheme
+        self._dateCountMap = State(initialValue: Self.computeDateCountMap(from: activities))
+    }
     
     // Helper function to compute dateCountMap
-    private func computeDateCountMap() -> [Date: Double] {
+    private static func computeDateCountMap(from activities: [ContributionGridData]) -> [Date: Double] {
         var calendar = Calendar.current
         // time zone is UTC
         calendar.timeZone = TimeZone.current
@@ -117,7 +124,19 @@ struct CustomContributionGridView: View {
             let dayStart = calendar.startOfDay(for: activity.date)
             map[dayStart, default: 0] += activity.count
         }
+        print("dateCountMap length: \(map.count)")
+        
+        // Print memory address of local map before returning
+        withUnsafePointer(to: &map) { pointer in
+            print("local map memory address: \(pointer)")
+        }
+        
         return map
+    }
+    
+    // Instance method for updating dateCountMap
+    private func updateDateCountMap() {
+        dateCountMap = Self.computeDateCountMap(from: activities)
     }
     
     private var contributionColors: [Color] {
@@ -150,19 +169,27 @@ struct CustomContributionGridView: View {
         .padding(.trailing, 4)
         .frame(height: heightOfMonthHeader + 4 + heightOfGrid)
         .onAppear {
-            // Compute dateCountMap when view appears
-            dateCountMap = computeDateCountMap()
+            // Print memory address of dateCountMap on appear
+            withUnsafePointer(to: &dateCountMap) { pointer in
+                print("dateCountMap memory address on appear: \(pointer)")
+            }
         }
         .onChange(of: activities) { _ in
             // Recompute when activities change
-            dateCountMap = computeDateCountMap()
+            updateDateCountMap()
+            
+            // Print memory address of dateCountMap after recompute
+            withUnsafePointer(to: &dateCountMap) { pointer in
+                print("dateCountMap memory address after recompute: \(pointer)")
+            }
         }
     }
 
     // MARK: - Subviews
     
     private func monthHeaderGridView(columns: Int, squareSize: CGFloat, spacing: CGFloat) -> some View {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.timeZone = TimeZone.current
         let startDate = getStartDate(actualColumns: columns)
         let monthSymbols = calendar.shortMonthSymbols
         
@@ -264,7 +291,13 @@ struct CustomContributionGridView: View {
     }
 
     private func weekColumnView(week: Int, startDate: Date, squareSize: CGFloat, spacing: CGFloat) -> some View {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.timeZone = TimeZone.current
+        
+        // Debug: print dateCountMap status for first week only
+        if week == 0 {
+            print("weekColumnView: dateCountMap.count = \(dateCountMap.count)")
+        }
         
         return VStack(spacing: spacing) {
             ForEach(0..<7, id: \.self) { day in
