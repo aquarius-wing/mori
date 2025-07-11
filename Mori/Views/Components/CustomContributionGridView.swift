@@ -371,7 +371,7 @@ struct CustomContributionGridView_Previews: PreviewProvider {
             }
             .padding()
         }
-        .background(Color.gray.opacity(0.1))
+        .background(Color("background"))
     }
     
     // Break down complex expression into separate view
@@ -389,13 +389,13 @@ struct CustomContributionGridView_Previews: PreviewProvider {
             )
         }
         .padding(16)
-        .background(cardBackground)
-    }
-    
-    private static var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color.white)
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .background(Color("card"))
+        .cornerRadius(12)
+        // border
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color("card-border"), lineWidth: 1)
+        )
     }
 }
 #endif

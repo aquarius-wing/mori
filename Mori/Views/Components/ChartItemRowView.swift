@@ -80,7 +80,7 @@ struct ChartItemRowView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white)
+                .fill(Color("card"))
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         )
         .onAppear {

@@ -1,0 +1,190 @@
+---
+alwaysApply: false
+---
+Understood. You would like me to provide a guide (cursor rule) for using `Color("xxx")` in SwiftUI, based on the color naming rules you provide, explaining in what situations which color name should be used, in order to unify the color logic in the project. This is not a discussion of specific color values, but rather an explanation of "semantics" and "use cases."
+
+Below is a summary of a semantic usage guide based on the color variables you defined:
+
+---
+
+## 🎨 SwiftUI Color Guide (Based on Semantic Color("xxx"))
+
+### 🧱 Basic Layout
+
+* `Color("background")`
+
+Used for the main page background. Typically used as the underlying color for the entire page, suitable for `ZStack` or `ScrollView` backgrounds.
+
+* `Color("card")`
+
+Used for the background of independent blocks such as cards, modules, bubbles, and pop-up boxes. Suitable for `RoundedRectangle` backgrounds, row backgrounds in `List`, etc.
+
+* `Color("foreground")`
+
+Used for the main text color on the main background. Paired with `background`.
+
+* `Color("card-foreground")`
+
+Used for text color on cards. Paired with `card`.
+
+---
+
+### 🧭 Navigation & Popovers
+
+* `Color("popover")`
+
+Used for the background of pop-up views (such as `.popover`, menus, date pickers).
+
+* `Color("popover-foreground")`
+
+Used for text color in `popover`.
+
+---
+
+### ✅ Button State Colors (Semantic)
+
+* `Color("primary")`
+
+Used for main buttons and emphasized actions (such as "save", "publish").
+
+* `Color("primary-foreground")`
+
+Used for text or icon color on main buttons. Paired with `primary`.
+
+* `Color("secondary")`
+
+Background for secondary action buttons or non-critical operations (such as "cancel", "preview").
+
+* `Color("secondary-foreground")`
+
+Text color for secondary buttons. Paired with `secondary`.
+
+* `Color("accent")`
+
+Used for emphasized elements, links, icon highlights, and local UI emphasis.
+
+* `Color("accent-foreground")`
+
+Text or icon color on the emphasized color.
+
+---
+
+### 🛠 Input & Borders
+
+* `Color("input")`
+
+Background color for input boxes, selection boxes.
+
+* `Color("border")`
+
+Used for all border lines, separators.
+
+* `Color("ring")`
+
+Ring border for input focus, emphasizing the current interaction focus.
+
+---
+
+### 📊 Charts / Data Visualization
+
+* `Color("chart-1")` ~ `Color("chart-5")`
+
+Used for series colors in charts (bar charts, line charts, pie charts for different data dimensions).
+
+---
+
+### 🚫 Alert Types
+
+* `Color("destructive")`
+
+Used for delete, warning, and error operation buttons.
+
+---
+
+### 📚 Sidebar
+
+If your UI has a sidebar (such as layouts similar to Notion / Linear), you can use this set of dedicated colors:
+
+* `Color("sidebar")`
+
+Sidebar background color.
+
+* `Color("sidebar-foreground")`
+
+Sidebar text color.
+
+* `Color("sidebar-primary")`
+
+Background color for emphasized buttons in the sidebar (such as "new project").
+
+* `Color("sidebar-primary-foreground")`
+
+Text color for the above buttons.
+
+* `Color("sidebar-accent")`
+
+Background color for links, highlighted tabs, hover effects in the sidebar.
+
+* `Color("sidebar-accent-foreground")`
+
+Text or icon color in highlighted items.
+
+* `Color("sidebar-border")`
+
+Separator color between the sidebar and main content area.
+
+* `Color("sidebar-ring")`
+
+Focus border or click feedback effect color for interactive items in the sidebar.
+
+---
+
+### 🧩 Example Combinations
+
+```swift
+
+ZStack {
+
+Color("background").ignoresSafeArea()
+
+VStack {
+
+Text("Title")
+
+.foregroundColor(Color("foreground"))
+
+RoundedRectangle(cornerRadius: 12)
+
+.fill(Color("card"))
+
+.overlay(
+
+Text("Card Content")
+
+.foregroundColor(Color("card-foreground"))
+
+)
+
+Button(action: {}) {
+
+Text("Save")
+
+.foregroundColor(Color("primary-foreground"))
+
+.padding()
+
+.background(Color("primary"))
+
+.cornerRadius(8)
+
+}
+
+}
+
+}
+
+```
+
+---
+
+If you need a team reference `.md` document or code template as a manual, let me know and I can help you organize it directly.
