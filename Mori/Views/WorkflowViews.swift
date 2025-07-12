@@ -366,7 +366,7 @@ struct WorkflowStepView: View {
             .background(
                 step.status == .result ? Color.blue.opacity(0.05) :
                 step.status == .executing ? Color.orange.opacity(0.05) :
-                step.status == .scheduled ? Color.gray.opacity(0.05) : Color.gray.opacity(0.05)
+                step.status == .scheduled ? Color("muted") : Color("muted")
             )
             .cornerRadius(8)
         }

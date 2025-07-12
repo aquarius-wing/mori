@@ -15,14 +15,14 @@ struct SettingsView: View {
                     NavigationLink(destination: ThemeSettingsView()) {
                         HStack {
                             Image(systemName: "paintbrush")
-                                .foregroundColor(.orange)
+                                .foregroundColor(Color("primary"))
                                 .frame(width: 24, height: 24)
                             
                             VStack(alignment: .leading) {
                                 Text("Theme Settings")
                                 Text(themeManager.currentMode.displayName)
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color("muted-foreground"))
                             }
                         }
                     }
@@ -32,7 +32,7 @@ struct SettingsView: View {
                     NavigationLink(destination: MemoryView()) {
                         HStack {
                             Image(systemName: "brain.head.profile")
-                                .foregroundColor(.purple)
+                                .foregroundColor(Color("primary"))
                                 .frame(width: 24, height: 24)
                             
                             Text("Memory Management")
@@ -44,7 +44,7 @@ struct SettingsView: View {
                     NavigationLink(destination: CalendarSyncView()) {
                         HStack {
                             Image(systemName: "arrow.triangle.2.circlepath")
-                                .foregroundColor(.green)
+                                .foregroundColor(Color("primary"))
                                 .frame(width: 24, height: 24)
                             
                             Text("Calendar Sync")
@@ -53,10 +53,10 @@ struct SettingsView: View {
                             
                             Text("\(calendarSyncManager.eventCount)")
                                 .font(.caption)
-                                .foregroundColor(.white)
+                                .foregroundColor(Color("primary-foreground"))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.blue)
+                                .background(Color("primary"))
                                 .clipShape(Capsule())
                         }
                     }
@@ -66,7 +66,7 @@ struct SettingsView: View {
                     NavigationLink(destination: CalendarSettingsView()) {
                         HStack {
                             Image(systemName: "calendar")
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color("primary"))
                                 .frame(width: 24, height: 24)
                             
                             Text("Calendar Settings")
@@ -106,10 +106,10 @@ struct CalendarSettingsView: View {
                         if let defaultCalendarId = calendarSettings.defaultCalendarId,
                            let defaultCalendar = availableCalendars.first(where: { $0.id == defaultCalendarId }) {
                             Text(defaultCalendar.title)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color("muted-foreground"))
                         } else {
                             Text("System Default")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color("muted-foreground"))
                         }
                     }
                 }
@@ -236,7 +236,7 @@ struct CalendarSelectionRow: View {
                         
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Color("primary-foreground"))
                     } else {
                         // Unselected state: only border with calendar color
                         Circle()
@@ -247,7 +247,7 @@ struct CalendarSelectionRow: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(calendar.title)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("foreground"))
                         .font(.body)
                     
                     // if !calendar.allowsContentModifications {
@@ -285,14 +285,14 @@ struct DefaultCalendarRow: View {
                     .frame(width: 24, height: 24)
                 
                 Text(calendar.title)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Color("foreground"))
                     .font(.body)
                 
                 Spacer()
                 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color("primary"))
                         .font(.body)
                 }
             }
@@ -326,11 +326,11 @@ struct MemoryView: View {
                         Text("No Memory Records")
                             .font(.title2)
                             .fontWeight(.medium)
-                            .foregroundColor(.primary)
+                            .foregroundColor(Color("foreground"))
                         
                         Text("Your personal information and preferences will appear here as you interact with Mori.")
                             .font(.body)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color("muted-foreground"))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
@@ -345,7 +345,7 @@ struct MemoryView: View {
                                     isEditingMemory = false
                                     editableMemory = memorySettings.userMemory
                                 }
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color("primary"))
                                 
                                 Spacer()
                                 
@@ -353,7 +353,7 @@ struct MemoryView: View {
                                     memorySettings.updateMemory(editableMemory)
                                     isEditingMemory = false
                                 }
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color("primary"))
                                 .fontWeight(.medium)
                             }
                             .padding(.horizontal, 16)
@@ -395,7 +395,7 @@ struct MemoryView: View {
                                 showingClearConfirmation = true
                             }) {
                                 Image(systemName: "trash")
-                                    .foregroundColor(.red)
+                                    .foregroundColor(Color("destructive"))
                             }
                         }
                         
@@ -496,14 +496,14 @@ struct ThemeSelectionRow: View {
                     .frame(width: 24, height: 24)
                 
                 Text(mode.displayName)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Color("foreground"))
                     .font(.body)
                 
                 Spacer()
                 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color("primary"))
                         .font(.body)
                 }
             }
@@ -516,11 +516,11 @@ struct ThemeSelectionRow: View {
     private var iconColor: Color {
         switch mode {
         case .system:
-            return .primary
+            return Color("foreground")
         case .light:
-            return .orange
+            return Color("primary")
         case .dark:
-            return .indigo
+            return Color("primary")
         }
     }
 }
@@ -559,13 +559,13 @@ struct CalendarSyncView: View {
                                 .font(.body)
                             Text(calendarSyncManager.syncStatus.displayString)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color("muted-foreground"))
                         }
                     }
                     
                     HStack {
                         Image(systemName: "calendar.badge.clock")
-                            .foregroundColor(.blue)
+                            .foregroundColor(Color("primary"))
                             .frame(width: 24, height: 24)
                         
                         VStack(alignment: .leading, spacing: 4) {
@@ -573,13 +573,13 @@ struct CalendarSyncView: View {
                                 .font(.body)
                             Text(lastSyncTimeText)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color("muted-foreground"))
                         }
                     }
                     
                     HStack {
                         Image(systemName: "number.circle")
-                            .foregroundColor(.purple)
+                            .foregroundColor(Color("primary"))
                             .frame(width: 24, height: 24)
                         
                         VStack(alignment: .leading, spacing: 4) {
@@ -587,7 +587,7 @@ struct CalendarSyncView: View {
                                 .font(.body)
                             Text("\(calendarSyncManager.eventCount)")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color("muted-foreground"))
                         }
                     }
                 }
@@ -620,7 +620,7 @@ struct CalendarSyncView: View {
                 if let error = calendarSyncManager.errorMessage {
                     Section("Error") {
                         Text(error)
-                            .foregroundColor(.red)
+                            .foregroundColor(Color("destructive"))
                             .font(.caption)
                     }
                 }
@@ -657,13 +657,13 @@ struct CalendarSyncView: View {
     private var syncStatusColor: Color {
         switch calendarSyncManager.syncStatus {
         case .syncing:
-            return .blue
+            return Color("primary")
         case .idle:
-            return .green
+            return Color("primary")
         case .error:
-            return .red
+            return Color("destructive")
         default:
-            return .gray
+            return Color("muted")
         }
     }
     

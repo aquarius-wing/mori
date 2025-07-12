@@ -10,19 +10,19 @@ struct CollectionCardView: View {
                 HStack {
                     Image(systemName: "folder.fill")
                         .font(.title2)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color("primary"))
                     
                     Spacer()
                     
                     Text("\(chartItemCount)")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color("muted-foreground"))
                 }
                 
                 Text(collection.title)
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Color("foreground"))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 
@@ -31,20 +31,20 @@ struct CollectionCardView: View {
                 HStack {
                     Text("创建于")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color("muted-foreground"))
                     
                     Spacer()
                     
                     Text(collection.creationDate, style: .date)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color("muted-foreground"))
                 }
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    .fill(Color("card"))
+                    .stroke(Color("card-border"), lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())

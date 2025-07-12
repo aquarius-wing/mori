@@ -88,6 +88,7 @@ struct ChartView: View {
             .onAppear {
                 loadCollections()
             }
+            .background(Color("background"))
         }
     }
     

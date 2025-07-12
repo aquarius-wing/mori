@@ -64,7 +64,7 @@ struct CollectionDetailView: View {
                             Button(action: {
                                 chartItemToEdit = chartItems[index]
                             }) {
-                                ChartItemRowView(item: chartItems[index])
+                                ChartItemRowView(item: chartItems[index], previewMode: previewMode)
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
@@ -123,6 +123,7 @@ struct CollectionDetailView: View {
         .onAppear {
             loadChartItems()
         }
+        .background(Color("background"))
     }
     
     private func loadChartItems() {

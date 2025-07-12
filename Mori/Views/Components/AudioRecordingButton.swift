@@ -144,13 +144,13 @@ struct AudioRecordingButton: View {
     
     private var buttonColor: Color {
         if isDisabled || isTranscribing || isStreaming {
-            return .gray.opacity(0.5)
+            return Color("muted-foreground")
         } else if isRecording {
             return .red
         } else if recordingPermissionGranted {
-            return .white
+            return Color("foreground")
         } else {
-            return .gray.opacity(0.5)
+            return Color("muted-foreground")
         }
     }
     
@@ -244,7 +244,7 @@ struct AudioRecordingButton: View {
 // MARK: - Preview
 #Preview {
     VStack(spacing: 20) {
-        Text("Normal State").foregroundColor(.white)
+        Text("Normal State").foregroundColor(Color("foreground"))
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -262,7 +262,7 @@ struct AudioRecordingButton: View {
             isDraggedToCancel: .constant(false)
         )
         
-        Text("Recording State").foregroundColor(.white)
+        Text("Recording State").foregroundColor(Color("foreground"))
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -280,7 +280,7 @@ struct AudioRecordingButton: View {
             isDraggedToCancel: .constant(false)
         )
         
-        Text("Transcribing State").foregroundColor(.white)
+        Text("Transcribing State").foregroundColor(Color("foreground"))
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -298,7 +298,7 @@ struct AudioRecordingButton: View {
             isDraggedToCancel: .constant(false)
         )
         
-        Text("Disabled State (Streaming)").foregroundColor(.white)
+        Text("Disabled State (Streaming)").foregroundColor(Color("foreground"))
         AudioRecordingButton(
             llmService: nil,
             onTranscriptionComplete: { text in
@@ -317,6 +317,4 @@ struct AudioRecordingButton: View {
         )
     }
     .padding()
-    .background(Color.black)
-    .preferredColorScheme(.dark)
 } 

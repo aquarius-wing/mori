@@ -18,11 +18,11 @@ struct DebugActionRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.headline)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("foreground"))
                     
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color("muted-foreground"))
                         .lineLimit(2)
                 }
                 
@@ -30,7 +30,7 @@ struct DebugActionRow: View {
                 
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color("muted-foreground"))
             }
             .padding(.vertical, 4)
         }

@@ -21,26 +21,26 @@ struct AddCollectionView: View {
                         HStack {
                             Image(systemName: "folder.fill")
                                 .font(.title2)
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color("primary"))
                             
                             Text(title.isEmpty ? "集合标题" : title)
                                 .font(.headline)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.primary)
+                                .foregroundColor(Color("foreground"))
                         }
                         
                         Text("排序: \(order)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color("muted-foreground"))
                         
                         Text("创建时间: \(Date().formatted(date: .abbreviated, time: .shortened))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color("muted-foreground"))
                     }
                     .padding()
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.1))
+                            .fill(Color("muted").opacity(0.1))
                     )
                 }
             }

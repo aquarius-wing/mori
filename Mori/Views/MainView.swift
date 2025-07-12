@@ -63,7 +63,7 @@ struct MainView: View {
 
                             // Side Menu Overlay
                             if showingMenu {
-                                ThemeColors.background(for: colorScheme)
+                                Color("background")
                                     .opacity(0.1)
                                     .ignoresSafeArea()
                                     .onTapGesture {
@@ -95,7 +95,7 @@ struct MainView: View {
                                         HStack {
                                             Spacer()
                                             Rectangle()
-                                                .fill(ThemeColors.border(for: colorScheme))
+                                                .fill(Color("border"))
                                                 .frame(width: 1)
                                                 .ignoresSafeArea()
                                         }
@@ -153,13 +153,13 @@ struct MessageBubble: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(message.content)
                         .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
+                        .background(Color("primary"))
+                        .foregroundColor(Color("primary-foreground"))
                         .cornerRadius(16)
 
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color("muted-foreground"))
                 }
                 .frame(
                     maxWidth: UIScreen.main.bounds.width * 0.7,
@@ -169,17 +169,17 @@ struct MessageBubble: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(message.content)
                         .padding()
-                        .background(ThemeColors.cardBackground(for: colorScheme))
+                        .background(Color("card"))
                         .cornerRadius(16)
 
                     HStack {
                         Text(formatTime(message.timestamp))
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color("muted-foreground"))
 
                         if isStreaming {
                             Image(systemName: "ellipsis")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color("muted-foreground"))
                                 .scaleEffect(0.8)
                         }
 
@@ -195,7 +195,7 @@ struct MessageBubble: View {
                                 onPlayTTS?(message.content)
                             }) {
                                 Image(systemName: "play.circle")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(Color("primary"))
                                     .font(.caption)
                             }
                         }

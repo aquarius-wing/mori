@@ -61,11 +61,11 @@ Text color for secondary buttons. Paired with `secondary`.
 
 * `Color("accent")`
 
-Used for emphasized elements, links, icon highlights, and local UI emphasis.
+Used for highlighted state, such as buttons, links, and icons.
 
 * `Color("accent-foreground")`
 
-Text or icon color on the emphasized color.
+Used for text or icon color in highlighted state, such as buttons, links, and icons.
 
 ---
 

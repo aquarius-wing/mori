@@ -15,15 +15,15 @@ struct ErrorDetailView: View {
                     HStack {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.title2)
-                            .foregroundColor(.red)
+                            .foregroundColor(Color("destructive"))
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Error Details")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(Color("foreground"))
                             Text("Complete error information")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(Color("muted-foreground"))
                         }
 
                         Spacer()
@@ -31,13 +31,13 @@ struct ErrorDetailView: View {
                         Button("Close") {
                             dismiss()
                         }
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color("primary"))
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
 
                     Divider()
-                        .background(Color.white.opacity(0.2))
+                        .background(Color("border"))
                 }
 
                 // Error content
@@ -47,15 +47,15 @@ struct ErrorDetailView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Error Information:")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(Color("foreground"))
 
                             Text(errorDetail)
                                 .font(.system(.body, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.9))
+                                .foregroundColor(Color("foreground"))
                                 .padding(16)
                                 .background(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.white.opacity(0.1))
+                                        .fill(Color("card"))
                                 )
                                 .multilineTextAlignment(.leading)
                         }
@@ -72,12 +72,12 @@ struct ErrorDetailView: View {
                                     Text("Copy Error")
                                         .font(.body)
                                 }
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color("primary"))
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.blue.opacity(0.2))
+                                        .fill(Color("primary").opacity(0.2))
                                 )
                             }
                             Spacer()
@@ -87,7 +87,7 @@ struct ErrorDetailView: View {
                     .padding(.vertical, 16)
                 }
             }
-            .background(Color.black)
+            .background(Color("background"))
             .preferredColorScheme(.dark)
             .navigationBarHidden(true)
         }

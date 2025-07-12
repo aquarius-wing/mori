@@ -96,7 +96,7 @@ struct ChartItemView: View {
                 .fill(colorScheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color(red: 0.98, green: 0.98, blue: 0.98))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        .stroke(Color("border").opacity(0.5), lineWidth: 1)
                 )
         )
         .padding(16)

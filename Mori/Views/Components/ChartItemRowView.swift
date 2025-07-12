@@ -26,12 +26,12 @@ struct ChartItemRowView: View {
                     Text(item.title)
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("foreground"))
                     
                     if item.pinned {
                         Label("已置顶", systemImage: "pin.fill")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Color("primary"))
                     }
                 }
                 
@@ -40,7 +40,7 @@ struct ChartItemRowView: View {
                 if item.type != "contribution" {
                     Image(systemName: getChartIcon(for: item.type))
                         .font(.title2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color("muted-foreground"))
                 } else if isLoading && !previewMode {
                     ProgressView()
                         .scaleEffect(0.8)
@@ -59,19 +59,19 @@ struct ChartItemRowView: View {
                 } else if let errorMessage = errorMessage, !previewMode {
                     HStack {
                         Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
+                            .foregroundColor(Color("destructive"))
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color("muted-foreground"))
                     }
                     .padding(.vertical, 8)
                 } else if !isLoading && !previewMode {
                     HStack {
                         Image(systemName: "chart.bar.xaxis")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color("muted-foreground"))
                         Text("暂无数据")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color("muted-foreground"))
                     }
                     .padding(.vertical, 8)
                 }
@@ -81,7 +81,11 @@ struct ChartItemRowView: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color("card"))
-                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color("border").opacity(0.5), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         )
         .onAppear {
             if item.type == "contribution" && !previewMode {

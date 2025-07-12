@@ -7,7 +7,7 @@ extension ChartColorScheme {
         switch self {
         case .blue:
             return [
-                Color("blue-50"),  // Empty
+                Color("blue-100"),  // Empty
                 Color("blue-300"),  // Low
                 Color("blue-500"),  // Medium
                 Color("blue-600"),  // High
@@ -16,7 +16,7 @@ extension ChartColorScheme {
             
         case .green:
             return [
-                Color("green-50"),  // Empty
+                Color("green-100"),  // Empty
                 Color("green-300"),  // Low
                 Color("green-500"),  // Medium
                 Color("green-600"),  // High
@@ -25,7 +25,7 @@ extension ChartColorScheme {
             
         case .amber:
             return [
-                Color("amber-50"),  // Empty
+                Color("amber-100"),  // Empty
                 Color("amber-300"),  // Low
                 Color("amber-500"),  // Medium
                 Color("amber-600"),  // High
@@ -34,7 +34,7 @@ extension ChartColorScheme {
             
         case .rose:
             return [
-                Color("rose-50"),   // Empty
+                Color("rose-100"),   // Empty
                 Color("rose-300"),   // Low
                 Color("rose-500"),   // Medium
                 Color("rose-600"),   // High
@@ -43,7 +43,7 @@ extension ChartColorScheme {
             
         case .purple:
             return [
-                Color("purple-50"), // Empty
+                Color("purple-100"), // Empty
                 Color("purple-300"), // Low
                 Color("purple-500"), // Medium
                 Color("purple-600"), // High
@@ -52,7 +52,7 @@ extension ChartColorScheme {
             
         case .orange:
             return [
-                Color("orange-50"), // Empty
+                Color("orange-100"), // Empty
                 Color("orange-300"), // Low
                 Color("orange-500"), // Medium
                 Color("orange-600"), // High
@@ -61,7 +61,7 @@ extension ChartColorScheme {
             
         case .teal:
             return [
-                Color("teal-50"),   // Empty
+                Color("teal-100"),   // Empty
                 Color("teal-300"),   // Low
                 Color("teal-500"),   // Medium
                 Color("teal-600"),   // High
@@ -70,7 +70,7 @@ extension ChartColorScheme {
             
         case .slate:
             return [
-                Color("slate-50"),  // Empty
+                Color("slate-100"),  // Empty
                 Color("slate-300"),  // Low
                 Color("slate-500"),  // Medium
                 Color("slate-600"),  // High
@@ -79,7 +79,7 @@ extension ChartColorScheme {
             
         case .red:
             return [
-                Color("red-50"),    // Empty
+                Color("red-100"),    // Empty
                 Color("red-300"),    // Low
                 Color("red-500"),    // Medium
                 Color("red-600"),    // High
@@ -88,7 +88,7 @@ extension ChartColorScheme {
             
         case .indigo:
             return [
-                Color("indigo-50"), // Empty
+                Color("indigo-100"), // Empty
                 Color("indigo-300"), // Low
                 Color("indigo-500"), // Medium
                 Color("indigo-600"), // High
@@ -124,13 +124,6 @@ struct CustomContributionGridView: View {
             let dayStart = calendar.startOfDay(for: activity.date)
             map[dayStart, default: 0] += activity.count
         }
-        print("dateCountMap length: \(map.count)")
-        
-        // Print memory address of local map before returning
-        withUnsafePointer(to: &map) { pointer in
-            print("local map memory address: \(pointer)")
-        }
-        
         return map
     }
     
@@ -169,19 +162,10 @@ struct CustomContributionGridView: View {
         .padding(.trailing, 4)
         .frame(height: heightOfMonthHeader + 4 + heightOfGrid)
         .onAppear {
-            // Print memory address of dateCountMap on appear
-            withUnsafePointer(to: &dateCountMap) { pointer in
-                print("dateCountMap memory address on appear: \(pointer)")
-            }
         }
         .onChange(of: activities) { _ in
             // Recompute when activities change
             updateDateCountMap()
-            
-            // Print memory address of dateCountMap after recompute
-            withUnsafePointer(to: &dateCountMap) { pointer in
-                print("dateCountMap memory address after recompute: \(pointer)")
-            }
         }
     }
 
@@ -293,11 +277,6 @@ struct CustomContributionGridView: View {
     private func weekColumnView(week: Int, startDate: Date, squareSize: CGFloat, spacing: CGFloat) -> some View {
         var calendar = Calendar.current
         calendar.timeZone = TimeZone.current
-        
-        // Debug: print dateCountMap status for first week only
-        if week == 0 {
-            print("weekColumnView: dateCountMap.count = \(dateCountMap.count)")
-        }
         
         return VStack(spacing: spacing) {
             ForEach(0..<7, id: \.self) { day in

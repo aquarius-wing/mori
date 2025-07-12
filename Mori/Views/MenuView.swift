@@ -51,7 +51,7 @@ struct MenuView: View {
                 HStack {
                     Text("Messages")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("foreground"))
                     
                     Spacer()
                 }
@@ -100,7 +100,7 @@ struct MenuView: View {
             // Footer
             VStack(spacing: 0) {
                 Divider()
-                    .background(Color.secondary.opacity(0.2))
+                    .background(Color("border"))
                 
                 VStack(spacing: 2) {
                     MenuItemView(
@@ -136,7 +136,7 @@ struct MenuView: View {
                 HStack {
                     Text("Version 1.0")
                         .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(.secondary.opacity(0.8))
+                        .foregroundColor(Color("muted-foreground"))
                     
                     Spacer()
                 }
@@ -145,7 +145,7 @@ struct MenuView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .background(ThemeColors.background(for: colorScheme))
+        .background(Color("background"))
         .alert("Rename Chat", isPresented: $showingRenameAlert) {
             TextField("Chat Title", text: $renameText)
             Button("Cancel", role: .cancel) { }
@@ -203,12 +203,12 @@ struct MenuItemView: View {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color("muted-foreground"))
                     .frame(width: 16, height: 16)
                 
                 Text(title)
                     .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(.primary)
+                    .foregroundColor(Color("foreground"))
                 
                 Spacer()
             }
@@ -216,7 +216,7 @@ struct MenuItemView: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isHovered ? Color.secondary.opacity(0.1) : Color.clear)
+                    .fill(isHovered ? Color("muted").opacity(0.1) : Color.clear)
             )
             .contentShape(Rectangle())
         }
@@ -244,19 +244,19 @@ struct ChatHistoryItemView: View {
                 // Chat icon
                 Image(systemName: "message")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
+                    .foregroundColor(isSelected ? Color("primary-foreground").opacity(0.9) : Color("muted-foreground"))
                     .frame(width: 14, height: 14)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(historyItem.title)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(isSelected ? .white : .primary)
+                        .foregroundColor(isSelected ? Color("primary-foreground") : Color("foreground"))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     
                     Text(historyItem.updateDate.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(isSelected ? .white.opacity(0.7) : .secondary.opacity(0.8))
+                        .foregroundColor(isSelected ? Color("primary-foreground").opacity(0.7) : Color("muted-foreground"))
                 }
                 
                 Spacer()
@@ -265,7 +265,7 @@ struct ChatHistoryItemView: View {
                 if isHovered || isSelected {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(isSelected ? .white.opacity(0.7) : .secondary.opacity(0.6))
+                        .foregroundColor(isSelected ? Color("primary-foreground").opacity(0.7) : Color("muted-foreground").opacity(0.6))
                         .frame(width: 12, height: 12)
                 }
             }
@@ -276,12 +276,12 @@ struct ChatHistoryItemView: View {
                     .fill(
                         isSelected ? 
                         AnyShapeStyle(LinearGradient(
-                            colors: [Color.blue, Color.blue.opacity(0.8)],
+                            colors: [Color("primary"), Color("primary").opacity(0.8)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )) :
                         AnyShapeStyle(isHovered ? 
-                            Color.secondary.opacity(0.08) : 
+                            Color("muted").opacity(0.08) : 
                             Color.clear)
                     )
             )
@@ -305,26 +305,26 @@ struct ChatHistoryItemView: View {
             HStack(spacing: 10) {
                 Image(systemName: "message")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color("muted-foreground"))
                     .frame(width: 14, height: 14)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(historyItem.title)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("foreground"))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     
                     Text(historyItem.updateDate.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(.secondary.opacity(0.8))
+                        .foregroundColor(Color("muted-foreground"))
                 }
                 
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(ThemeColors.cardBackground(for: colorScheme))
+            .background(Color("card"))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
         }

@@ -63,9 +63,9 @@ struct MessageItemView: View {
                         .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(ThemeColors.cardBackground(for: colorScheme))
+                                .fill(Color("muted"))
                         )
-                        .foregroundColor(ThemeColors.text(for: colorScheme))
+                        .foregroundColor(Color("foreground"))
                         .contextMenu {
                             Button(action: onCopy) {
                                 Label("Copy", systemImage: "doc.on.doc")
@@ -79,7 +79,7 @@ struct MessageItemView: View {
 
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
-                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                        .foregroundColor(Color("muted-foreground"))
                 }
                 .frame(
                     maxWidth: UIScreen.main.bounds.width * 0.75,
@@ -92,31 +92,31 @@ struct MessageItemView: View {
                     if isErrorMessage {
                         Text("Tap for details")
                             .font(.caption)
-                            .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                            .foregroundColor(Color("muted-foreground"))
                     }
 
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
-                        .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                        .foregroundColor(Color("muted-foreground"))
 
                     // Action buttons row
                     HStack(spacing: 16) {
                         Button(action: onCopy) {
                             Image(systemName: "doc.on.doc")
                                 .font(.caption)
-                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                                .foregroundColor(Color("muted-foreground"))
                         }
 
                         Button(action: onLike) {
                             Image(systemName: "hand.thumbsup")
                                 .font(.caption)
-                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                                .foregroundColor(Color("muted-foreground"))
                         }
 
                         Button(action: onDislike) {
                             Image(systemName: "hand.thumbsdown")
                                 .font(.caption)
-                                .foregroundColor(ThemeColors.secondaryText(for: colorScheme))
+                                .foregroundColor(Color("muted-foreground"))
                         }
 
                         Spacer()

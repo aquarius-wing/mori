@@ -134,18 +134,18 @@ struct ChatView: View {
 
                                     if isStreaming || isSending {
                                         HStack {
-                                            ProgressView()
-                                                .progressViewStyle(
-                                                    CircularProgressViewStyle(
-                                                        tint: ThemeColors.text(for: colorScheme)
-                                                    )
-                                                )
-                                                .scaleEffect(0.8)
-                                            Text(currentStatus)
-                                                .font(.caption)
-                                                .foregroundColor(
-                                                    ThemeColors.text(for: colorScheme).opacity(0.7)
-                                                )
+                                                                            ProgressView()
+                                    .progressViewStyle(
+                                        CircularProgressViewStyle(
+                                            tint: Color("foreground")
+                                        )
+                                    )
+                                    .scaleEffect(0.8)
+                                Text(currentStatus)
+                                    .font(.caption)
+                                    .foregroundColor(
+                                        Color("muted-foreground")
+                                    )
                                             Spacer()
                                         }
                                         .padding(.horizontal, 20)
@@ -181,8 +181,8 @@ struct ChatView: View {
                                 )
                                 .textFieldStyle(.plain)
                                 .lineLimit(1...5)
-                                .foregroundColor(ThemeColors.text(for: colorScheme))
-                                .accentColor(ThemeColors.text(for: colorScheme))
+                                .foregroundColor(Color("foreground"))
+                                .accentColor(Color("foreground"))
                                 .focused($isTextFieldFocused)
                                 .disabled(isSending || isStreaming)
                                 .submitLabel(.send)
@@ -231,15 +231,18 @@ struct ChatView: View {
                                         Image(
                                             systemName: isStreaming ? "stop.fill" : (isSending ? "hourglass" : "arrow.up")
                                         )
-                                        .foregroundColor(.white)
+                                        .foregroundColor(inputText.trimmingCharacters(
+                                                in: .whitespacesAndNewlines
+                                            ).isEmpty || isSending
+                                                ? Color("muted-foreground") : Color("primary-foreground"))
                                     }
                                     .frame(width: 32, height: 32)
                                     .background(
-                                        isStreaming ? Color.red : (
+                                        isStreaming ? Color("destructive") : (
                                             inputText.trimmingCharacters(
                                                 in: .whitespacesAndNewlines
                                             ).isEmpty || isSending
-                                                ? Color.gray : Color.blue
+                                                ? Color("muted") : Color("primary")
                                         )
                                     )
                                     .cornerRadius(16)
@@ -261,7 +264,7 @@ struct ChatView: View {
                             .overlay(
                                 // Floating gray rectangle
                                 Rectangle()
-                                    .fill(colorScheme == .dark ? ThemeColors.cardBackground(for: colorScheme) : .white)
+                                    .fill(Color("card"))
                                     .frame(height: geometry.safeAreaInsets.bottom)
                                     .frame(width: geometry.size.width)
                                     .offset(y: geometry.safeAreaInsets.bottom + 12),
@@ -277,7 +280,7 @@ struct ChatView: View {
                                     bottomTrailingRadius: 0,
                                     topTrailingRadius: 20
                                 )
-                                .fill(colorScheme == .dark ? ThemeColors.cardBackground(for: colorScheme) : .white)
+                                .fill(Color("card"))
                                 .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                             )
                         }
@@ -314,7 +317,7 @@ struct ChatView: View {
                         }) {
                             Image(systemName: "sidebar.left")
                                 .font(.body)
-                                .foregroundColor(ThemeColors.text(for: colorScheme))
+                                .foregroundColor(Color("foreground"))
                         }
                         .disabled(isStreaming || isSending)
                     }
@@ -333,9 +336,9 @@ struct ChatView: View {
                     Button(action: {
                         createNewChat()
                     }) {
-                        Image(systemName: "message")
-                            .font(.body)
-                            .foregroundColor(ThemeColors.text(for: colorScheme))
+                                                    Image(systemName: "message")
+                                .font(.body)
+                                .foregroundColor(Color("foreground"))
                     }
                     .disabled(isStreaming || isSending)
                 }
@@ -417,7 +420,7 @@ struct ChatView: View {
                 // Recording animation with cancel icon overlay
                 ZStack {
                     Circle()
-                        .fill((isDraggedToCancel ? Color.orange : Color.red).opacity(0.2))
+                        .fill((isDraggedToCancel ? Color("destructive") : Color("destructive")).opacity(0.2))
                         .frame(width: 60, height: 60)
                         .scaleEffect(isRecording ? 1.2 : 1.0)
                         .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isRecording)
@@ -425,7 +428,7 @@ struct ChatView: View {
                     
                     Image(systemName: isDraggedToCancel ? "xmark" : "mic.fill")
                         .font(.title2)
-                        .foregroundColor(isDraggedToCancel ? .orange : .red)
+                        .foregroundColor(isDraggedToCancel ? Color("destructive") : Color("destructive"))
                         .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                 }
                 
@@ -433,12 +436,12 @@ struct ChatView: View {
                     Text("Recording...")
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(isDraggedToCancel ? Color.orange : ThemeColors.text(for: colorScheme))
+                        .foregroundColor(isDraggedToCancel ? Color("destructive") : Color("foreground"))
                         .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                     
                     Text("Drag here to cancel")
                         .font(.caption)
-                        .foregroundColor((isDraggedToCancel ? Color.orange : ThemeColors.text(for: colorScheme)).opacity(0.7))
+                        .foregroundColor((isDraggedToCancel ? Color("destructive") : Color("muted-foreground")).opacity(0.7))
                         .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                 }
             }
@@ -450,7 +453,7 @@ struct ChatView: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke((isDraggedToCancel ? Color.orange : ThemeColors.textContrast(for: colorScheme)).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
+                                .stroke((isDraggedToCancel ? Color("destructive") : Color("ring")).opacity(isDraggedToCancel ? 0.6 : 0.3), lineWidth: isDraggedToCancel ? 3 : 2)
                                 .animation(.easeInOut(duration: 0.2), value: isDraggedToCancel)
                         )
                         .onAppear {
@@ -473,18 +476,18 @@ struct ChatView: View {
             VStack(spacing: 12) {
                 // Transcribing animation
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                    .progressViewStyle(CircularProgressViewStyle(tint: Color("primary")))
                     .scaleEffect(1.2)
                 
                 VStack(spacing: 4) {
                     Text("Transcribing...")
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(ThemeColors.text(for: colorScheme))
+                        .foregroundColor(Color("foreground"))
                     
                     Text("Processing audio...")
                         .font(.caption)
-                        .foregroundColor(ThemeColors.text(for: colorScheme).opacity(0.7))
+                        .foregroundColor(Color("muted-foreground"))
                 }
             }
             .padding(.horizontal, 24)
@@ -494,7 +497,7 @@ struct ChatView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(ThemeColors.text(for: colorScheme).opacity(0.1), lineWidth: 1)
+                            .stroke(Color("border"), lineWidth: 1)
                     )
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
@@ -510,17 +513,17 @@ struct ChatView: View {
                 // Error icon
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.title2)
-                    .foregroundColor(.orange)
+                    .foregroundColor(Color("destructive"))
                 
                 VStack(spacing: 4) {
                     Text("Recording Error")
                         .font(.headline)
                         .fontWeight(.medium)
-                        .foregroundColor(ThemeColors.text(for: colorScheme))
+                        .foregroundColor(Color("foreground"))
                     
                     Text(error)
                         .font(.caption)
-                        .foregroundColor(ThemeColors.text(for: colorScheme).opacity(0.7))
+                        .foregroundColor(Color("muted-foreground"))
                         .multilineTextAlignment(.center)
                 }
                 
@@ -531,12 +534,12 @@ struct ChatView: View {
                 }
                 .font(.caption)
                 .fontWeight(.medium)
-                .foregroundColor(.blue)
+                .foregroundColor(Color("primary"))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.blue.opacity(0.2))
+                        .fill(Color("primary").opacity(0.2))
                 )
             }
             .padding(.horizontal, 24)
@@ -546,7 +549,7 @@ struct ChatView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(ThemeColors.text(for: colorScheme).opacity(0.1), lineWidth: 1)
+                            .stroke(Color("border"), lineWidth: 1)
                     )
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
